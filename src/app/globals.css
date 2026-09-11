@@ -1,0 +1,49 @@
+:root {
+  color-scheme: light;
+  --ink: #14211e;
+  --muted: #5f6f69;
+  --surface: rgba(255, 255, 255, 0.9);
+  --line: rgba(20, 71, 59, 0.14);
+  --teal: #126653;
+  --teal-soft: #dcefe8;
+  --amber: #9b6412;
+  --amber-soft: #fff0cf;
+  --shadow: 0 30px 80px rgba(21, 73, 60, 0.14);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: #edf5f1;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 12% 18%, rgba(83, 173, 145, 0.22), transparent 30rem),
+    radial-gradient(circle at 90% 85%, rgba(255, 207, 114, 0.22), transparent 28rem),
+    linear-gradient(145deg, #edf7f3 0%, #f8f5ec 100%);
+  font-family:
+    Inter, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui,
+    sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,191 @@
+.shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 36px 20px;
+}
+
+.panel {
+  width: min(560px, 100%);
+  padding: clamp(28px, 7vw, 52px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 30px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.brandMark {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  margin-bottom: 30px;
+  border-radius: 17px;
+  color: white;
+  background: var(--teal);
+  font-size: 0.84rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  box-shadow: 0 12px 28px rgba(18, 102, 83, 0.24);
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  color: var(--teal);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.panel h1 {
+  max-width: 440px;
+  margin: 0;
+  font-size: clamp(2.1rem, 8vw, 3.6rem);
+  line-height: 1.03;
+  letter-spacing: -0.055em;
+}
+
+.lede {
+  margin: 22px 0 0;
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+.loginForm {
+  display: grid;
+  gap: 18px;
+  margin-top: 34px;
+}
+
+.loginForm label {
+  display: grid;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 720;
+}
+
+.loginForm input {
+  width: 100%;
+  min-height: 50px;
+  padding: 0 15px;
+  border: 1px solid #c9d6d1;
+  border-radius: 14px;
+  color: var(--ink);
+  background: white;
+  font: inherit;
+}
+
+.loginForm input:focus-visible {
+  border-color: var(--teal);
+  outline: 3px solid rgba(18, 102, 83, 0.18);
+  outline-offset: 1px;
+}
+
+.loginForm input:disabled {
+  color: #53635e;
+  background: #eef2f0;
+}
+
+.formError {
+  margin: 0;
+  color: #8a251f;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.loginForm button {
+  width: 100%;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 0;
+  border-radius: 16px;
+  color: white;
+  background: var(--teal);
+  font-weight: 760;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease;
+}
+
+.loginForm button:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(18, 102, 83, 0.22);
+}
+
+.loginForm button:focus-visible,
+.statusLink:focus-visible {
+  outline: 3px solid rgba(18, 102, 83, 0.3);
+  outline-offset: 3px;
+}
+
+.loginForm button:disabled {
+  color: #53635e;
+  background: #dce5e1;
+  cursor: not-allowed;
+}
+
+.configurationNotice {
+  display: grid;
+  gap: 4px;
+  margin: 16px 0 0;
+  padding: 15px 17px;
+  border-radius: 14px;
+  color: #60430d;
+  background: var(--amber-soft);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.securityNote {
+  margin: 26px 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.65;
+}
+
+.statusLink {
+  display: inline-flex;
+  margin-top: 22px;
+  color: var(--teal);
+  font-size: 0.9rem;
+  font-weight: 720;
+  text-underline-offset: 4px;
+}
+
+.homeCta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 54px;
+  margin-top: 8px;
+  border-radius: 16px;
+  color: white;
+  background: var(--teal);
+  font-weight: 760;
+  text-decoration: none;
+}
+
+@media (max-width: 600px) {
+  .shell {
+    place-items: start center;
+    padding: 16px 12px;
+  }
+
+  .panel {
+    border-radius: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loginForm button {
+    transition: none;
+  }
+}

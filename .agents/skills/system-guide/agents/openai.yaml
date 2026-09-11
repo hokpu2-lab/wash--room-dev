@@ -1,0 +1,8 @@
+interface:
+  display_name: "系統說明 System Guide"
+  short_description: "分析系統並產生三類繁體中文說明文件"
+  brand_color: "#4F6DF5"
+  default_prompt: "請自動分析目前專案，產生使用者操作說明、管理者設定說明與 AI Agent 交接說明，並整合成前台可使用的 System Guide。"
+
+policy:
+  allow_implicit_invocation: true

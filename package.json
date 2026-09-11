@@ -1,0 +1,55 @@
+{
+  "name": "wash-room",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@11.17.0",
+  "scripts": {
+    "dev": "next dev --port 3003",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:db": "vitest run tests/database",
+    "test:e2e": "playwright test",
+    "test:e2e:configured": "playwright test --config playwright.configured.config.ts",
+    "test:smoke": "node scripts/production-smoke.mjs",
+    "test:load": "node scripts/load-smoke.mjs"
+  },
+  "engines": {
+    "node": "24.x"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.4",
+    "@supabase/supabase-js": "^2.112.2",
+    "csv-parse": "^7.0.2",
+    "gsap": "^3.15.0",
+    "next": "^16.3.0",
+    "nodemailer": "^9.0.6",
+    "qrcode": "^1.5.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "server-only": "^0.0.1",
+    "three": "^0.185.1",
+    "xlsx": "^0.18.5",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.4",
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^26.1.2",
+    "@types/nodemailer": "^8.0.1",
+    "@types/pngjs": "^6.0.5",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@types/three": "^0.185.4",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.3.0",
+    "jsqr": "^1.4.0",
+    "pngjs": "^7.0.0",
+    "supabase": "^2.111.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

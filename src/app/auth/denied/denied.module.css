@@ -1,0 +1,44 @@
+.shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.panel {
+  width: min(580px, 100%);
+  padding: clamp(28px, 7vw, 52px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 28px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.code {
+  margin: 0 0 12px;
+  color: var(--amber);
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+}
+
+.panel h1 {
+  margin: 0;
+  font-size: clamp(2.1rem, 8vw, 3.5rem);
+  line-height: 1.04;
+  letter-spacing: -0.055em;
+}
+
+.panel p:not(.code) {
+  margin: 22px 0 0;
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+.panel a {
+  display: inline-flex;
+  margin-top: 28px;
+  color: var(--teal);
+  font-weight: 750;
+  text-underline-offset: 4px;
+}

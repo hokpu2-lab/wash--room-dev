@@ -1,0 +1,1 @@
+-- Development seed data is added alongside the first domain migration.
