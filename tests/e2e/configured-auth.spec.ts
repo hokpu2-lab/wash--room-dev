@@ -339,6 +339,31 @@ test("洗衣主管工作台提供正式營運導覽與可操作的功能搜尋",
   await expect(page.getByRole("heading", { name: "營運戰情室" })).toHaveCount(0);
 });
 
+test("系統管理員可從保留的左側選單快速開啟系統說明並切換三份文件", async ({ page, request }) => {
+  await request.post(`${fakeSupabaseOrigin}/__test/mode/supervisor`);
+  await page.goto("/login");
+  await submitPasswordLogin(page);
+
+  const navigation = page.getByRole("navigation", { name: "主要功能" });
+  const guideLink = navigation.getByRole("link", { name: "系統說明" });
+  await expect(guideLink).toBeVisible();
+  await guideLink.hover();
+  await guideLink.click();
+
+  await expect(page).toHaveURL(/\/app\/system-guide/);
+  await expect(navigation).toBeVisible();
+  await expect(guideLink).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("heading", { name: "系統說明", exact: true })).toBeVisible();
+  const tabs = page.getByRole("tablist", { name: "系統說明分類" });
+  await expect(tabs).toBeVisible();
+  await expect(page.getByRole("heading", { name: "使用者操作說明" })).toBeVisible();
+
+  await tabs.getByRole("tab", { name: "管理者設定" }).click();
+  await expect(page.getByRole("heading", { name: "管理者設定說明" })).toBeVisible();
+  await tabs.getByRole("tab", { name: "AI Agent 交接" }).click();
+  await expect(page.getByRole("heading", { name: "AI Agent 交接說明" })).toBeVisible();
+});
+
 test("主管可在右上切換四種工作台風格並保留選擇", async ({ page, request }) => {
   await request.post(`${fakeSupabaseOrigin}/__test/mode/supervisor`);
   await page.goto("/login");

@@ -1,4 +1,5 @@
 import { requirePrincipal } from "@/lib/auth/principal";
+import { isSystemGuideAdministrator } from "@/lib/auth/system-guide-access";
 import { resolveWorkspaceScope, withWorkspaceScope } from "@/lib/auth/workspace-scope";
 
 import { WorkspaceNavigation } from "./workspace-navigation";
@@ -43,6 +44,14 @@ const institutionLinks: WorkspaceLink[] = [
   { href: "/app/history", label: "已取件洗衣單", description: "查詢本機構歷史取件", group: "workspace", marker: "歷" },
 ];
 
+const systemGuideLink: WorkspaceLink = {
+  href: "/app/system-guide",
+  label: "系統說明",
+  description: "操作、設定與 AI Agent 交接",
+  group: "management",
+  marker: "說",
+};
+
 export async function WorkspaceShellNavigation() {
   const [principal, scope] = await Promise.all([requirePrincipal(), resolveWorkspaceScope()]);
   const activeScope = { siteId: scope.siteId, institutionId: scope.institutionId };
@@ -65,6 +74,7 @@ export async function WorkspaceShellNavigation() {
     ...(roles.has("system_administrator") || roles.has("laundry_supervisor") ? supervisorLinks : []),
     ...(roles.has("laundry_worker") ? workerLinks : []),
     ...(roles.has("institution_supervisor") ? institutionLinks : []),
+    ...(isSystemGuideAdministrator(principal) ? [systemGuideLink] : []),
   ];
   const links = Array.from(
     new Map(

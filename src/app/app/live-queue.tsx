@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import type {
+  WorkspaceBatchDetail,
   WorkspaceEquipment,
   WorkspaceOrder,
   WorkspaceOrderDetail,
@@ -13,10 +14,12 @@ import { AppLink } from "./app-link";
 import { LaundryOrderFlow3D } from "./laundry-order-flow-3d";
 import { WashingModalContent } from "./operations/washing/modal-content";
 import {
+  batchStatusLabels,
   equipmentStatusLabels,
   equipmentTypeLabels,
   orderStatusLabel,
 } from "./status-labels";
+import { hrefWithClientScope } from "./workspace-scope-client";
 import styles from "./workspace.module.css";
 
 const orderBadgeClass = {
@@ -39,6 +42,7 @@ type LiveQueueProps = {
   total?: number;
   siteId?: string;
   title?: string;
+  onSelectOrder?: (orderId: string, orderNumber: string) => void;
 };
 
 export function LiveQueueFallback({ title = "洗衣單流程" }: { title?: string } = {}) {
@@ -73,6 +77,7 @@ export function LiveQueue({
   total = orders.length,
   siteId,
   title = "洗衣單流程",
+  onSelectOrder,
 }: LiveQueueProps) {
   const [selectedId, setSelectedId] = useState<string | null>(selectedOrderId ?? orders[0]?.id ?? null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -80,6 +85,8 @@ export function LiveQueue({
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const [portalReady, setPortalReady] = useState(false);
   const [fetchedDetail, setFetchedDetail] = useState<WorkspaceOrderDetail | null>(null);
+  const [copied, setCopied] = useState(false);
+
   useEffect(() => {
     if (selectedOrderId) setSelectedId(selectedOrderId);
   }, [selectedOrderId]);
@@ -95,6 +102,31 @@ export function LiveQueue({
     ? orderDetails.find((detail) => detail.orderId === selected.id)
       ?? (fetchedDetail?.orderId === selected.id ? fetchedDetail : null)
     : fetchedDetail?.orderId === activeSelectedId ? fetchedDetail : null;
+
+  const handleSelectOrder = (order: WorkspaceOrder) => {
+    setSelectedId(order.id);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("order", order.id);
+      window.history.replaceState(null, "", url.toString());
+    }
+    onSelectOrder?.(order.id, order.orderNumber);
+  };
+
+  const handleCopyOrderNumber = (orderNumber: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      void navigator.clipboard.writeText(orderNumber).then(() => {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 2000);
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (selected) {
+      onSelectOrder?.(selected.id, selected.orderNumber);
+    }
+  }, [selected?.id, selected?.orderNumber, onSelectOrder]);
 
   useEffect(() => {
     if (!activeSelectedId) {
@@ -187,7 +219,7 @@ export function LiveQueue({
                   className={active ? `${styles.orderRow} ${styles.orderRowActive}` : styles.orderRow}
                   aria-pressed={active}
                   aria-label={`選取 ${order.orderNumber}，${orderStatusLabel(order.status)}`}
-                  onClick={() => setSelectedId(order.id)}
+                  onClick={() => handleSelectOrder(order)}
                 >
                   {row}
                 </button>
@@ -204,28 +236,146 @@ export function LiveQueue({
         ) : null}
       </div>
 
-      <aside className={styles.inspector}>
+      <aside className={styles.inspector} aria-label="選取洗衣單詳情">
+        {selected ? (
+          <div className={styles.selectedOrderCard} aria-label="目前選取洗衣單">
+            <div className={styles.selectedOrderHead}>
+              <div>
+                <p className={styles.eyebrow}>SELECTED ORDER · 目前選取洗衣單</p>
+                <div className={styles.selectedOrderTitleRow}>
+                  <h2>{selected.orderNumber}</h2>
+                  <button
+                    type="button"
+                    className={styles.copyOrderButton}
+                    onClick={() => handleCopyOrderNumber(selected.orderNumber)}
+                    aria-label="複製洗衣單號"
+                  >
+                    {copied ? "已複製 ✓" : "複製單號"}
+                  </button>
+                </div>
+              </div>
+              <span className={`${styles.badge} ${orderBadgeClass[selected.status]}`}>
+                {orderStatusLabel(selected.status)}
+              </span>
+            </div>
+
+            <div className={styles.selectedOrderMetaGrid}>
+              <div className={styles.selectedOrderMetaItem}>
+                <span>送洗機構</span>
+                <strong>{selected.institutionName}</strong>
+              </div>
+              <div className={styles.selectedOrderMetaItem}>
+                <span>實體洗衣車</span>
+                <strong>{selected.cartNumber}</strong>
+              </div>
+              <div className={styles.selectedOrderMetaItem}>
+                <span>建立時間</span>
+                <strong>
+                  {selectedDetail?.orderCreatedAt
+                    ? new Date(selectedDetail.orderCreatedAt).toLocaleString("zh-TW", {
+                        month: "2-digit",
+                        day: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "剛剛"}
+                </strong>
+              </div>
+              <div className={styles.selectedOrderMetaItem}>
+                <span>洗滌批次</span>
+                <strong>
+                  {selectedDetail?.batches.length
+                    ? `${selectedDetail.batches.length} 個批次`
+                    : selected.status === "awaiting_receipt"
+                      ? "待收單建批"
+                      : "0 個批次"}
+                </strong>
+              </div>
+            </div>
+
+            <div className={styles.selectedOrderActionRow}>
+              {selected.status === "awaiting_receipt" ? (
+                <AppLink
+                  href={hrefWithClientScope("/app/operations/receive", { siteId: siteId ?? null, institutionId: null })}
+                  className={styles.selectedOrderActionBtn}
+                >
+                  📋 前往收單建立分類批次 →
+                </AppLink>
+              ) : selected.status === "awaiting_cleaning" ? (
+                <button
+                  type="button"
+                  className={styles.selectedOrderActionBtn}
+                  onClick={() => setDetailOpen(true)}
+                >
+                  🫧 開始清洗控制點
+                </button>
+              ) : selected.status === "in_process" ? (
+                <AppLink
+                  href={hrefWithClientScope("/app/operations/control-center", { siteId: siteId ?? null, institutionId: null })}
+                  className={styles.selectedOrderActionBtn}
+                >
+                  ⚙️ 前往批次控制中心 →
+                </AppLink>
+              ) : selected.status === "ready_for_pickup" ? (
+                <span className={styles.selectedOrderHint}>
+                  🚚 所有程序已完成，請由送洗人員掃描洗衣車 QR 完成取件結案。
+                </span>
+              ) : (
+                <span className={styles.selectedOrderHint}>✓ 此單已完成取件結案。</span>
+              )}
+            </div>
+          </div>
+        ) : null}
+
         {selected || selectedDetail ? (
           <LaundryOrderFlow3D
+            orderNumber={selected?.orderNumber}
+            institutionName={selected?.institutionName}
+            cartNumber={selected?.cartNumber}
             orderStatus={selected?.status ?? "in_process"}
             batches={selectedDetail?.batches ?? []}
             orderCreatedAt={selectedDetail?.orderCreatedAt}
             orderReceivedAt={selectedDetail?.orderReceivedAt}
             orderReadyAt={selectedDetail?.orderReadyAt}
             orderClosedAt={selectedDetail?.orderClosedAt}
-            headerAction={(
-              <button
-                className={styles.orderFlowHeaderAction}
-                type="button"
-                onClick={() => setDetailOpen(true)}
-              >
-                前往目前控制點
-              </button>
-            )}
+            headerAction={
+              selected?.status === "awaiting_receipt" ? (
+                <AppLink
+                  href={hrefWithClientScope("/app/operations/receive", { siteId: siteId ?? null, institutionId: null })}
+                  className={styles.orderFlowHeaderAction}
+                >
+                  前往收單 ↗
+                </AppLink>
+              ) : selected?.status === "awaiting_cleaning" ? (
+                <button
+                  className={styles.orderFlowHeaderAction}
+                  type="button"
+                  onClick={() => setDetailOpen(true)}
+                >
+                  開始清洗
+                </button>
+              ) : selected?.status === "in_process" ? (
+                <AppLink
+                  href={hrefWithClientScope("/app/operations/control-center", { siteId: siteId ?? null, institutionId: null })}
+                  className={styles.orderFlowHeaderAction}
+                >
+                  控制中心 ↗
+                </AppLink>
+              ) : null
+            }
           />
         ) : (
-          <p>選取一張洗衣單後，這裡會顯示目前允許的控制點。</p>
+          <p>選取一張洗衣單後，這裡會顯示目前允許的控制點與流程進度。</p>
         )}
+
+        {selectedDetail?.batches && selectedDetail.batches.length > 0 ? (
+          <div className={styles.orderDetailList} aria-label="洗衣單批次詳情">
+            <p className={styles.eyebrow}>BATCH DETAIL / 此單專屬批次（{selectedDetail.batches.length}）</p>
+            {selectedDetail.batches.map((batch) => (
+              <BatchDetail key={batch.id} batch={batch} readOnly={readOnly} />
+            ))}
+          </div>
+        ) : null}
 
         {equipment.length ? (
           <div className={styles.equipmentList}>
@@ -279,5 +429,60 @@ export function LiveQueue({
         )
         : null}
     </section>
+  );
+}
+
+function BatchDetail({ batch, readOnly }: { batch: WorkspaceBatchDetail; readOnly: boolean }) {
+  const activeStage = batch.stages.find((stage) => stage.state === "active");
+  const currentStage = activeStage ?? batch.stages.find((stage) => stage.stageOrder === batch.currentStageOrder);
+  const activeEquipment = batch.activeEquipmentName
+    ? `${batch.activeEquipmentName}${batch.activeEquipmentType ? ` · ${equipmentTypeLabels[batch.activeEquipmentType]}` : ""}`
+    : currentStage?.equipmentType && currentStage.equipmentType !== "manual" && currentStage.equipmentType !== "cart"
+      ? equipmentTypeLabels[currentStage.equipmentType]
+      : "待控制點";
+  const statusLabel = batchStatusLabels[batch.status] ?? batch.status;
+  const statusClass = batch.status === "paused"
+    ? styles.badgeWarm
+    : batch.status === "completed" || batch.status === "loaded"
+      ? styles.badgeGreen
+      : styles.badgeTeal;
+
+  return (
+    <article className={styles.batchDetailCard} aria-label={`批次 ${batch.batchSequence} ${batch.categoryName}`}>
+      <header className={styles.batchDetailHead}>
+        <div>
+          <h3>B-{String(batch.batchSequence).padStart(3, "0")} · {batch.categoryName}</h3>
+          <p>{batch.procedureName} v{batch.procedureVersion} · {activeEquipment}</p>
+        </div>
+        <span className={`${styles.badge} ${statusClass}`}>{statusLabel}</span>
+      </header>
+
+      {batch.stages.length ? (
+        <ol className={styles.orderTimeline} aria-label="程序階段">
+          {batch.stages.map((stage) => (
+            <li
+              key={stage.stageOrder}
+              className={stage.state === "completed" ? styles.timelineCompleted : stage.state === "active" ? styles.timelineActive : styles.timelinePending}
+            >
+              <span aria-hidden="true">{stage.state === "completed" ? "✓" : stage.stageOrder}</span>
+              <div>
+                <strong>{stage.name}{stage.state === "completed" ? "已完成" : stage.state === "active" ? "實際狀態" : "等候控制點"}</strong>
+                <small>{stage.standardMinutes} 分鐘標準時間 · {stage.state === "active" ? Math.round(batch.progress.stageProgressPercent) : stage.state === "completed" ? 100 : 0}% 預估</small>
+              </div>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+
+      <div className={styles.batchProgress}>
+        <div><strong>程序預估進度（不自動改實際狀態）</strong><b>{Math.round(batch.progress.overallProgressPercent)}%</b></div>
+        <progress max="100" value={batch.progress.overallProgressPercent} aria-label={`${batch.categoryName} 程序預估進度`} />
+        {batch.progress.overdueMinutes > 0 ? <small>已超過預估 {batch.progress.overdueMinutes} 分鐘，仍需人員確認。</small> : null}
+      </div>
+
+      {!readOnly && batch.progress.stageRunId && currentStage ? (
+        <p className={styles.detailActionHint}>再掃同一{batch.activeEquipmentType ? equipmentTypeLabels[batch.activeEquipmentType] : "設備"}結束{currentStage.name} ↗</p>
+      ) : null}
+    </article>
   );
 }

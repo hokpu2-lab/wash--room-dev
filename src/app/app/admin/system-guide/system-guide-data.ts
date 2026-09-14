@@ -21,7 +21,7 @@ export const USER_GUIDE_RAW = `# 洗衣管理系統 — 使用者操作手冊 (U
 
 **適用對象**：第一線作業人員（送洗人員、洗衣員、送洗機構主管）  
 **版本**：v0.1.0  
-**更新日期**：2026-08-31
+**更新日期**：2026-09-12
 
 ---
 
@@ -73,6 +73,14 @@ graph TD
 3. **勾選分類**：依送洗物性質勾選一至多個洗滌分類（例如：\`消毒品\`、\`圍兜\`、\`汙衣\`、\`床簾\`、\`其他\`）。
 4. **送出收單**：系統自動依所選分類套用最新發布之程序範本，狀態轉為 \`待清洗\`（若含消毒品則進入 \`待消毒\`）。
 
+#### 沒有實體車卡時：從待收件清單載入
+- 在「收單與分類」畫面點選「從待收單清單選取（免掃碼）」；清單只回傳目前登入者可操作作業據點內、狀態為 \`待收件\` 的洗衣單。
+- 依洗衣單號、車號、送洗機構與送單時間核對實體車輛，再點選「載入此單收單」。系統會自動帶入該車卡並返回分類收單，不必手動輸入 QR 憑證。
+- 若清單為空，代表目前沒有符合授權範圍的待收件洗衣單；請確認送單狀態、作業據點與實體車卡是否一致。
+
+> [!IMPORTANT]
+> 待收件清單是登入後的受控功能，不是匿名送單入口。清單 API 不可快取，也不接受未授權據點的資料；請勿把車卡憑證複製到一般訊息或外部文件。
+
 ---
 
 ### 3.3 洗衣員：設備階段掃碼操作（同一設備掃兩次）
@@ -95,6 +103,9 @@ graph TD
 > [!IMPORTANT]
 > - 系統計算之「標準時間」僅供預估進度參考，所有實體階段的開始與結束**一律以洗衣員掃碼確認為準**，設備不會自動判定完成。
 > - 若設備已被其他批次占用或據點不符，系統將立即阻擋操作並提示原因。
+> - 洗衣機、消毒鍋與烘衣機控制點會顯示目前帶入的設備與作業據點；若載入了舊設備或錯誤設備，先按「清除此設備快取 / 重新掃描」再掃描正確設備。
+
+固定設備 QR 也可能從管理者提供的直達網址進入。進入後系統會依設備類型導向消毒、清洗或烘乾控制點，並依登入者的作業據點權限檢查可操作的批次；不要用網址參數自行替換設備或車卡識別。
 
 ---
 
@@ -146,6 +157,12 @@ graph TD
 
 **Q3：如果不小心掃錯機台怎麼辦？**  
 **A**：請立即於控制中心點擊「還原上一步」，選擇該批次並填寫更正原因，系統即會釋放誤占之機台。
+
+**Q4：收單時沒有掃到車卡，怎麼找到待收件洗衣單？**
+**A**：在「收單與分類」點選「從待收單清單選取（免掃碼）」，核對洗衣單號、車號及送洗機構後載入。若清單沒有該單，先回到洗衣單與批次確認它是否仍為 \`待收件\`，並確認目前作業據點範圍。
+
+**Q5：為什麼設備或批次顯示據點不一致？**
+**A**：設備與批次必須屬於同一作業據點，跨據點操作會被阻擋。清除舊設備快取後重新掃描同據點設備；系統管理員雖可管理所有活躍據點，仍應依現場設備與批次的實際據點操作。
 `;
 
 export const ADMIN_GUIDE_RAW = `# 洗衣管理系統 — 管理者設定手冊 (Admin Guide)
@@ -153,7 +170,7 @@ export const ADMIN_GUIDE_RAW = `# 洗衣管理系統 — 管理者設定手冊 (
 **適用對象**：系統管理員與洗衣主管  
 **管理後台範圍**：\`/app/admin/*\`  
 **版本**：v0.1.0  
-**更新日期**：2026-08-31
+**更新日期**：2026-09-12
 
 ---
 
@@ -162,6 +179,7 @@ export const ADMIN_GUIDE_RAW = `# 洗衣管理系統 — 管理者設定手冊 (
 - **系統管理員 (\`system_administrator\`)**：系統最高管理角色，預設帳號為 \`admin\`（通知信箱為 \`ad@hok.com.tw\`），具備跨作業據點之全系統營運監控、帳號與角色權限生命週期管理、程序範本發布與系統手冊管理。
 - **洗衣主管 (\`laundry_supervisor\`)**：負責授權作業據點內的營運監控、機台狀態維護、流程規範與異常通報管理。
 - 本系統權限完全依據登入人員所持有的「作業據點 membership」在後端進行資料隔離，維持多租戶 RLS 安全。
+- 系統管理員的現場作業權限可涵蓋所有仍啟用的作業據點與送洗機構；洗衣主管與洗衣員仍依各自有效 membership 限定範圍。停用據點不會因角色較高而恢復可操作性。
 
 ---
 
@@ -171,6 +189,7 @@ export const ADMIN_GUIDE_RAW = `# 洗衣管理系統 — 管理者設定手冊 (
 - **即時營運指標 (KPI)**：今日送單量、處理中批次、待取件單量、今日已結案單量、異常通報數。
 - **優先處理佇列**：即時標示滯留時間過長或逾時之洗衣單與批次。
 - **流程雷達與設備雷達**：各機台（消毒鍋、洗衣機、烘衣機）當前占用率、稼動率與各洗滌階段的瓶頸分析。
+- **待收件處理**：優先佇列中的待收件項目可開啟「待洗衣員收單清單」，依目前工作範圍載入洗衣單與對應車卡，直接前往分類收單。
 
 ---
 
@@ -214,6 +233,8 @@ export const ADMIN_GUIDE_RAW = `# 洗衣管理系統 — 管理者設定手冊 (
   - 下載或列印車卡 QR Code 標籤。
   - 停用車輛（停用後該車 QR Code 立即失效，無法送單）。
   - 例外重發（遺失或損壞時重發，舊 QR 立即作廢並產生新版本）。
+- 固定 QR 詳情頁會顯示「掃碼帶入網址」，格式為 \`/scan/cart/c/<cartId>#v1.cart.<token>\`；車卡專屬入口會先依目前登入狀態與洗衣單狀態預覽，再導向匿名送單、取件或登入後洗衣員流程。
+- \`#\` 後的車卡憑證屬 URL fragment，進入前端後會立即從網址列清除；不得把憑證改放 query/path、記錄檔、稽核理由或對外文件。重發 QR 時舊版本立即失效。
 
 ---
 
@@ -222,19 +243,29 @@ export const ADMIN_GUIDE_RAW = `# 洗衣管理系統 — 管理者設定手冊 (
 - **設備類型**：消毒鍋 (\`disinfection\`)、洗衣機 (\`washing\`)、烘衣機 (\`drying\`)。
 - **設備容量**：以「可容納洗衣車台數」為度量單位。排程與階段啟動時嚴格檢查累計來源車數不得超載。
 - **固定 QR 標籤**：張貼於機台實體，支援列印與下載。
+- 設備固定 QR 詳情頁會顯示直達入口 \`/scan/equipment/e/<equipmentId>\`；進入後由系統依設備類型、登入角色與作業據點導向消毒、清洗或烘乾控制點。
 - **誤建設備刪除**：僅允許刪除「從未被任何批次、排程或控制點引用過」之全新誤建設備，已投入使用之設備僅可停用並保留歷史稽核。
 
 ---
 
-## 7. 洗滌分類與程序範本版本化 (\`/app/admin/procedures\`)
+## 7. 現場控制台與據點防呆 (\`/app/operations\`)
+
+- 收單控制台可直接掃描待收件車卡；若現場沒有車卡，可從「待洗衣員收單清單」依洗衣單號、車號、送洗機構與送單時間選取，系統自動載入對應車卡後建立分類批次。
+- 清洗、消毒與烘乾控制點會先解析設備的作業據點，再篩選同據點批次；選到不同據點的批次時會顯示警告並拒絕開始或完成操作。
+- 若瀏覽器保留上一台設備的暫時 QR 憑證，控制點提供「清除此設備快取 / 重新掃描」；清除後須重新掃描正確設備，不能靠修改網址繞過據點檢查。
+- 待收件清單使用受控 \`list_pending_receipt_orders\` RPC，僅提供 \`authenticated\` 使用者且回傳目前授權範圍；\`anon\` 與 \`service_role\` 不可執行此 RPC。
+
+---
+
+## 8. 洗滌分類與程序範本版本化 (\`/app/admin/procedures\`)
 
 系統支援動態定義多階段洗滌標準作業程序（SOP）：
 
-### 7.1 洗滌分類管理
+### 8.1 洗滌分類管理
 - 預設提供 \`消毒品\`、\`圍兜\`、\`汙衣\`、\`床簾\`、\`其他\`。
 - 主管可新增分類、調整排序與停用。已使用之分類只能停用，不可刪除以維護歷史。
 
-### 7.2 程序範本版本發布
+### 8.2 程序範本版本發布
 - **程序階段配置**：可依序設定階段名稱、標準預估分鐘、所需設備類型、轉換模式（人工確認 / 計時自動）。
 - **版本控制狀態**：
   - \`草稿 (draft)\`：編輯中的版本。
@@ -244,7 +275,7 @@ export const ADMIN_GUIDE_RAW = `# 洗衣管理系統 — 管理者設定手冊 (
 
 ---
 
-## 8. 異常事件通報矩陣 (\`/app/admin/notifications\`)
+## 9. 異常事件通報矩陣 (\`/app/admin/notifications\`)
 
 - 設定各類異常（設備故障、超量送洗等）之通報管道。
 - 支援站內即時通知與 Email 外部目的地清單。
@@ -252,7 +283,7 @@ export const ADMIN_GUIDE_RAW = `# 洗衣管理系統 — 管理者設定手冊 (
 
 ---
 
-## 9. 營運分析與受控 BI 模型庫 (\`/app/admin/bi\`)
+## 10. 營運分析與受控 BI 模型庫 (\`/app/admin/bi\`)
 
 提供主管決策支援與數據報表分析，所有查詢皆受資料庫 RLS 與受控 RPC 保護：
 
@@ -272,7 +303,7 @@ export const AGENT_GUIDE_RAW = `# 洗衣管理系統 — AI Agent 技術交接�
 **適用對象**：接手之 AI Agent、全端工程師、系統架構師  
 **版本**：v0.1.0  
 **基線基準**：Next.js 16.3.0 App Router + Supabase + React 19 + Three.js  
-**更新日期**：2026-08-31
+**更新日期**：2026-09-12
 
 ---
 
@@ -289,16 +320,22 @@ wash-room/
 │   │   │   ├── laundry-order-flow-3d.tsx # Three.js 3D 流程引擎主舞台
 │   │   │   ├── admin/            # 洗衣主管管理模組 (accounts, bi, carts, equipment, procedures...)
 │   │   │   ├── operations/       # 洗衣員操作控制點 (receive, washing, disinfection, drying, split...)
+│   │   │   │   └── receive/pending-receipt-modal.tsx # 待收件清單與車卡自動載入
 │   │   │   ├── history/          # 已取件歷史查詢與詳情彈窗
 │   │   │   └── dashboard/        # 洗衣單與批次儀表板
 │   │   ├── scan/                 # 匿名與實體 QR 掃碼導向入口
+│   │   │   ├── cart/c/[cartId]/   # 車卡 ID 直達入口
+│   │   │   └── equipment/e/[equipmentId]/ # 設備 ID 直達入口
 │   │   ├── login/                # 登入頁面
 │   │   └── api/                  # Server-only Route Handlers
+│   │       └── operations/pending-receipts/route.ts # 受控待收件清單 API
 │   ├── lib/                      # Server-Only 資料存取層 (DAL)
 │   │   ├── auth/                 # Principal 解析、權限驗證 (principal.ts, access-role.ts)
 │   │   ├── analytics/            # 工作區 Snapshot、訂單歷程、BI 模型 (workspace.ts, bi-models.ts)
 │   │   ├── procedure/            # 程序範本與分類邏輯
-│   │   └── supabase/             # Supabase 客戶端邊界 (server.ts, admin.ts, proxy.ts)
+│   │   └── supabase/             # Supabase 客戶端邊界 (server.ts, admin.ts)
+│   ├── fixed-asset-qr.ts         # 固定資產 QR 憑證解析與簽章邊界
+│   └── proxy.ts                  # Next.js proxy 邊界
 ├── supabase/
 │   └── migrations/               # 資料庫遷移檔案 (40+ 筆完整 SQL 遷移合約)
 ├── tests/
@@ -329,6 +366,14 @@ wash-room/
 - **P0 RLS 合約**：\`private.has_site_access()\` 與 \`private.has_laundry_supervisor_site_access()\` 承認 \`system_administrator\`、\`laundry_supervisor\` 與 \`laundry_worker\` 之據點 membership；送洗機構主管走 \`has_institution_supervisor_access()\`。
 - 預設管理員帳號：\`admin\` 綁定通知信箱 \`ad@hok.com.tw\`，具備系統管理員身分。
 - 機構主管只能讀取本機構洗衣單，絕不可跨機構窺探其他機構之單據或設備。
+- \`20260911171000_grant_system_administrator_worker_access.sql\` 讓 \`system_administrator\` 通過洗衣員／主管現場操作所需的據點與機構授權檢查，但只接受仍啟用且有效的目標據點；這是 scope 擴大，不是繞過 RLS。
+- \`20260912130000_list_pending_receipt_orders.sql\` 的 \`list_pending_receipt_orders(uuid)\` 僅授權 \`authenticated\`，撤銷 \`public\`、\`anon\` 與 \`service_role\` 的執行權。
+
+### 2.4 QR fragment、暫時憑證與待收件 API
+- 車卡 QR 直達網址為 \`/scan/cart/c/[cartId]#v1.cart.[token]\`；設備直達網址為 \`/scan/equipment/e/[equipmentId]\`。車卡 bearer token 僅放在 fragment，\`useQrFragment\` 讀取後以 \`history.replaceState\` 清除網址列，再交由受控 POST 使用。
+- \`src/app/scan/pending-qr-token.ts\` 為跨頁導覽保存暫時車卡／設備憑證，使用 session/local storage 以降低導覽遺失；這不是新的授權邊界，所有實際操作仍由後端 JWT、QR 驗證、據點 scope、RPC 與 RLS 決定。成功、無效或手動重設時應清除。
+- \`GET /api/operations/pending-receipts\` 先以 \`requireAnyRole(["laundry_worker", "laundry_supervisor", "system_administrator"])\` 驗證，再呼叫 \`list_pending_receipt_orders(target_site_id)\`。回傳 DTO 包含洗衣單、送洗機構、車號、\`qrToken\` 與 fragment \`receiveHref\`；Route Handler 設定 \`no-store\`、\`no-referrer\` 與 \`nosniff\`，不得把 DTO 或 token 寫入日誌、URL query/path 或 HTML。
+- 清單只包含 \`awaiting_receipt\`、未結案、有效車卡／機構且通過 \`has_laundry_worker_site_access\` 的資料；\`target_site_id\` 只是篩選條件，不能把它當成授權證明。
 
 ---
 
@@ -368,8 +413,8 @@ wash-room/
 ## 5. 測試體系與驗證命令
 
 ### 5.1 測試套件架構
-- **資料庫合約測試 (\`tests/database/\`)**：使用 \`@electric-sql/pglite\` 啟動真實 in-memory PostgreSQL，套用全套 migrations 驗證 RLS、RPC 邊界、交易與冪等性（目前 26 檔 / 93 tests 通過）。
-- **單元測試 (\`tests/unit/\`)**：Vitest 驗證 BI 模型解析、PWA Service Worker、訂單歷程 DTO、System Guide 完整性。
+- **資料庫合約測試 (\`tests/database/\`)**：使用 \`@electric-sql/pglite\` 啟動真實 in-memory PostgreSQL，套用全套 migrations 驗證 RLS、RPC 邊界、交易與冪等性（本次 \`npm test\`：29 檔 / 101 tests 通過）。
+- **單元測試 (\`tests/unit/\`)**：Vitest 驗證 BI 模型解析、PWA Service Worker、訂單歷程 DTO、System Guide 完整性與操作控制台的據點／快取行為。
 - **端到端測試 (\`tests/e2e/\`)**：Playwright 測試公開掃碼流程與登入後工作台各角色權限。
 
 ### 5.2 常用開發與驗證指令
@@ -400,6 +445,8 @@ npm run test:e2e
 1. **不可繞過 RLS**：修改任何查詢或 API 時，嚴禁在客戶端直接查詢資料庫或使用 \`service_role\` 繞過權限。
 2. **風格系統獨立性**：登入後風格切換（MX/AP/GS/MB/SH）純屬前端視覺呈現，絕不可將風格狀態或 GSAP 邏輯滲透至 Server-Only 資料層。
 3. **不可變歷史原則**：禁止物理刪除洗衣單、批次、稽核紀錄或已投入使用之設備。
+4. **最新同步基線**：目前 \`HEAD\`、\`origin/main\` 與 \`origin/HEAD\` 均為 \`37756f1\`。本次現場操作變更的主要證據為 \`tests/database/laundry-receipt.spec.ts\`、\`tests/database/system-administrator-role.spec.ts\`、\`tests/unit/operations-control.spec.ts\` 與 \`tests/e2e/configured-laundry-carts.spec.ts\`。
+5. **正式環境覆核**：本文件已依本機程式、migration 與測試更新；hosted Supabase migration、Vercel 部署及正式帳號／實體 QR 流程仍須在交付前以環境記錄與正式瀏覽器流程覆核，不能以本機測試代替。
 `;
 
 export function extractSections(markdown: string): GuideSection[] {
@@ -433,8 +480,8 @@ export const GUIDE_DOCUMENTS: GuideDocument[] = [
     subtitle: "第一線送洗人員、洗衣員與送洗機構主管日常操作完整指引",
     audience: "送洗人員 · 洗衣員 · 機構主管 · 系統管理員",
     version: "v0.1.0",
-    updateDate: "2026-08-31",
-    summary: "涵蓋匿名送單/取件、實體收單分類、機台掃碼操作（同一設備掃兩次）、批次拆分與合併、可逆還原上一步、異常申報與 3D 流程地圖導覽。",
+    updateDate: "2026-09-12",
+    summary: "涵蓋匿名送單/取件、待收件清單免掃碼載入、實體收單分類、機台掃碼操作（同一設備掃兩次）、據點防呆、批次拆分與合併、可逆還原上一步、異常申報與 3D 流程地圖導覽。",
     rawMarkdown: USER_GUIDE_RAW,
     sections: extractSections(USER_GUIDE_RAW),
   },
@@ -445,8 +492,8 @@ export const GUIDE_DOCUMENTS: GuideDocument[] = [
     subtitle: "系統管理員與洗衣主管營運戰情室監控、資產、程序範本與帳號權限維護手冊",
     audience: "系統管理員 (預設 admin / ad@hok.com.tw) · 洗衣主管",
     version: "v0.1.0",
-    updateDate: "2026-08-31",
-    summary: "涵蓋營運戰情室 KPI、系統管理員角色與帳號生命週期、機構據點配對、固定資產 QR 管理、洗滌程序版本化發布、通知矩陣與受控 BI 模型庫。",
+    updateDate: "2026-09-12",
+    summary: "涵蓋營運戰情室 KPI、待收件佇列、系統管理員角色與帳號生命週期、機構據點配對、固定資產 QR 直達入口、現場控制台據點防呆、洗滌程序版本化發布、通知矩陣與受控 BI 模型庫。",
     rawMarkdown: ADMIN_GUIDE_RAW,
     sections: extractSections(ADMIN_GUIDE_RAW),
   },
@@ -457,8 +504,8 @@ export const GUIDE_DOCUMENTS: GuideDocument[] = [
     subtitle: "架構地圖、Server-Only DAL、RLS 多租戶隔離合約與秒開效能預算規範",
     audience: "AI Agent · 開發團隊 · 系統架構師",
     version: "v0.1.0",
-    updateDate: "2026-08-31",
-    summary: "涵蓋 Next.js 16 App Router 架構、系統管理員與主管 RLS 策略、Three.js 3D 流程引擎、5 大視覺主題切換、秒開零延遲機制、PGlite 測試體系與出貨 Gate。",
+    updateDate: "2026-09-12",
+    summary: "涵蓋 Next.js 16 App Router 架構、系統管理員現場 scope、QR fragment 與待收件 API、Three.js 3D 流程引擎、5 大視覺主題切換、秒開零延遲機制、PGlite 測試體系與目前出貨 Gate。",
     rawMarkdown: AGENT_GUIDE_RAW,
     sections: extractSections(AGENT_GUIDE_RAW),
   },

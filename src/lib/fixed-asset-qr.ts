@@ -53,7 +53,9 @@ export function renderFixedAssetQrSvg({
   const encodedPath =
     fragmentNamespace === "equipment" && assetId
       ? `${scanPath}/e/${assetId}`
-      : scanPath;
+      : fragmentNamespace === "cart" && assetId
+        ? `${scanPath}/c/${assetId}`
+        : scanPath;
   const scanUrl = new URL(encodedPath, resolveQrOrigin(origin));
   scanUrl.hash = `v1.${fragmentNamespace}.${fragmentCredential}`;
 

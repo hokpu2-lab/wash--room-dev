@@ -37,7 +37,7 @@ function readTokenFromLocation() {
   }
 }
 
-export function ScanCartControl() {
+export function ScanCartControl({ cartId }: { cartId?: string } = {}) {
   const router = useRouter();
   const [result, setResult] = useState<ScanResult | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -111,7 +111,8 @@ export function ScanCartControl() {
         /* ignore */
       }
     }
-    router.push("/login?next=/scan/cart");
+    const nextPath = cartId ? `/scan/cart/c/${cartId}` : "/scan/cart";
+    router.push(`/login?next=${encodeURIComponent(nextPath)}`);
   }
 
   if (submitting && !result) return <p>正在確認這張車卡與目前登入狀態…</p>;

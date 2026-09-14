@@ -71,6 +71,18 @@ test("授權洗衣員掃待收件車卡並選分類後建立鎖定程序版本�
 
   await database.query(`select set_config('request.jwt.claim.sub', $1, false)`, [workerAuthUserId]);
   await database.exec("set role authenticated");
+
+  // 驗證 list_pending_receipt_orders 可列出該待收件洗衣單與正確的車卡 QR token
+  const pendingOrders = await database.query<{
+    order_id: string;
+    order_number: string;
+    cart_number: string;
+    qr_token: string;
+  }>(`select * from public.list_pending_receipt_orders()`);
+  expect(pendingOrders.rows.length).toBe(1);
+  expect(pendingOrders.rows[0].cart_number).toBe("RECEIPT-CART-01");
+  expect(pendingOrders.rows[0].qr_token).toBe(qr.rows[0].qr_token);
+
   const received = await database.query<{
     laundry_order_id: string;
     batch_count: number;

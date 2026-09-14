@@ -39,7 +39,7 @@ export async function loadSiteBatches(
   let request = supabase
     .from("laundry_batches")
     .select(
-      "id, status, current_stage_order, operating_site_id, laundry_orders(order_number, laundry_carts(cart_number), institutions(name)), laundry_categories(name)",
+      "id, status, current_stage_order, operating_site_id, operating_sites(name), laundry_orders(order_number, laundry_carts(cart_number), institutions(name)), laundry_categories(name)",
     )
     .in("status", statuses)
     .order("created_at", { ascending: true });
@@ -55,6 +55,8 @@ export async function loadSiteBatches(
                 id: item.id,
                 status: item.status,
                 current_stage_order: item.current_stage_order,
+                operating_site_id: typeof item.operating_site_id === "string" ? item.operating_site_id : undefined,
+                operating_site_name: named(item.operating_sites),
                 ...fromOrder(item.laundry_orders),
                 categoryName: named(item.laundry_categories),
               },

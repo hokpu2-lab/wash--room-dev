@@ -22,7 +22,7 @@ export async function GET(
   context: LaundryCartQrAssetContext,
 ) {
   const { cartId } = await context.params;
-  const qr = await renderLaundryCartQrSvg(cartId);
+  const qr = await renderLaundryCartQrSvg(cartId, new URL(request.url).origin);
 
   if (!qr) {
     return new Response("Not found", {

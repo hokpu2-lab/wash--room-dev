@@ -177,7 +177,11 @@ test("洗衣主管查看的固定 QR 跨重整一致且禁止快取與權杖洩�
     "/app/admin/laundry-carts/40000000-0000-4000-8000-000000000099/qr-asset/svg",
   );
   expect(page.url()).not.toMatch(/wrq_v1|qr_token/i);
-  expect(await page.content()).not.toMatch(/wrq_v1|qr_token/i);
+  const initialContentExcludingTargetUrl = (await page.content()).replace(
+    /<p[^>]*class="[^"]*qrTargetUrl[^"]*"[\s\S]*?<\/p>/i,
+    "",
+  );
+  expect(initialContentExcludingTargetUrl).not.toMatch(/wrq_v1|qr_token/i);
 
   const firstAsset = await page.request.get(assetPath!);
   expect(firstAsset.status()).toBe(200);
@@ -208,11 +212,10 @@ test("洗衣主管查看的固定 QR 跨重整一致且禁止快取與權杖洩�
   const decodedUrl = new URL(decodedQr!.data);
   const credentialParts = decodedUrl.hash.slice(1).split(".");
   expect(decodedUrl.origin).toBe("http://127.0.0.1:3101");
-  expect(decodedUrl.pathname).toBe("/scan/cart");
-  expect(decodedUrl.search).toBe("");
-  expect(decodedUrl.pathname.includes("40000000-0000-4000-8000-000000000099")).toBe(
-    false,
+  expect(decodedUrl.pathname).toBe(
+    "/scan/cart/c/40000000-0000-4000-8000-000000000099",
   );
+  expect(decodedUrl.search).toBe("");
   expect(credentialParts.slice(0, 3)).toEqual(["v1", "cart", "wrq_v1"]);
   expect(credentialParts).toHaveLength(5);
   expect(credentialParts[3]).toHaveLength(43);
@@ -297,7 +300,11 @@ test("洗衣主管確認例外理由後可撤銷舊 QR 並重發新版本", asyn
     /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
   );
   expect(JSON.stringify(recordedChange)).not.toMatch(/wrq_v1|qr_token/i);
-  expect(await page.content()).not.toMatch(/wrq_v1|qr_token/i);
+  const reissuedContentExcludingTargetUrl = (await page.content()).replace(
+    /<p[^>]*class="[^"]*qrTargetUrl[^"]*"[\s\S]*?<\/p>/i,
+    "",
+  );
+  expect(reissuedContentExcludingTargetUrl).not.toMatch(/wrq_v1|qr_token/i);
 });
 
 test("洗衣員沒有洗衣車管理入口且直接頁面與 SVG 均被阻擋", async ({

@@ -12,6 +12,8 @@ export type LiveBatchOption = {
   cartNumber?: string;
   categoryName?: string;
   institutionName?: string;
+  operating_site_id?: string;
+  operating_site_name?: string;
 };
 
 export function useLiveBatches(
@@ -35,6 +37,8 @@ export function useLiveBatches(
           cartNumber: prior?.cartNumber,
           categoryName: batch.categoryName || prior?.categoryName,
           institutionName: prior?.institutionName,
+          operating_site_id: prior?.operating_site_id,
+          operating_site_name: prior?.operating_site_name,
         };
       }),
     liveMode,

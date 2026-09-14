@@ -12,7 +12,7 @@
 
 ## 目前交付基線
 
-- 接手前先讀 `README.md` 的「2026-08-31 最新接手快照」、「2026-08-28 沉浸式洗衣流程與已取件詳情切片（歷史）」、「2026-08-22 戰情室、BI 與交付快照（歷史）」、「2026-08-18 正式環境與接手快照」及「效能與操作體驗診斷」。
+- 接手前先讀 `README.md` 的「2026-09-12 最新接手快照」、「2026-08-31 系統管理員與 System Guide 切片（歷史）」、「2026-08-28 沉浸式洗衣流程與已取件詳情切片（歷史）」、「2026-08-22 戰情室、BI 與交付快照（歷史）」、「2026-08-18 正式環境與接手快照」及「效能與操作體驗診斷」。
   最新 commit、部署、測試數量、region 與量測值只記在 README 的日期化快照；仍須以實際 `HEAD`、
   工作樹、GitHub Actions、Vercel、Supabase migration 與本次測試輸出覆核，不能沿用舊數字。
 - 正式登入後介面使用 `src/app/app/layout.tsx`、`workspace-shell.tsx`、
@@ -24,7 +24,20 @@
 - 頂級角色與權限防護：`system_administrator`（系統管理員）具備最高優先權，預設導向 `/app/admin`；`src/lib/auth/principal.ts` 之
   `principalSatisfiesRole` 確保系統管理員完全滿足 `laundry_supervisor` 之檢查，徹底杜絕無窮重定向死循環。
 
-## 2026-08-31 最新接手快照
+## 2026-09-12 最新接手快照
+
+- **操作控制台設備據點解析與快取清除機制**：
+  - **根本原因排查**：跨作業據點（清福本館 MAIN vs 清福法人 CORP）的設備 QR 快取殘留在 `sessionStorage` 時，後端 `private.start_batch_stage_from_equipment` 嚴格阻擋跨據點混洗（`equipment.operating_site_id <> batch.operating_site_id`）觸發 `equipment_scope_denied`。然而前台控制台未顯示載入設備所屬據點、無重設清除按鈕，且選單未過濾批次據點，導致操作者深陷錯誤快取死循環。
+  - **設備與據點資訊解析**：在 `src/lib/laundry-equipment/dispatch.ts` 擴充 `dispatchEquipmentQr`，查詢並回傳 `equipmentName`、`operatingSiteId`、`operatingSiteName` 與 `operatingSiteCode`。
+  - **批次標籤與選單優化**：在 `src/app/app/operations/batch-label.ts` 與 `load-site-batches.ts` 加入據點欄位，`formatBatchLabel` 呈現據點名稱（如 `(清福本館)`），`use-live-batches.ts` 同步支援據點資訊。
+  - **快取清理與跨據點防呆**：在 `use-qr-fragment.ts` 引入 `clear` 函式；於清洗（`washing/start-control.tsx`）、烘乾（`drying/control.tsx`）與消毒（`disinfection/control.tsx`）控制台加入「已載入設備卡片」與「🔄 清除此設備快取 / 重新掃描」按鈕。
+  - **智慧過濾與警告防呆**：依設備據點優先篩選同據點批次；若偵測到跨據點批次，呈現醒目紅色警示並鎖定按鈕。若送出後 API 回傳 `equipment_scope_denied` 或 `invalid_qr`，前端自動清除快取並引導重新掃碼。
+- **測試與建置覆核**（2026-09-12）：
+  - `npm test`：28 個測試檔、100 個 tests 全數通過（含新增之 `tests/unit/operations-control.spec.ts`）。
+  - `npm run typecheck`：0 錯誤通過。
+  - `npm run build`：Next.js 16.3.0 正式生產建置成功。
+
+## 2026-08-31 系統管理員與 System Guide 切片（歷史）
 
 - **系統說明與 System Guide 模組**（`2d0c943 feat(admin): 新增系統說明模組與相關文件`）：
   - 整合 `system-guide` skill，產出三份 authoritative 系統說明手冊：`docs/system-guide/user-guide.md`（使用者操作手冊）、`docs/system-guide/admin-guide.md`（管理者設定手冊）、`docs/system-guide/agent-guide.md`（AI Agent 交接手冊）與目錄入口 `docs/system-guide/README.md`。

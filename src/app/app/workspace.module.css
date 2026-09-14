@@ -1176,6 +1176,24 @@
   background: white;
 }
 
+.qrTargetUrl {
+  margin: 12px 0 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--muted);
+  word-break: break-all;
+}
+
+.qrTargetUrl a {
+  color: var(--teal);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.qrTargetUrl a:hover {
+  color: #07584e;
+}
+
 .qrActions {
   display: flex;
   justify-content: center;
@@ -1303,17 +1321,29 @@
   border-top: 1px solid #e4ece9;
   border-right: 0;
   border-bottom: 0;
-  border-left: 0;
+  border-left: 3px solid transparent;
   color: inherit;
   text-decoration: none;
   background: transparent;
   font: inherit;
   text-align: left;
   cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
 }
 
-.orderRow:hover,
-.orderRowActive { background: #eaf5f0; }
+.orderRow:hover {
+  background: #f0f7f4;
+}
+
+.orderRowActive {
+  background: #e3f4ec !important;
+  border-left-color: #0d7e6d !important;
+}
+
+.orderRowActive .identity strong {
+  color: #0b5c4f;
+  font-weight: 850;
+}
 
 .orderRow:focus-visible {
   position: relative;
@@ -1358,6 +1388,243 @@
 .stats span, .stats strong { display: block; }
 .stats span { color: var(--muted); font-size: 0.57rem; font-weight: 800; }
 .stats strong { margin-top: 4px; color: var(--ink); font-size: 0.68rem; }
+
+.selectedOrderCard {
+  margin-bottom: 20px;
+  padding: 16px 18px;
+  border: 1px solid #c9e4d8;
+  border-left: 4px solid #0d7e6d;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #ffffff, #f4faf7);
+  box-shadow: 0 4px 16px rgba(13, 126, 109, 0.06);
+}
+
+.selectedOrderHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.selectedOrderTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.selectedOrderTitleRow h2 {
+  margin: 0;
+  color: #0d4b4b;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.copyOrderButton {
+  padding: 3px 8px;
+  border: 1px solid #b2d8c9;
+  border-radius: 6px;
+  color: #0b6858;
+  background: #edf7f3;
+  font: inherit;
+  font-size: 0.65rem;
+  font-weight: 750;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.copyOrderButton:hover {
+  background: #d8f0e5;
+  border-color: #0d7e6d;
+}
+
+.selectedOrderMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(237, 247, 243, 0.6);
+  border: 1px solid #dff0e8;
+}
+
+.selectedOrderMetaItem span {
+  display: block;
+  color: #637c76;
+  font-size: 0.58rem;
+  font-weight: 750;
+}
+
+.selectedOrderMetaItem strong {
+  display: block;
+  margin-top: 3px;
+  color: #123e35;
+  font-size: 0.72rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectedOrderActionRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed #d5e9e0;
+}
+
+.selectedOrderActionBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  background: #0d7e6d;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.selectedOrderActionBtn:hover {
+  background: #096154;
+}
+
+.selectedOrderHint {
+  color: #5d756f;
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
+.batchQueueFilterHint {
+  margin: 6px 0 0;
+  color: #0d7e6d;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.batchCardActive {
+  border-color: #0d7e6d !important;
+  background: #eef8f4 !important;
+  box-shadow: 0 0 0 2px rgba(13, 126, 109, 0.25);
+}
+
+.batchActiveTag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #0d7e6d;
+  background: #d8f1e7;
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.orderDetailList {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.batchDetailCard {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid #dce8e3;
+  border-radius: 12px;
+  background: #fbfdfc;
+}
+
+.batchDetailHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.batchDetailHead h3 {
+  margin: 0;
+  color: #174238;
+  font-size: 0.88rem;
+}
+
+.batchDetailHead p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.orderTimeline {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.orderTimeline li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.7rem;
+}
+
+.orderTimeline li span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.timelineCompleted span { color: #fff; background: #307c51; }
+.timelineActive span { color: #fff; background: #087d6d; }
+.timelinePending span { color: #8fa09b; background: #e5ede9; }
+
+.orderTimeline li strong { display: block; color: var(--ink); font-size: 0.72rem; }
+.orderTimeline li small { display: block; color: var(--muted); font-size: 0.62rem; }
+
+.batchProgress {
+  margin-top: 12px;
+}
+
+.batchProgress > div {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  color: var(--muted);
+}
+
+.batchProgress progress {
+  width: 100%;
+  height: 6px;
+  margin-top: 4px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.batchProgress small {
+  display: block;
+  margin-top: 4px;
+  color: #c05342;
+  font-size: 0.62rem;
+}
+
+.detailActionHint {
+  margin: 8px 0 0;
+  color: #0b6858;
+  font-size: 0.65rem;
+  font-weight: 750;
+}
+
 
 .orderFlow {
   --flow-brand: #dd3742;
@@ -2436,6 +2703,10 @@
 :global(html[data-workspace-style="AP"]) .tableScroller table { background: rgba(255, 255, 255, .72); }
 :global(html[data-workspace-style="AP"]) .primaryLink,
 :global(html[data-workspace-style="AP"]) .queueSearch button { border-radius: 999px; background: #0071e3; }
+:global(html[data-workspace-style="AP"]) .selectedOrderCard { border-color: rgba(60, 60, 67, .16); border-left-color: #0071e3; background: rgba(255, 255, 255, .75); }
+:global(html[data-workspace-style="AP"]) .selectedOrderActionBtn { background: #0071e3; }
+:global(html[data-workspace-style="AP"]) .batchCardActive { border-color: #0071e3 !important; background: rgba(0, 113, 227, 0.08) !important; }
+:global(html[data-workspace-style="AP"]) .orderRowActive { background: rgba(0, 113, 227, .08) !important; border-left-color: #0071e3 !important; }
 :global(html[data-workspace-style="AP"]) .commandRoom { border-radius: 28px; background: linear-gradient(145deg, #1d1d1f, #394c70); box-shadow: 0 24px 70px rgba(31, 46, 72, .2); }
 
 /* GS · dark, high-feedback control room */
@@ -2484,8 +2755,16 @@
 :global(html[data-workspace-style="GS"]) .queueSearch button { border-radius: 2px; color: #080b0d; background: #8cf7b6; }
 :global(html[data-workspace-style="GS"]) .panelHead h2,
 :global(html[data-workspace-style="GS"]) .inspector h2 { color: #eefcf3; }
-:global(html[data-workspace-style="GS"]) .orderRow:hover,
-:global(html[data-workspace-style="GS"]) .orderRowActive { background: rgba(140, 247, 182, .08); }
+:global(html[data-workspace-style="GS"]) .orderRow:hover { background: rgba(140, 247, 182, .08); }
+:global(html[data-workspace-style="GS"]) .orderRowActive { background: rgba(140, 247, 182, .14) !important; border-left-color: #8cf7b6 !important; }
+:global(html[data-workspace-style="GS"]) .selectedOrderCard { border-color: rgba(140, 247, 182, .25); border-left-color: #8cf7b6; background: rgba(16, 23, 25, .92); }
+:global(html[data-workspace-style="GS"]) .selectedOrderTitleRow h2 { color: #eefcf3; }
+:global(html[data-workspace-style="GS"]) .selectedOrderMetaGrid { background: rgba(8, 11, 13, .6); border-color: rgba(140, 247, 182, .15); }
+:global(html[data-workspace-style="GS"]) .selectedOrderMetaItem strong { color: #8cf7b6; }
+:global(html[data-workspace-style="GS"]) .selectedOrderActionBtn { background: #8cf7b6; color: #080b0d; }
+:global(html[data-workspace-style="GS"]) .batchCardActive { border-color: #8cf7b6 !important; background: rgba(140, 247, 182, 0.12) !important; }
+:global(html[data-workspace-style="GS"]) .batchActiveTag { color: #080b0d; background: #8cf7b6; }
+:global(html[data-workspace-style="GS"]) .batchQueueFilterHint { color: #8cf7b6; }
 :global(html[data-workspace-style="GS"]) .commandRoom { border: 1px solid rgba(140, 247, 182, .25); border-radius: 3px; background: #0e1516; box-shadow: 0 0 42px rgba(140, 247, 182, .08); }
 
 /* MB · editorial hierarchy with dense, calm utility chrome */

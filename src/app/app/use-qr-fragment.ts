@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import { readPendingQrToken, writePendingQrToken } from "../scan/pending-qr-token";
+import { clearPendingQrToken, readPendingQrToken, writePendingQrToken } from "../scan/pending-qr-token";
 
 const patterns = {
   cart: /^v1\.cart\.(wrq_v1\.[^.]+\.[^.]+)$/,
@@ -13,6 +13,13 @@ export function useQrFragment(kind: keyof typeof patterns) {
   const [token, setToken] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
   const tokenRef = useRef<string | null>(null);
+
+  const clear = useCallback(() => {
+    tokenRef.current = null;
+    clearPendingQrToken(kind);
+    setToken(null);
+    setMissing(false);
+  }, [kind]);
 
   useEffect(() => {
     const pattern = patterns[kind];
@@ -54,5 +61,5 @@ export function useQrFragment(kind: keyof typeof patterns) {
     };
   }, [kind]);
 
-  return { token, missing };
+  return { token, missing, clear };
 }

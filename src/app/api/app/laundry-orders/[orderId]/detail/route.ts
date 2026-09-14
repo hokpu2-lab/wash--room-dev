@@ -13,7 +13,7 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ orderId: string }> },
 ) {
-  await requireAnyRole(["laundry_worker", "laundry_supervisor", "institution_supervisor"]);
+  await requireAnyRole(["system_administrator", "laundry_worker", "laundry_supervisor", "institution_supervisor"]);
   const { orderId } = await params;
   const parsed = z.uuid().safeParse(orderId);
   if (!parsed.success) {

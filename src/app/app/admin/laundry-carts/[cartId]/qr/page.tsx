@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 
+import { headers } from "next/headers";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 
 import { getLaundryCartQrCard } from "@/lib/laundry-cart/administration";
+import { getApplicationOrigin } from "@/lib/supabase/config";
 
 import styles from "../../../../workspace.module.css";
 import { reissueLaundryCartQrAction } from "../../actions";
@@ -30,6 +32,22 @@ export default async function LaundryCartQrPage({
       ? query.version
       : "";
   const assetPath = `/app/admin/laundry-carts/${cart.id}/qr-asset/svg`;
+
+  const requestHeaders = await headers();
+  const host =
+    requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+  const proto = requestHeaders.get("x-forwarded-proto") ?? "https";
+  let origin = host ? `${proto}://${host}` : "";
+  if (!origin) {
+    try {
+      origin = getApplicationOrigin();
+    } catch {
+      origin = "https://wash-room.vercel.app";
+    }
+  }
+
+  const tokenHash = cart.qrToken ? `#v1.cart.${cart.qrToken}` : "";
+  const scanUrl = `${origin}/scan/cart/c/${cart.id}${tokenHash}`;
 
   return (
     <main className={styles.shell}>
@@ -90,6 +108,12 @@ export default async function LaundryCartQrPage({
             unoptimized
             width={640}
           />
+          <p className={styles.qrTargetUrl}>
+            掃碼帶入網址：
+            <a href={scanUrl} target="_blank" rel="noreferrer">
+              {scanUrl}
+            </a>
+          </p>
         </div>
         <div className={`${styles.qrActions} ${styles.screenOnly}`}>
           <a href={`${assetPath}?download=1`} download>

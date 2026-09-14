@@ -76,10 +76,30 @@ export async function dispatchEquipmentQr(input: unknown) {
   if (result.data.laundry_equipment_id) params.set("e", result.data.laundry_equipment_id);
   params.set("mode", batchId ? "complete" : "start");
   if (batchId) params.set("batch", batchId);
+  let equipmentName: string | undefined;
+  let operatingSiteName: string | undefined;
+  let operatingSiteCode: string | undefined;
+  if (result.data.laundry_equipment_id) {
+    const { data: machine } = await supabase
+      .from("laundry_equipment")
+      .select("name, operating_sites(id, name, code)")
+      .eq("id", result.data.laundry_equipment_id)
+      .maybeSingle();
+    if (machine) {
+      equipmentName = machine.name;
+      const site = machine.operating_sites as unknown as { id: string; name: string; code: string } | null;
+      operatingSiteName = site?.name;
+      operatingSiteCode = site?.code;
+    }
+  }
   return {
     kind: "dispatch" as const,
     href: `${result.data.next_path}?${params.toString()}`,
     equipmentType: result.data.equipment_type ?? "washer",
     equipmentId: result.data.laundry_equipment_id,
+    equipmentName,
+    operatingSiteId: result.data.operating_site_id,
+    operatingSiteName,
+    operatingSiteCode,
   };
 }

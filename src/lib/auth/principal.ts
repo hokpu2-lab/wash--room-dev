@@ -27,10 +27,6 @@ const membershipSchema = z.object({
 export type PrincipalMembership = z.infer<typeof membershipSchema>;
 export type AccessMembership = PrincipalMembership;
 
-export type Principal = {
-  memberships: PrincipalMembership[];
-};
-
 export type PrincipalState =
   | { kind: "anonymous" }
   | { kind: "denied" }
@@ -46,11 +42,17 @@ const principalPayloadSchema = z.discriminatedUnion("kind", [
   }),
   z.object({
     kind: z.literal("authorized"),
+    login_name: z.string().optional(),
     memberships: z.array(membershipSchema).min(1),
   }),
 ]);
 
 const accessContextSchema = z.array(membershipSchema).min(1);
+
+export type Principal = {
+  loginName?: string;
+  memberships: AccessMembership[];
+};
 
 async function hasAuthenticatedSession() {
   const supabase = await createServerSupabaseClient();
@@ -82,7 +84,10 @@ async function resolvePrincipalFromLegacyRpcs(): Promise<PrincipalState> {
   }
   return {
     kind: "authorized",
-    principal: { memberships: parsedAccess.data },
+    principal: {
+      loginName: securityState.data[0].login_name,
+      memberships: parsedAccess.data,
+    },
   };
 }
 
@@ -98,7 +103,10 @@ export const getPrincipalState = cache(async (): Promise<PrincipalState> => {
     if (parsed.data.kind === "authorized") {
       return {
         kind: "authorized",
-        principal: { memberships: parsed.data.memberships },
+        principal: {
+          loginName: parsed.data.login_name,
+          memberships: parsed.data.memberships,
+        },
       };
     }
     return parsed.data;
@@ -127,6 +135,7 @@ export async function requirePrincipal(): Promise<Principal> {
 
 function principalSatisfiesRole(principal: Principal, role: AccessRole): boolean {
   return principal.memberships.some((membership) => {
+    if (membership.role === "system_administrator") return true;
     if (membership.role === role) return true;
     if (role === "laundry_supervisor" && isLaundrySupervisorRole(membership.role)) return true;
     return false;

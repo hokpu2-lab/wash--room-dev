@@ -122,6 +122,7 @@ export type LaundryCartQrCard = {
   siteName: string;
   active: boolean;
   qrVersion: number;
+  qrToken: string | null;
 };
 
 export async function getLaundryCartWorkspace(): Promise<LaundryCartWorkspace> {
@@ -250,6 +251,16 @@ export async function getLaundryCartQrCard(
   );
   if (!cart) return null;
 
+  const supabase = await createServerSupabaseClient();
+  const { data } = await supabase.rpc("get_current_laundry_cart_qr", {
+    target_laundry_cart_id: parsedCartId.data,
+  });
+  const result = currentLaundryCartQrSchema.safeParse(data);
+  const qrToken =
+    result.success && result.data.length === 1
+      ? result.data[0].qr_token
+      : null;
+
   return {
     id: cart.id,
     cartNumber: cart.cart_number,
@@ -259,11 +270,13 @@ export async function getLaundryCartQrCard(
     siteName: cart.institutions.operating_sites.name,
     active: cart.active,
     qrVersion: cart.current_qr_version,
+    qrToken,
   };
 }
 
 export async function renderLaundryCartQrSvg(
   cartId: unknown,
+  origin?: string,
 ): Promise<{ svg: string; cartNumber: string; qrVersion: number } | null> {
   await requireRole("laundry_supervisor");
   const parsedCartId = z.uuid().safeParse(cartId);
@@ -288,8 +301,11 @@ export async function renderLaundryCartQrSvg(
   return {
     svg: renderFixedAssetQrSvg({
       scanPath: "/scan/cart",
+      fragmentNamespace: "cart",
+      assetId: parsedCartId.data,
       fragmentCredential: credential.qr_token,
       label: credential.cart_number,
+      origin,
     }),
     cartNumber: credential.cart_number,
     qrVersion: credential.qr_version,

@@ -5,7 +5,7 @@
 **適用對象**：接手之 AI Agent、全端工程師、系統架構師  
 **版本**：v0.1.0  
 **基線基準**：Next.js 16.3.0 App Router + Supabase + React 19 + Three.js  
-**更新日期**：2026-08-31
+**更新日期**：2026-09-12
 
 ---
 
@@ -22,16 +22,22 @@ wash-room/
 │   │   │   ├── laundry-order-flow-3d.tsx # Three.js 3D 流程引擎主舞台
 │   │   │   ├── admin/            # 洗衣主管管理模組 (accounts, bi, carts, equipment, procedures...)
 │   │   │   ├── operations/       # 洗衣員操作控制點 (receive, washing, disinfection, drying, split...)
+│   │   │   │   └── receive/pending-receipt-modal.tsx # 待收件清單與車卡自動載入
 │   │   │   ├── history/          # 已取件歷史查詢與詳情彈窗
 │   │   │   └── dashboard/        # 洗衣單與批次儀表板
 │   │   ├── scan/                 # 匿名與實體 QR 掃碼導向入口
+│   │   │   ├── cart/c/[cartId]/   # 車卡 ID 直達入口
+│   │   │   └── equipment/e/[equipmentId]/ # 設備 ID 直達入口
 │   │   ├── login/                # 登入頁面
 │   │   └── api/                  # Server-only Route Handlers
+│   │       └── operations/pending-receipts/route.ts # 受控待收件清單 API
 │   ├── lib/                      # Server-Only 資料存取層 (DAL)
 │   │   ├── auth/                 # Principal 解析、權限驗證 (principal.ts, access-role.ts)
 │   │   ├── analytics/            # 工作區 Snapshot、訂單歷程、BI 模型 (workspace.ts, bi-models.ts)
 │   │   ├── procedure/            # 程序範本與分類邏輯
-│   │   └── supabase/             # Supabase 客戶端邊界 (server.ts, admin.ts, proxy.ts)
+│   │   └── supabase/             # Supabase 客戶端邊界 (server.ts, admin.ts)
+│   ├── fixed-asset-qr.ts         # 固定資產 QR 憑證解析與簽章邊界
+│   └── proxy.ts                  # Next.js proxy 邊界
 ├── supabase/
 │   └── migrations/               # 資料庫遷移檔案 (40+ 筆完整 SQL 遷移合約)
 ├── tests/
@@ -62,6 +68,14 @@ wash-room/
 - **P0 RLS 合約**：`private.has_site_access()` 與 `private.has_laundry_supervisor_site_access()` 承認 `system_administrator`、`laundry_supervisor` 與 `laundry_worker` 之據點 membership；送洗機構主管走 `has_institution_supervisor_access()`。
 - 預設管理員帳號：`admin` 綁定通知信箱 `ad@hok.com.tw`，具備系統管理員身分。
 - 機構主管只能讀取本機構洗衣單，絕不可跨機構窺探其他機構之單據或設備。
+- `20260911171000_grant_system_administrator_worker_access.sql` 讓 `system_administrator` 通過洗衣員／主管現場操作所需的據點與機構授權檢查，但只接受仍啟用且有效的目標據點；這是 scope 擴大，不是繞過 RLS。
+- `20260912130000_list_pending_receipt_orders.sql` 的 `list_pending_receipt_orders(uuid)` 僅授權 `authenticated`，撤銷 `public`、`anon` 與 `service_role` 的執行權。
+
+### 2.4 QR fragment、暫時憑證與待收件 API
+- 車卡 QR 直達網址為 `/scan/cart/c/[cartId]#v1.cart.[token]`；設備直達網址為 `/scan/equipment/e/[equipmentId]`。車卡 bearer token 僅放在 fragment，`useQrFragment` 讀取後以 `history.replaceState` 清除網址列，再交由受控 POST 使用。
+- `src/app/scan/pending-qr-token.ts` 為跨頁導覽保存暫時車卡／設備憑證，使用 session/local storage 以降低導覽遺失；這不是新的授權邊界，所有實際操作仍由後端 JWT、QR 驗證、據點 scope、RPC 與 RLS 決定。成功、無效或手動重設時應清除。
+- `GET /api/operations/pending-receipts` 先以 `requireAnyRole(["laundry_worker", "laundry_supervisor", "system_administrator"])` 驗證，再呼叫 `list_pending_receipt_orders(target_site_id)`。回傳 DTO 包含洗衣單、送洗機構、車號、`qrToken` 與 fragment `receiveHref`；Route Handler 設定 `no-store`、`no-referrer` 與 `nosniff`，不得把 DTO 或 token 寫入日誌、URL query/path 或 HTML。
+- 清單只包含 `awaiting_receipt`、未結案、有效車卡／機構且通過 `has_laundry_worker_site_access` 的資料；`target_site_id` 只是篩選條件，不能把它當成授權證明。
 
 ---
 
@@ -101,8 +115,8 @@ wash-room/
 ## 5. 測試體系與驗證命令
 
 ### 5.1 測試套件架構
-- **資料庫合約測試 (`tests/database/`)**：使用 `@electric-sql/pglite` 啟動真實 in-memory PostgreSQL，套用全套 migrations 驗證 RLS、RPC 邊界、交易與冪等性（目前 25 檔 / 92 tests 通過）。
-- **單元測試 (`tests/unit/`)**：Vitest 驗證 BI 模型解析、PWA Service Worker、訂單歷程 DTO。
+- **資料庫合約測試 (`tests/database/`)**：使用 `@electric-sql/pglite` 啟動真實 in-memory PostgreSQL，套用全套 migrations 驗證 RLS、RPC 邊界、交易與冪等性（本次 `npm test`：29 檔 / 101 tests 通過）。
+- **單元測試 (`tests/unit/`)**：Vitest 驗證 BI 模型解析、PWA Service Worker、訂單歷程 DTO、System Guide 完整性與操作控制台的據點／快取行為。
 - **端到端測試 (`tests/e2e/`)**：Playwright 測試公開掃碼流程與登入後工作台各角色權限。
 
 ### 5.2 常用開發與驗證指令
@@ -133,6 +147,8 @@ npm run test:e2e
 1. **不可繞過 RLS**：修改任何查詢或 API 時，嚴禁在客戶端直接查詢資料庫或使用 `service_role` 繞過權限。
 2. **風格系統獨立性**：登入後風格切換（MX/AP/GS/MB/SH）純屬前端視覺呈現，絕不可將風格狀態或 GSAP 邏輯滲透至 Server-Only 資料層。
 3. **不可變歷史原則**：禁止物理刪除洗衣單、批次、稽核紀錄或已投入使用之設備。
+4. **最新同步基線**：目前 `HEAD`、`origin/main` 與 `origin/HEAD` 均為 `37756f1`。本次現場操作變更的主要證據為 `tests/database/laundry-receipt.spec.ts`、`tests/database/system-administrator-role.spec.ts`、`tests/unit/operations-control.spec.ts` 與 `tests/e2e/configured-laundry-carts.spec.ts`。
+5. **正式環境覆核**：本文件已依本機程式、migration 與測試更新；hosted Supabase migration、Vercel 部署及正式帳號／實體 QR 流程仍須在交付前以環境記錄與正式瀏覽器流程覆核，不能以本機測試代替。
 
 <!-- SYSTEM-GUIDE:GENERATED:END -->
 

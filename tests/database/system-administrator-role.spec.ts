@@ -63,6 +63,46 @@ test("系統管理員 (system_administrator) 角色可建立 membership 且享�
   );
   expect(hasSupervisorAccess.rows[0].has_access).toBe(true);
 
+  // 驗證現場作業員權限判斷（收單、洗滌等作業）
+  const hasWorkerAccess = await database.query<{ has_access: boolean }>(
+    `select private.has_laundry_worker_site_access($1) as has_access`,
+    [siteId],
+  );
+  expect(hasWorkerAccess.rows[0].has_access).toBe(true);
+
+  // 驗證跨據點存取權限（即使未在該據點指派 membership，身為系統管理員依然享有所有活躍據點權限）
+  const otherSiteId = "20000000-0000-4000-8000-000000000088";
+  await database.query(
+    `insert into public.operating_sites (id, code, name, active)
+     values ($1, 'OTHER_SITE', '分館', true)`,
+    [otherSiteId],
+  );
+
+  const hasOtherWorkerAccess = await database.query<{ has_access: boolean }>(
+    `select private.has_laundry_worker_site_access($1) as has_access`,
+    [otherSiteId],
+  );
+  expect(hasOtherWorkerAccess.rows[0].has_access).toBe(true);
+
+  const hasOtherSupervisorAccess = await database.query<{ has_access: boolean }>(
+    `select private.has_laundry_supervisor_site_access($1) as has_access`,
+    [otherSiteId],
+  );
+  expect(hasOtherSupervisorAccess.rows[0].has_access).toBe(true);
+
+  // 驗證送洗機構管理權限
+  const instId = "30000000-0000-4000-8000-000000000077";
+  await database.query(
+    `insert into public.institutions (id, operating_site_id, code, name, active)
+     values ($1, $2, 'INST_TEST', '機構測試', true)`,
+    [instId, siteId],
+  );
+  const hasInstAccess = await database.query<{ has_access: boolean }>(
+    `select private.has_institution_supervisor_access($1) as has_access`,
+    [instId],
+  );
+  expect(hasInstAccess.rows[0].has_access).toBe(true);
+
   // 驗證 site access 判斷
   const hasSiteAccess = await database.query<{ has_access: boolean }>(
     `select private.has_site_access($1) as has_access`,

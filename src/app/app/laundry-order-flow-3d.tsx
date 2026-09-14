@@ -62,6 +62,9 @@ type LaundryOrderFlow3DProps = {
   orderClosedAt?: string | null;
   headerAction?: ReactNode;
   animateAllNodes?: boolean;
+  orderNumber?: string;
+  institutionName?: string;
+  cartNumber?: string;
 };
 
 const fallbackStages: FlowStage[] = [
@@ -810,6 +813,9 @@ export function LaundryOrderFlow3D({
   orderClosedAt = null,
   headerAction,
   animateAllNodes = false,
+  orderNumber,
+  institutionName,
+  cartNumber,
 }: LaundryOrderFlow3DProps) {
   const canvasHostRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -837,6 +843,9 @@ export function LaundryOrderFlow3D({
     ?? steps.at(-1)?.id
     ?? null;
   const [selectedStepId, setSelectedStepId] = useState<string | null>(defaultStepId);
+  useEffect(() => {
+    setSelectedStepId(defaultStepId);
+  }, [defaultStepId, orderNumber]);
   const [highlightedStepId, setHighlightedStepId] = useState<string | null>(null);
   const storedSelectedStepIndex = steps.findIndex((step) => step.id === selectedStepId);
   const selectedStepIndex = storedSelectedStepIndex >= 0
@@ -1480,12 +1489,21 @@ export function LaundryOrderFlow3D({
     <section className={styles.orderFlow} aria-labelledby={titleId}>
       <header className={styles.orderFlowHeader}>
         <div>
-          <p className={styles.eyebrow}>HOK CARE · LAUNDRY JOURNEY</p>
+          <p className={styles.eyebrow}>
+            HOK CARE · LAUNDRY JOURNEY
+            {orderNumber ? ` · ${orderNumber}` : ""}
+          </p>
           <div className={styles.orderFlowTitleRow}>
-            <h3 id={titleId}>洗衣單流程</h3>
+            <h3 id={titleId}>
+              {orderNumber ? `洗衣單流程 · ${orderNumber}` : "洗衣單流程"}
+            </h3>
             {headerAction}
           </div>
-          <p>安心洗衣旅程：每一次交接、清洗與烘乾都看得見，讓送洗人員掌握衣物目前位置。</p>
+          <p>
+            {institutionName || cartNumber
+              ? `${institutionName ?? ""} ${cartNumber ? `· 洗衣車 ${cartNumber}` : ""} · 安心洗衣旅程`
+              : "安心洗衣旅程：每一次交接、清洗與烘乾都看得見，讓送洗人員掌握衣物目前位置。"}
+          </p>
         </div>
       </header>
 

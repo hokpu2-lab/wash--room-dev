@@ -29,3 +29,14 @@ export function writePendingQrToken(kind: keyof typeof keys, token: string) {
   write(window.sessionStorage, key, token);
   write(window.localStorage, key, token);
 }
+
+export function clearPendingQrToken(kind: keyof typeof keys) {
+  const key = keys[kind];
+  try {
+    window.sessionStorage.removeItem(key);
+    window.localStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+
