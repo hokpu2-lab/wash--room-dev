@@ -71,7 +71,7 @@ export function SystemGuideViewer() {
         <div className={styles.headerTop}>
           <div className={styles.headerTitleGroup}>
             <span className={styles.badge}>SYSTEM GUIDE</span>
-            <h1>超級系統說明手冊</h1>
+            <h1>洗衣系統說明手冊</h1>
             <p>跨作業據點洗衣營運管理系統之操作手冊、管理設定與技術交接指南</p>
           </div>
           <div className={styles.headerActions}>
