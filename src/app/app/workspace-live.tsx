@@ -215,6 +215,7 @@ export function WorkspaceLive({
           siteId={siteId}
           readOnly={readOnly}
           title={queueTitle}
+          syncedAt={syncedAt}
           selectedOrderId={selectedOrderId}
           onSelectOrder={(_id, orderNum) => setSelectedOrderNumber(orderNum)}
         /> : null}

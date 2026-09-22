@@ -1262,6 +1262,342 @@
   color: #0d4b4b;
 }
 
+.liveQueueSection {
+  margin-top: 18px;
+}
+
+.topCardsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: stretch;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 960px) {
+  .topCardsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.queueCard,
+.selectedOrderCardContainer {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 10px 30px rgba(13, 75, 75, 0.05);
+  padding: 22px 24px;
+}
+
+.queueCardHead,
+.selectedOrderCardHeader {
+  margin-bottom: 12px;
+}
+
+.queueCardTitle,
+.selectedOrderCardTitle {
+  margin: 0;
+  color: #111827;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.queueCardSubtitle {
+  margin: 4px 0 0;
+  color: #4b5563;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.queueSearchForm {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 14px 0 16px;
+}
+
+.queueSearchLabel {
+  flex: 1;
+}
+
+.queueSearchInput {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 14px;
+  border: 1.5px solid #134e4a;
+  border-radius: 8px;
+  color: #111827;
+  background: #ffffff;
+  font: inherit;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.queueSearchInput:focus {
+  outline: none;
+  border-color: #0d7e6d;
+  box-shadow: 0 0 0 3px rgba(13, 126, 109, 0.18);
+}
+
+.queueSearchBtn {
+  min-height: 42px;
+  padding: 8px 18px;
+  border: 0;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #134e4a;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.queueSearchBtn:hover {
+  background: #0d3835;
+}
+
+.queueListHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  color: #111827;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.orderListContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.orderListItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 1px solid #edf2f0;
+  border-left: 3.5px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.15s ease, border-left-color 0.15s ease;
+  box-sizing: border-box;
+}
+
+.orderListItem:hover {
+  background: #f4faf7;
+}
+
+.orderListItemActive {
+  background: #eef7f2 !important;
+  border-left-color: #134e4a !important;
+}
+
+.orderItemInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.orderItemNumber {
+  color: #111827;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.orderItemInstitution {
+  margin-top: 2px;
+  color: #1f2937;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.statusPillOrange {
+  color: #1c1917;
+  background: #f59e0b;
+}
+
+.statusPillBlue {
+  color: #ffffff;
+  background: #0284c7;
+}
+
+.statusPillGreen {
+  color: #ffffff;
+  background: #16a34a;
+}
+
+.statusPillGray {
+  color: #334155;
+  background: #cbd5e1;
+}
+
+.selectedOrderCardContent {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  justify-content: space-between;
+}
+
+.selectedOrderNumRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 4px 0 16px;
+}
+
+.selectedOrderNumberDisplay {
+  color: #111827;
+  font-size: 1.45rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.copyPillBtn {
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 6px;
+  color: #ffffff;
+  background: #262626;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.copyPillBtn:hover {
+  background: #3f3f46;
+}
+
+.orderMetaGridCard {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #eef7f2;
+  border: 1px solid #dcefe5;
+  margin-bottom: 20px;
+}
+
+.orderMetaCol {
+  display: flex;
+  flex-direction: column;
+}
+
+.orderMetaColLabel {
+  color: #4b5563;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.orderMetaColVal {
+  color: #111827;
+  font-size: 0.95rem;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selectedOrderMainActionRow {
+  margin-top: auto;
+}
+
+.primaryActionCta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 10px;
+  color: #ffffff !important;
+  background: #134e4a;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  box-sizing: border-box;
+}
+
+.primaryActionCta:hover {
+  background: #0d3835;
+}
+
+.primaryActionInfo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 0.9rem;
+  font-weight: 700;
+  box-sizing: border-box;
+}
+
+.noOrderSelected {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  padding: 24px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.flowAndDetailsSection {
+  margin-top: 24px;
+}
+
+.flowEmptyNotice {
+  margin: 0;
+  padding: 24px;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
 .contentGrid {
   display: grid;
   grid-template-columns: minmax(240px, 1fr) minmax(520px, 2fr);

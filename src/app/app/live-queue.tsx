@@ -22,12 +22,12 @@ import {
 import { hrefWithClientScope } from "./workspace-scope-client";
 import styles from "./workspace.module.css";
 
-const orderBadgeClass = {
-  awaiting_receipt: styles.badgeNeutral,
-  awaiting_cleaning: styles.badgeBlue,
-  in_process: styles.badgeTeal,
-  ready_for_pickup: styles.badgeGreen,
-  picked_up: styles.badgeNeutral,
+const statusPillClass = {
+  awaiting_receipt: styles.statusPillGray,
+  awaiting_cleaning: styles.statusPillBlue,
+  in_process: styles.statusPillOrange,
+  ready_for_pickup: styles.statusPillGreen,
+  picked_up: styles.statusPillGray,
 } as const;
 
 type LiveQueueProps = {
@@ -42,23 +42,60 @@ type LiveQueueProps = {
   total?: number;
   siteId?: string;
   title?: string;
+  syncedAt?: string | null;
   onSelectOrder?: (orderId: string, orderNumber: string) => void;
 };
 
-export function LiveQueueFallback({ title = "洗衣單流程" }: { title?: string } = {}) {
+function formatLastUpdated(syncedAt?: string | null) {
+  const d = syncedAt ? new Date(syncedAt) : new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  const period = hours >= 12 ? "下午" : "上午";
+  const displayHours = hours % 12 === 0 ? 12 : hours % 12;
+  return `${year}/${month}/${day} ${period} ${displayHours}:${minutes}`;
+}
+
+function formatOrderTime(isoString?: string | null) {
+  if (!isoString) return "剛剛";
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return "剛剛";
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  const period = hours >= 12 ? "下午" : "上午";
+  const displayHours = String(hours % 12 === 0 ? 12 : hours % 12).padStart(2, "0");
+  return `${month}/${day} ${period} ${displayHours}:${minutes}`;
+}
+
+export function LiveQueueFallback({ title = "洗衣單清單" }: { title?: string } = {}) {
+  const displayTitle = title.includes("Order List") ? title : `${title} (Order List)`;
   return (
-    <section className={styles.contentGrid} aria-labelledby="live-queue-title">
-      <div className={styles.queuePanel}>
-        <div className={styles.panelHead}>
-          <div>
-            <p className={styles.eyebrow}>LIVE QUEUE</p>
-            <h2 id="live-queue-title">{title}</h2>
+    <section className={styles.liveQueueSection} aria-labelledby="live-queue-title">
+      <div className={styles.topCardsGrid}>
+        <div className={styles.queueCard}>
+          <div className={styles.queueCardHead}>
+            <h2 id="live-queue-title" className={styles.queueCardTitle}>{displayTitle}</h2>
+            <p className={styles.queueCardSubtitle}>載入中...</p>
+          </div>
+          <div className={styles.skeletonStack} aria-hidden="true">
+            <span className={styles.skeletonLine} />
+            <span className={styles.skeletonLine} />
+            <span className={styles.skeletonLine} />
           </div>
         </div>
-        <div className={styles.skeletonStack} aria-hidden="true">
-          <span className={styles.skeletonLine} />
-          <span className={styles.skeletonLine} />
-          <span className={styles.skeletonLine} />
+        <div className={styles.selectedOrderCardContainer}>
+          <div className={styles.selectedOrderCardHeader}>
+            <h2 className={styles.selectedOrderCardTitle}>選取的洗衣單 (Selected Order)</h2>
+          </div>
+          <div className={styles.skeletonStack} aria-hidden="true">
+            <span className={styles.skeletonLine} />
+            <span className={styles.skeletonLine} />
+            <span className={styles.skeletonLine} />
+          </div>
         </div>
       </div>
     </section>
@@ -76,7 +113,8 @@ export function LiveQueue({
   pageSize = 20,
   total = orders.length,
   siteId,
-  title = "洗衣單流程",
+  title = "洗衣單清單",
+  syncedAt,
   onSelectOrder,
 }: LiveQueueProps) {
   const [selectedId, setSelectedId] = useState<string | null>(selectedOrderId ?? orders[0]?.id ?? null);
@@ -90,6 +128,7 @@ export function LiveQueue({
   useEffect(() => {
     if (selectedOrderId) setSelectedId(selectedOrderId);
   }, [selectedOrderId]);
+
   const activeSelectedId = selectedId && orders.some((order) => order.id === selectedId)
     ? selectedId
     : selectedOrderId && orders.some((order) => order.id === selectedOrderId)
@@ -147,6 +186,7 @@ export function LiveQueue({
       cancelled = true;
     };
   }, [activeSelectedId, orderDetails]);
+
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const searchHref = (nextPage: number) => {
     const params = new URLSearchParams();
@@ -172,161 +212,175 @@ export function LiveQueue({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [closeDetail, detailOpen]);
 
-  return (
-    <section className={styles.contentGrid} aria-labelledby="live-queue-title">
-      <div className={styles.queuePanel}>
-        <div className={styles.panelHead}>
-          <div>
-            <p className={styles.eyebrow}>LIVE QUEUE / {String(total).padStart(2, "0")}</p>
-            <h2 id="live-queue-title">{title}</h2>
-          </div>
-          <form className={styles.queueSearch} method="get">
-            {siteId ? <input type="hidden" name="site" value={siteId} /> : null}
-            <label>
-              <span className={styles.srOnly}>搜尋洗衣單號</span>
-              <input name="q" defaultValue={query} placeholder="搜尋洗衣單號" />
-            </label>
-            <button type="submit">搜尋</button>
-          </form>
-        </div>
-        <div className={styles.tableHead} aria-hidden="true">
-          <span>洗衣單 / 機構</span>
-          <span>階段</span>
-          <span>洗衣車</span>
-        </div>
-        {orders.length === 0 ? (
-          <p className={styles.emptyQueue}>目前授權範圍內沒有未結案洗衣單。</p>
-        ) : (
-          <div className={styles.orderList}>
-            {orders.map((order) => {
-              const active = selected?.id === order.id;
-              const row = (
-                <>
-                  <span className={styles.identity}>
-                    <strong>{order.orderNumber}</strong>
-                    <small>{order.institutionName}</small>
-                  </span>
-                  <span className={`${styles.badge} ${orderBadgeClass[order.status]}`}>
-                    {orderStatusLabel(order.status)}
-                  </span>
-                  <span className={styles.due}>{order.cartNumber}</span>
-                </>
-              );
-              return (
-                <button
-                  key={order.id}
-                  type="button"
-                  className={active ? `${styles.orderRow} ${styles.orderRowActive}` : styles.orderRow}
-                  aria-pressed={active}
-                  aria-label={`選取 ${order.orderNumber}，${orderStatusLabel(order.status)}`}
-                  onClick={() => handleSelectOrder(order)}
-                >
-                  {row}
-                </button>
-              );
-            })}
-          </div>
-        )}
-        {pageCount > 1 ? (
-          <nav className={styles.queuePager} aria-label="洗衣單分頁">
-            {page > 1 ? <AppLink href={searchHref(page - 1)}>上一頁</AppLink> : <span>上一頁</span>}
-            <small>{page} / {pageCount}</small>
-            {page < pageCount ? <AppLink href={searchHref(page + 1)}>下一頁</AppLink> : <span>下一頁</span>}
-          </nav>
-        ) : null}
-      </div>
+  const displayTitle = title.includes("Order List") ? title : `${title} (Order List)`;
 
-      <aside className={styles.inspector} aria-label="選取洗衣單詳情">
-        {selected ? (
-          <div className={styles.selectedOrderCard} aria-label="目前選取洗衣單">
-            <div className={styles.selectedOrderHead}>
-              <div>
-                <p className={styles.eyebrow}>SELECTED ORDER · 目前選取洗衣單</p>
-                <div className={styles.selectedOrderTitleRow}>
-                  <h2>{selected.orderNumber}</h2>
+  return (
+    <section className={styles.liveQueueSection} aria-labelledby="live-queue-title">
+      {/* Top Cards Row: Left (Order List) + Right (Selected Order) */}
+      <div className={styles.topCardsGrid}>
+        {/* Left Card: 洗衣單清單 (Order List) */}
+        <div className={styles.queueCard}>
+          <div className={styles.queueCardHead}>
+            <div>
+              <h2 id="live-queue-title" className={styles.queueCardTitle}>
+                {displayTitle}
+              </h2>
+              <p className={styles.queueCardSubtitle}>
+                最後更新 : {formatLastUpdated(syncedAt)} (Last Updated)
+              </p>
+            </div>
+          </div>
+
+          <form className={styles.queueSearchForm} method="get">
+            {siteId ? <input type="hidden" name="site" value={siteId} /> : null}
+            <label className={styles.queueSearchLabel}>
+              <span className={styles.srOnly}>搜尋洗衣單號</span>
+              <input
+                name="q"
+                defaultValue={query}
+                placeholder="搜尋洗衣單號"
+                className={styles.queueSearchInput}
+              />
+            </label>
+            <button type="submit" className={styles.queueSearchBtn}>
+              搜尋 (Search)
+            </button>
+          </form>
+
+          <div className={styles.queueListHeader}>
+            <span>排序隊列 / {String(total).padStart(2, "0")}</span>
+          </div>
+
+          {orders.length === 0 ? (
+            <p className={styles.emptyQueue}>目前授權範圍內沒有未結案洗衣單。</p>
+          ) : (
+            <div className={styles.orderListContainer}>
+              {orders.map((order) => {
+                const active = selected?.id === order.id;
+                return (
                   <button
+                    key={order.id}
                     type="button"
-                    className={styles.copyOrderButton}
-                    onClick={() => handleCopyOrderNumber(selected.orderNumber)}
-                    aria-label="複製洗衣單號"
+                    className={active ? `${styles.orderListItem} ${styles.orderListItemActive}` : styles.orderListItem}
+                    aria-pressed={active}
+                    aria-label={`選取 ${order.orderNumber}，${orderStatusLabel(order.status)}`}
+                    onClick={() => handleSelectOrder(order)}
                   >
-                    {copied ? "已複製 ✓" : "複製單號"}
+                    <div className={styles.orderItemInfo}>
+                      <strong className={styles.orderItemNumber}>{order.orderNumber}</strong>
+                      <span className={styles.orderItemInstitution}>{order.institutionName}</span>
+                    </div>
+                    <span className={`${styles.statusPill} ${statusPillClass[order.status]}`}>
+                      {orderStatusLabel(order.status)}
+                    </span>
                   </button>
+                );
+              })}
+            </div>
+          )}
+
+          {pageCount > 1 ? (
+            <nav className={styles.queuePager} aria-label="洗衣單分頁">
+              {page > 1 ? <AppLink href={searchHref(page - 1)}>上一頁</AppLink> : <span>上一頁</span>}
+              <small>{page} / {pageCount}</small>
+              {page < pageCount ? <AppLink href={searchHref(page + 1)}>下一頁</AppLink> : <span>下一頁</span>}
+            </nav>
+          ) : null}
+        </div>
+
+        {/* Right Card: 選取的洗衣單 (Selected Order) */}
+        <div className={styles.selectedOrderCardContainer} aria-label="選取洗衣單詳情">
+          <div className={styles.selectedOrderCardHeader}>
+            <h2 className={styles.selectedOrderCardTitle}>
+              選取的洗衣單 (Selected Order)
+            </h2>
+          </div>
+
+          {selected ? (
+            <div className={styles.selectedOrderCardContent}>
+              <div className={styles.selectedOrderNumRow}>
+                <span className={styles.selectedOrderNumberDisplay}>
+                  {selected.orderNumber}
+                </span>
+                <button
+                  type="button"
+                  className={styles.copyPillBtn}
+                  onClick={() => handleCopyOrderNumber(selected.orderNumber)}
+                  aria-label="複製洗衣單號"
+                >
+                  {copied ? "已複製 ✓" : "複製單號"}
+                </button>
+              </div>
+
+              <div className={styles.orderMetaGridCard}>
+                <div className={styles.orderMetaCol}>
+                  <span className={styles.orderMetaColLabel}>Institution</span>
+                  <strong className={styles.orderMetaColVal}>{selected.institutionName}</strong>
+                </div>
+                <div className={styles.orderMetaCol}>
+                  <span className={styles.orderMetaColLabel}>Vehicle</span>
+                  <strong className={styles.orderMetaColVal}>{selected.cartNumber}</strong>
+                </div>
+                <div className={styles.orderMetaCol}>
+                  <span className={styles.orderMetaColLabel}>Time</span>
+                  <strong className={styles.orderMetaColVal}>
+                    {formatOrderTime(selectedDetail?.orderCreatedAt)}
+                  </strong>
+                </div>
+                <div className={styles.orderMetaCol}>
+                  <span className={styles.orderMetaColLabel}>Batches</span>
+                  <strong className={styles.orderMetaColVal}>
+                    {selectedDetail?.batches.length
+                      ? `${selectedDetail.batches.length} 個批次`
+                      : selected.status === "awaiting_receipt"
+                        ? "待收單建批"
+                        : "0 個批次"}
+                  </strong>
                 </div>
               </div>
-              <span className={`${styles.badge} ${orderBadgeClass[selected.status]}`}>
-                {orderStatusLabel(selected.status)}
-              </span>
-            </div>
 
-            <div className={styles.selectedOrderMetaGrid}>
-              <div className={styles.selectedOrderMetaItem}>
-                <span>送洗機構</span>
-                <strong>{selected.institutionName}</strong>
-              </div>
-              <div className={styles.selectedOrderMetaItem}>
-                <span>實體洗衣車</span>
-                <strong>{selected.cartNumber}</strong>
-              </div>
-              <div className={styles.selectedOrderMetaItem}>
-                <span>建立時間</span>
-                <strong>
-                  {selectedDetail?.orderCreatedAt
-                    ? new Date(selectedDetail.orderCreatedAt).toLocaleString("zh-TW", {
-                        month: "2-digit",
-                        day: "2-digit",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "剛剛"}
-                </strong>
-              </div>
-              <div className={styles.selectedOrderMetaItem}>
-                <span>洗滌批次</span>
-                <strong>
-                  {selectedDetail?.batches.length
-                    ? `${selectedDetail.batches.length} 個批次`
-                    : selected.status === "awaiting_receipt"
-                      ? "待收單建批"
-                      : "0 個批次"}
-                </strong>
+              <div className={styles.selectedOrderMainActionRow}>
+                {selected.status === "awaiting_receipt" ? (
+                  <AppLink
+                    href={hrefWithClientScope("/app/operations/receive", { siteId: siteId ?? null, institutionId: null })}
+                    className={styles.primaryActionCta}
+                  >
+                    前往收單建立分類批次 →
+                  </AppLink>
+                ) : selected.status === "awaiting_cleaning" ? (
+                  <button
+                    type="button"
+                    className={styles.primaryActionCta}
+                    onClick={() => setDetailOpen(true)}
+                  >
+                    開始清洗控制點 →
+                  </button>
+                ) : selected.status === "in_process" ? (
+                  <AppLink
+                    href={hrefWithClientScope("/app/operations/control-center", { siteId: siteId ?? null, institutionId: null })}
+                    className={styles.primaryActionCta}
+                  >
+                    前往批次控制中心 →
+                  </AppLink>
+                ) : selected.status === "ready_for_pickup" ? (
+                  <span className={styles.primaryActionInfo}>
+                    🚚 所有程序已完成，請由送洗人員掃描洗衣車 QR 完成取件結案。
+                  </span>
+                ) : (
+                  <span className={styles.primaryActionInfo}>✓ 此單已完成取件結案。</span>
+                )}
               </div>
             </div>
-
-            <div className={styles.selectedOrderActionRow}>
-              {selected.status === "awaiting_receipt" ? (
-                <AppLink
-                  href={hrefWithClientScope("/app/operations/receive", { siteId: siteId ?? null, institutionId: null })}
-                  className={styles.selectedOrderActionBtn}
-                >
-                  📋 前往收單建立分類批次 →
-                </AppLink>
-              ) : selected.status === "awaiting_cleaning" ? (
-                <button
-                  type="button"
-                  className={styles.selectedOrderActionBtn}
-                  onClick={() => setDetailOpen(true)}
-                >
-                  🫧 開始清洗控制點
-                </button>
-              ) : selected.status === "in_process" ? (
-                <AppLink
-                  href={hrefWithClientScope("/app/operations/control-center", { siteId: siteId ?? null, institutionId: null })}
-                  className={styles.selectedOrderActionBtn}
-                >
-                  ⚙️ 前往批次控制中心 →
-                </AppLink>
-              ) : selected.status === "ready_for_pickup" ? (
-                <span className={styles.selectedOrderHint}>
-                  🚚 所有程序已完成，請由送洗人員掃描洗衣車 QR 完成取件結案。
-                </span>
-              ) : (
-                <span className={styles.selectedOrderHint}>✓ 此單已完成取件結案。</span>
-              )}
+          ) : (
+            <div className={styles.noOrderSelected}>
+              <p>選取一張洗衣單後，這裡會顯示目前允許的控制點與流程進度。</p>
             </div>
-          </div>
-        ) : null}
+          )}
+        </div>
+      </div>
 
+      {/* Laundry Order Flow & Batches Section below */}
+      <div className={styles.flowAndDetailsSection}>
         {selected || selectedDetail ? (
           <LaundryOrderFlow3D
             orderNumber={selected?.orderNumber}
@@ -365,7 +419,7 @@ export function LiveQueue({
             }
           />
         ) : (
-          <p>選取一張洗衣單後，這裡會顯示目前允許的控制點與流程進度。</p>
+          <p className={styles.flowEmptyNotice}>選取一張洗衣單後，這裡會顯示目前允許的控制點與流程進度。</p>
         )}
 
         {selectedDetail?.batches && selectedDetail.batches.length > 0 ? (
@@ -392,7 +446,7 @@ export function LiveQueue({
             ))}
           </div>
         ) : null}
-      </aside>
+      </div>
 
       {portalReady && detailOpen && selected
         ? createPortal(
