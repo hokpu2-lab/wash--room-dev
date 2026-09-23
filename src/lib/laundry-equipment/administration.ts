@@ -123,6 +123,7 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
   const workspace = workspaceSchema.safeParse({
     equipment: (equipmentResult.data ?? []).map((item) => ({
       ...item,
+      capacity_kg: 1,
       category_codes: categoryCaps.get(item.id) ?? [],
       procedure_template_ids: procedureCaps.get(item.id) ?? [],
     })),

@@ -190,7 +190,7 @@ export default async function LaundryEquipmentPage({
                       <td>
                         {equipment.operating_sites.code} · {equipment.operating_sites.name}
                       </td>
-                      <td>{equipment.capacity_kg == null ? "—" : `${equipment.capacity_kg} 台`}</td>
+                      <td>1 台</td>
                       <td>{equipment.occupied ? "使用中" : statusLabels[equipment.status]}</td>
                       <td>
                         <a href={`/app/admin/laundry-equipment/${equipment.id}/qr`}>
