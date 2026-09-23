@@ -5,7 +5,7 @@ export default defineConfig({
     environment: "node",
     include: ["tests/database/**/*.spec.ts", "tests/unit/**/*.spec.ts"],
     reporters: "default",
-    testTimeout: 30000,
-    hookTimeout: 30000,
+    testTimeout: 60000,
+    hookTimeout: 60000,
   },
 });

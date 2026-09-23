@@ -96,7 +96,7 @@ export default async function LaundryEquipmentPage({
             </label>
             <label>
               可容納洗衣車（台）
-              <input name="capacity_kg" type="number" min={1} max={20} />
+              <input name="capacity_kg" type="number" min={1} max={20} defaultValue={1} />
             </label>
             <fieldset className={styles.compatList}>
               <legend>適用分類</legend>

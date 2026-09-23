@@ -91,7 +91,7 @@ export function EquipmentEditForm({
           type="number"
           min={1}
           max={20}
-          defaultValue={selected.capacity_kg ?? ""}
+          defaultValue={selected.capacity_kg ?? 1}
         />
       </label>
       <label>
