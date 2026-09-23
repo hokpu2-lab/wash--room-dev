@@ -240,11 +240,35 @@ const defaultLaundryEquipment = [
     operating_site_id: organizationSites[1].id,
     operating_sites: { code: "CORP", name: "法人" },
   },
+  {
+    id: "41000000-0000-4000-8000-000000000104",
+    name: "本館洗衣-4",
+    equipment_type: "washer",
+    capacity_kg: 1,
+    status: "normal",
+    occupied: false,
+    current_qr_version: 1,
+    operating_site_id: organizationSites[0].id,
+    operating_sites: { code: "MAIN", name: "本館" },
+  },
+  {
+    id: "41000000-0000-4000-8000-000000000204",
+    name: "本館烘衣-4",
+    equipment_type: "dryer",
+    capacity_kg: 1,
+    status: "normal",
+    occupied: false,
+    current_qr_version: 1,
+    operating_site_id: organizationSites[0].id,
+    operating_sites: { code: "MAIN", name: "本館" },
+  },
 ];
 let laundryEquipment = structuredClone(defaultLaundryEquipment);
 let laundryEquipmentCredentials = new Map([
   [defaultLaundryEquipment[0].id, { version: 1, token: fakeLaundryCartQrToken(71) }],
   [defaultLaundryEquipment[1].id, { version: 1, token: fakeLaundryCartQrToken(81) }],
+  ["41000000-0000-4000-8000-000000000104", { version: 1, token: fakeLaundryCartQrToken(74) }],
+  ["41000000-0000-4000-8000-000000000204", { version: 1, token: fakeLaundryCartQrToken(84) }],
 ]);
 let laundryEquipmentChangeRequests = new Map();
 let laundryOrders = [];
