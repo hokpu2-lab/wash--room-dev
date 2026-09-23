@@ -139,15 +139,15 @@ export function StartWashingControl({
         )
       : batches;
 
-  const candidateBatches =
+  const candidateBatches: Batch[] =
     siteMatchedBatches.length > 0 ? siteMatchedBatches : batches;
 
-  const visible = focusedBatchId
-    ? candidateBatches.filter((batch) => batch.id === focusedBatchId)
+  const sortedBatches = focusedBatchId
+    ? [...candidateBatches].sort((a, b) => (a.id === focusedBatchId ? -1 : b.id === focusedBatchId ? 1 : 0))
     : candidateBatches;
 
   const [batchId, setBatchId] = usePreferredId(
-    (visible.length > 0 ? visible : candidateBatches).map((batch) => batch.id),
+    sortedBatches.map((batch: Batch) => batch.id),
   );
 
   const selectedBatch = batches.find((b) => b.id === batchId);
@@ -251,9 +251,9 @@ export function StartWashingControl({
           <select
             value={batchId}
             onChange={(event) => setBatchId(event.target.value)}
-            disabled={mode === "complete" || visible.length === 0}
+            disabled={mode === "complete" || sortedBatches.length === 0}
           >
-            {visible.length === 0 ? (
+            {sortedBatches.length === 0 ? (
               <option value="">
                 {mode === "complete"
                   ? "目前沒有這台洗衣機的執行中單據"
@@ -262,7 +262,7 @@ export function StartWashingControl({
                     : "目前沒有待清洗批次"}
               </option>
             ) : (
-              visible.map((batch) => (
+              sortedBatches.map((batch) => (
                 <option key={batch.id} value={batch.id}>
                   {formatBatchLabel(batch)}
                 </option>

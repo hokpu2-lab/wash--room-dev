@@ -590,7 +590,12 @@ export function LiveQueue({
               {readOnly ? (
                 <p className={styles.controlHint}>目前沒有可操作的控制點。</p>
               ) : (
-                <WashingModalContent siteId={siteId} />
+                <WashingModalContent
+                  siteId={siteId}
+                  selectedOrderNumber={selected.orderNumber}
+                  selectedCartNumber={selected.cartNumber}
+                  focusedBatchId={selectedDetail?.batches[0]?.id}
+                />
               )}
             </section>
           </div>,

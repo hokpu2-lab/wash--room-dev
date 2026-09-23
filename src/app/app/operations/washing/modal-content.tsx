@@ -7,7 +7,17 @@ import type { ControlBatch } from "../batch-label";
 import { loadWashingControlData } from "./actions";
 import { StartWashingControl } from "./start-control";
 
-export function WashingModalContent({ siteId }: { siteId?: string }) {
+export function WashingModalContent({
+  siteId,
+  focusedBatchId,
+  selectedOrderNumber,
+  selectedCartNumber,
+}: {
+  siteId?: string;
+  focusedBatchId?: string;
+  selectedOrderNumber?: string;
+  selectedCartNumber?: string;
+}) {
   const [batches, setBatches] = useState<ControlBatch[] | null>(null);
   const [resolvedSiteId, setResolvedSiteId] = useState<string | undefined>(siteId);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +41,13 @@ export function WashingModalContent({ siteId }: { siteId?: string }) {
   if (error) return <p className={styles.errorNotice} role="alert">{error}</p>;
   if (!batches) return <p className={styles.historyModalState}>載入開始清洗…</p>;
 
+  const matchedBatch =
+    batches.find((b) => focusedBatchId && b.id === focusedBatchId) ??
+    batches.find((b) => selectedOrderNumber && b.orderNumber === selectedOrderNumber) ??
+    batches.find((b) => selectedCartNumber && b.cartNumber === selectedCartNumber) ??
+    null;
+  const targetBatchId = matchedBatch?.id ?? focusedBatchId;
+
   return (
     <section className={styles.panel} aria-labelledby="washing-modal-title">
       <header className={styles.pageHeader}>
@@ -41,7 +58,11 @@ export function WashingModalContent({ siteId }: { siteId?: string }) {
         </div>
       </header>
       <Suspense fallback={null}>
-        <StartWashingControl batches={batches} siteId={resolvedSiteId} />
+        <StartWashingControl
+          batches={batches}
+          siteId={resolvedSiteId}
+          focusedBatchId={targetBatchId}
+        />
       </Suspense>
     </section>
   );
