@@ -188,6 +188,13 @@ export function LiveQueue({
       ?? (fetchedDetail?.orderId === selected.id ? fetchedDetail : null)
     : fetchedDetail?.orderId === activeSelectedId ? fetchedDetail : null;
 
+  const activeEquipmentNames = selectedDetail?.batches
+    ?.map((batch) => batch.activeEquipmentName)
+    .filter((name): name is string => Boolean(name));
+  const activeEquipmentText = activeEquipmentNames && activeEquipmentNames.length > 0
+    ? Array.from(new Set(activeEquipmentNames)).join("、")
+    : null;
+
   const handleSelectOrder = (order: WorkspaceOrder) => {
     setSelectedId(order.id);
     if (typeof window !== "undefined") {
@@ -415,6 +422,12 @@ export function LiveQueue({
               </div>
 
               <div className={styles.orderMetaGridCard}>
+                <div className={styles.orderMetaCol}>
+                  <span className={styles.orderMetaColLabel}>Status</span>
+                  <strong className={styles.orderMetaColVal}>
+                    {activeEquipmentText || orderStatusLabel(selected.status)}
+                  </strong>
+                </div>
                 <div className={styles.orderMetaCol}>
                   <span className={styles.orderMetaColLabel}>Institution</span>
                   <strong className={styles.orderMetaColVal}>{selected.institutionName}</strong>
