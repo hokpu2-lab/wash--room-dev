@@ -131,6 +131,7 @@ export function LiveQueue({
   onSelectOrder,
 }: LiveQueueProps) {
   const [selectedId, setSelectedId] = useState<string | null>(selectedOrderId ?? orders[0]?.id ?? null);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const closeDetail = useCallback(() => setDetailOpen(false), []);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -142,13 +143,19 @@ export function LiveQueue({
     if (selectedOrderId) setSelectedId(selectedOrderId);
   }, [selectedOrderId]);
 
-  const activeSelectedId = selectedId && orders.some((order) => order.id === selectedId)
+  const displayedOrders = statusFilter
+    ? orders.filter((order) => order.status === statusFilter)
+    : orders;
+
+  const activeSelectedId = selectedId && displayedOrders.some((order) => order.id === selectedId)
     ? selectedId
-    : selectedOrderId && orders.some((order) => order.id === selectedOrderId)
+    : selectedOrderId && displayedOrders.some((order) => order.id === selectedOrderId)
       ? selectedOrderId
-      : selectedId
-        ?? orders[0]?.id
-        ?? null;
+      : selectedId && orders.some((order) => order.id === selectedId)
+        ? selectedId
+        : displayedOrders[0]?.id
+          ?? orders[0]?.id
+          ?? null;
   const selected = orders.find((order) => order.id === activeSelectedId) ?? null;
   const selectedDetail = selected
     ? orderDetails.find((detail) => detail.orderId === selected.id)
@@ -200,6 +207,9 @@ export function LiveQueue({
     };
   }, [activeSelectedId, orderDetails]);
 
+  const inProcessCount = orders.filter((o) => o.status === "in_process").length;
+  const awaitingCleaningCount = orders.filter((o) => o.status === "awaiting_cleaning").length;
+
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const searchHref = (nextPage: number) => {
     const params = new URLSearchParams();
@@ -244,24 +254,58 @@ export function LiveQueue({
             </div>
           </div>
 
-          <form className={styles.queueSearchForm} method="get">
-            {siteId ? <input type="hidden" name="site" value={siteId} /> : null}
-            <label className={styles.queueSearchLabel}>
-              <span className={styles.srOnly}>搜尋洗衣單號</span>
-              <input
-                name="q"
-                defaultValue={query}
-                placeholder="搜尋洗衣單號"
-                className={styles.queueSearchInput}
-              />
-            </label>
-            <button type="submit" className={styles.queueSearchBtn}>
-              搜尋 (Search)
-            </button>
-          </form>
+          <div className={styles.queueSearchAndFilterRow}>
+            <form className={styles.queueSearchForm} method="get">
+              {siteId ? <input type="hidden" name="site" value={siteId} /> : null}
+              <label className={styles.queueSearchLabel}>
+                <span className={styles.srOnly}>搜尋洗衣單號</span>
+                <input
+                  name="q"
+                  defaultValue={query}
+                  placeholder="搜尋洗衣單號"
+                  className={styles.queueSearchInput}
+                />
+              </label>
+              <button type="submit" className={styles.queueSearchBtn}>
+                搜尋 (Search)
+              </button>
+            </form>
+
+            <div className={styles.queueFilterGroup} role="group" aria-label="狀態篩選">
+              <button
+                type="button"
+                className={statusFilter === null ? `${styles.filterPill} ${styles.filterPillAll} ${styles.filterPillActive}` : `${styles.filterPill} ${styles.filterPillAll}`}
+                onClick={() => setStatusFilter(null)}
+                aria-pressed={statusFilter === null}
+              >
+                全部
+              </button>
+              <button
+                type="button"
+                className={statusFilter === "in_process" ? `${styles.filterPill} ${styles.filterPillOrange} ${styles.filterPillActive}` : `${styles.filterPill} ${styles.filterPillOrange}`}
+                onClick={() => setStatusFilter(statusFilter === "in_process" ? null : "in_process")}
+                aria-pressed={statusFilter === "in_process"}
+              >
+                處理中{inProcessCount > 0 ? ` (${inProcessCount})` : ""}
+              </button>
+              <button
+                type="button"
+                className={statusFilter === "awaiting_cleaning" ? `${styles.filterPill} ${styles.filterPillBlue} ${styles.filterPillActive}` : `${styles.filterPill} ${styles.filterPillBlue}`}
+                onClick={() => setStatusFilter(statusFilter === "awaiting_cleaning" ? null : "awaiting_cleaning")}
+                aria-pressed={statusFilter === "awaiting_cleaning"}
+              >
+                待清洗{awaitingCleaningCount > 0 ? ` (${awaitingCleaningCount})` : ""}
+              </button>
+            </div>
+          </div>
 
           <div className={styles.queueListHeader}>
-            <span>排序隊列 / {String(total).padStart(2, "0")}</span>
+            <span>排序隊列 / {String(displayedOrders.length).padStart(2, "0")}</span>
+            {statusFilter ? (
+              <span className={styles.filterActiveNotice}>
+                （已篩選：{statusFilter === "in_process" ? "處理中" : "待清洗"}，共 {displayedOrders.length} 筆）
+              </span>
+            ) : null}
           </div>
 
           <div className={styles.orderListTableHead} aria-hidden="true">
@@ -272,11 +316,11 @@ export function LiveQueue({
             <span>洗衣單號</span>
           </div>
 
-          {orders.length === 0 ? (
-            <p className={styles.emptyQueue}>目前授權範圍內沒有未結案洗衣單。</p>
+          {displayedOrders.length === 0 ? (
+            <p className={styles.emptyQueue}>目前沒有符合條件的洗衣單。</p>
           ) : (
             <div className={styles.orderListContainer}>
-              {orders.map((order) => {
+              {displayedOrders.map((order) => {
                 const active = selected?.id === order.id;
                 const orderDetail = orderDetails.find((d) => d.orderId === order.id);
                 const timeValue = orderDetail?.orderReceivedAt ?? orderDetail?.orderCreatedAt ?? order.updatedAt;
