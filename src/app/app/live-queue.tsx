@@ -84,6 +84,46 @@ function formatReceiptTime(isoString?: string | null) {
   return `${month}/${day} ${period} ${displayHours}:${minutes}`;
 }
 
+function getEquipmentTypeName(type: string | undefined | null): string {
+  if (!type) return "洗衣機";
+  if (type in equipmentTypeLabels) {
+    return equipmentTypeLabels[type as keyof typeof equipmentTypeLabels];
+  }
+  if (type === "cart") return "洗衣車";
+  if (type === "manual") return "人工處理";
+  return type;
+}
+
+function getOrderStatusDisplay(
+  order: WorkspaceOrder,
+  detail: WorkspaceOrderDetail | null,
+): string {
+  if (order.status === "awaiting_receipt") return "待收單建批";
+  if (order.status === "ready_for_pickup") return "待取件";
+  if (order.status === "picked_up") return "已取件";
+
+  if (detail?.batches && detail.batches.length > 0) {
+    const batchDisplays = detail.batches.map((batch) => {
+      const activeStage = batch.stages.find((s) => s.state === "active");
+      const currentStage =
+        activeStage ??
+        batch.stages.find((s) => s.stageOrder === batch.currentStageOrder) ??
+        batch.stages[0];
+      const equipmentName =
+        batch.activeEquipmentName ||
+        (currentStage?.equipmentType && getEquipmentTypeName(currentStage.equipmentType)) ||
+        "洗衣機";
+      const stageOrder = currentStage?.stageOrder ?? batch.currentStageOrder ?? 1;
+      return `${equipmentName} · 第 ${stageOrder} 階段`;
+    });
+    return Array.from(new Set(batchDisplays)).join("、");
+  }
+
+  if (order.status === "awaiting_cleaning") return "洗衣機 · 第 1 階段";
+  if (order.status === "in_process") return "洗衣機 · 第 1 階段";
+  return orderStatusLabel(order.status) || "待清洗";
+}
+
 function matchesSearch(order: WorkspaceOrder, term: string): boolean {
   if (!term) return true;
   const q = term.trim().toLocaleLowerCase("zh-Hant");
@@ -188,12 +228,6 @@ export function LiveQueue({
       ?? (fetchedDetail?.orderId === selected.id ? fetchedDetail : null)
     : fetchedDetail?.orderId === activeSelectedId ? fetchedDetail : null;
 
-  const activeEquipmentNames = selectedDetail?.batches
-    ?.map((batch) => batch.activeEquipmentName)
-    .filter((name): name is string => Boolean(name));
-  const activeEquipmentText = activeEquipmentNames && activeEquipmentNames.length > 0
-    ? Array.from(new Set(activeEquipmentNames)).join("、")
-    : null;
 
   const handleSelectOrder = (order: WorkspaceOrder) => {
     setSelectedId(order.id);
@@ -425,7 +459,7 @@ export function LiveQueue({
                 <div className={styles.orderMetaCol}>
                   <span className={styles.orderMetaColLabel}>Status</span>
                   <strong className={styles.orderMetaColVal}>
-                    {activeEquipmentText || orderStatusLabel(selected.status)}
+                    {getOrderStatusDisplay(selected, selectedDetail)}
                   </strong>
                 </div>
                 <div className={styles.orderMetaCol}>
