@@ -84,6 +84,25 @@ function formatReceiptTime(isoString?: string | null) {
   return `${month}/${day} ${period} ${displayHours}:${minutes}`;
 }
 
+function matchesSearch(order: WorkspaceOrder, term: string): boolean {
+  if (!term) return true;
+  const q = term.trim().toLocaleLowerCase("zh-Hant");
+  if (!q) return true;
+  const statusLabel = (orderStatusLabel(order.status) || "").toLocaleLowerCase("zh-Hant");
+  const rawStatus = (order.status || "").toLocaleLowerCase("zh-Hant");
+  const institution = (order.institutionName || "").toLocaleLowerCase("zh-Hant");
+  const cart = (order.cartNumber || "").toLocaleLowerCase("zh-Hant");
+  const orderNum = (order.orderNumber || "").toLocaleLowerCase("zh-Hant");
+
+  return (
+    orderNum.includes(q) ||
+    institution.includes(q) ||
+    cart.includes(q) ||
+    statusLabel.includes(q) ||
+    rawStatus.includes(q)
+  );
+}
+
 export function LiveQueueFallback({ title = "洗衣單清單" }: { title?: string } = {}) {
   const displayTitle = title.includes("Order List") ? title : `${title} (Order List)`;
   return (
@@ -132,6 +151,7 @@ export function LiveQueue({
 }: LiveQueueProps) {
   const [selectedId, setSelectedId] = useState<string | null>(selectedOrderId ?? orders[0]?.id ?? null);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState(query);
   const [detailOpen, setDetailOpen] = useState(false);
   const closeDetail = useCallback(() => setDetailOpen(false), []);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -143,9 +163,15 @@ export function LiveQueue({
     if (selectedOrderId) setSelectedId(selectedOrderId);
   }, [selectedOrderId]);
 
-  const displayedOrders = statusFilter
-    ? orders.filter((order) => order.status === statusFilter)
-    : orders;
+  useEffect(() => {
+    setSearchTerm(query);
+  }, [query]);
+
+  const displayedOrders = orders.filter((order) => {
+    const matchesStatus = !statusFilter || order.status === statusFilter;
+    const matchesQuery = matchesSearch(order, searchTerm);
+    return matchesStatus && matchesQuery;
+  });
 
   const activeSelectedId = selectedId && displayedOrders.some((order) => order.id === selectedId)
     ? selectedId
@@ -213,7 +239,7 @@ export function LiveQueue({
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const searchHref = (nextPage: number) => {
     const params = new URLSearchParams();
-    if (query) params.set("q", query);
+    if (searchTerm) params.set("q", searchTerm);
     if (nextPage > 1) params.set("page", String(nextPage));
     if (siteId) params.set("site", siteId);
     if (selectedOrderId) params.set("order", selectedOrderId);
@@ -258,11 +284,12 @@ export function LiveQueue({
             <form className={styles.queueSearchForm} method="get">
               {siteId ? <input type="hidden" name="site" value={siteId} /> : null}
               <label className={styles.queueSearchLabel}>
-                <span className={styles.srOnly}>搜尋洗衣單號</span>
+                <span className={styles.srOnly}>搜尋狀態、機構、車號或單號</span>
                 <input
                   name="q"
-                  defaultValue={query}
-                  placeholder="搜尋洗衣單號"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="搜尋狀態、機構、車號或單號"
                   className={styles.queueSearchInput}
                 />
               </label>

@@ -158,7 +158,24 @@ async function loadLegacyWorkspaceSnapshot(
         cartNumber: cart?.cart_number ?? "—",
       };
     })
-    .filter((order) => !needle || order.orderNumber.toLocaleLowerCase("zh-Hant").includes(needle));
+    .filter((order) => {
+      if (!needle) return true;
+      const statusLabels: Record<string, string> = {
+        awaiting_receipt: "待收件",
+        awaiting_cleaning: "待清洗",
+        in_process: "處理中",
+        ready_for_pickup: "待取件",
+        picked_up: "已取件",
+      };
+      const statusLabel = (statusLabels[order.status] ?? "").toLocaleLowerCase("zh-Hant");
+      return (
+        order.orderNumber.toLocaleLowerCase("zh-Hant").includes(needle) ||
+        order.institutionName.toLocaleLowerCase("zh-Hant").includes(needle) ||
+        order.cartNumber.toLocaleLowerCase("zh-Hant").includes(needle) ||
+        order.status.toLocaleLowerCase("zh-Hant").includes(needle) ||
+        statusLabel.includes(needle)
+      );
+    });
   return {
     dashboard: dashboard.data,
     orders,
