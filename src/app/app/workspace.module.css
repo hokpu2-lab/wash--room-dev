@@ -1374,18 +1374,34 @@
 .orderListContainer {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   max-height: 280px;
   overflow-y: auto;
+  overflow-x: auto;
   padding-right: 4px;
 }
 
+.orderListTableHead,
 .orderListItem {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 80px minmax(60px, 1fr) 68px minmax(110px, 1.2fr) minmax(130px, 1.5fr);
+  gap: 10px;
   align-items: center;
+  min-width: 480px;
+}
+
+.orderListTableHead {
+  padding: 6px 12px;
+  color: #6b7280;
+  font-size: 0.76rem;
+  font-weight: 750;
+  border-bottom: 1.5px solid #e5e7eb;
+  margin-bottom: 4px;
+}
+
+.orderListItem {
   width: 100%;
-  padding: 10px 14px;
+  padding: 9px 12px;
   border: 0;
   border-bottom: 1px solid #edf2f0;
   border-left: 3.5px solid transparent;
@@ -1408,23 +1424,39 @@
   border-left-color: #134e4a !important;
 }
 
-.orderItemInfo {
-  display: flex;
-  flex-direction: column;
+.orderItemInstitution {
+  color: #1f2937;
+  font-size: 0.86rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orderItemCart {
+  color: #374151;
+  font-size: 0.85rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orderItemTime {
+  color: #4b5563;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .orderItemNumber {
   color: #111827;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 800;
   letter-spacing: -0.01em;
-}
-
-.orderItemInstitution {
-  margin-top: 2px;
-  color: #1f2937;
-  font-size: 0.85rem;
-  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .statusPill {

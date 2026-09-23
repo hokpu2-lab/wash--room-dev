@@ -71,6 +71,19 @@ function formatOrderTime(isoString?: string | null) {
   return `${month}/${day} ${period} ${displayHours}:${minutes}`;
 }
 
+function formatReceiptTime(isoString?: string | null) {
+  if (!isoString) return "剛剛";
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return "剛剛";
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  const period = hours >= 12 ? "下午" : "上午";
+  const displayHours = String(hours % 12 === 0 ? 12 : hours % 12).padStart(2, "0");
+  return `${month}/${day} ${period} ${displayHours}:${minutes}`;
+}
+
 export function LiveQueueFallback({ title = "洗衣單清單" }: { title?: string } = {}) {
   const displayTitle = title.includes("Order List") ? title : `${title} (Order List)`;
   return (
@@ -251,12 +264,22 @@ export function LiveQueue({
             <span>排序隊列 / {String(total).padStart(2, "0")}</span>
           </div>
 
+          <div className={styles.orderListTableHead} aria-hidden="true">
+            <span>狀態</span>
+            <span>機構</span>
+            <span>車號</span>
+            <span>收單時間</span>
+            <span>洗衣單號</span>
+          </div>
+
           {orders.length === 0 ? (
             <p className={styles.emptyQueue}>目前授權範圍內沒有未結案洗衣單。</p>
           ) : (
             <div className={styles.orderListContainer}>
               {orders.map((order) => {
                 const active = selected?.id === order.id;
+                const orderDetail = orderDetails.find((d) => d.orderId === order.id);
+                const timeValue = orderDetail?.orderReceivedAt ?? orderDetail?.orderCreatedAt ?? order.updatedAt;
                 return (
                   <button
                     key={order.id}
@@ -266,13 +289,21 @@ export function LiveQueue({
                     aria-label={`選取 ${order.orderNumber}，${orderStatusLabel(order.status)}`}
                     onClick={() => handleSelectOrder(order)}
                   >
-                    <div className={styles.orderItemInfo}>
-                      <strong className={styles.orderItemNumber}>{order.orderNumber}</strong>
-                      <span className={styles.orderItemInstitution}>{order.institutionName}</span>
-                    </div>
                     <span className={`${styles.statusPill} ${statusPillClass[order.status]}`}>
                       {orderStatusLabel(order.status)}
                     </span>
+                    <span className={styles.orderItemInstitution} title={order.institutionName}>
+                      {order.institutionName}
+                    </span>
+                    <span className={styles.orderItemCart} title={order.cartNumber}>
+                      {order.cartNumber}
+                    </span>
+                    <span className={styles.orderItemTime}>
+                      {formatReceiptTime(timeValue)}
+                    </span>
+                    <strong className={styles.orderItemNumber} title={order.orderNumber}>
+                      {order.orderNumber}
+                    </strong>
                   </button>
                 );
               })}
