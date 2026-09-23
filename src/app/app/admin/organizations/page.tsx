@@ -119,6 +119,7 @@ export default async function OrganizationsPage({
                 <thead>
                   <tr>
                     <th scope="col">機構代碼</th>
+                    <th scope="col">車號</th>
                     <th scope="col">機構名稱</th>
                     <th scope="col">固定配對</th>
                     <th scope="col">狀態</th>
@@ -128,6 +129,11 @@ export default async function OrganizationsPage({
                   {workspace.institutions.map((institution) => (
                     <tr key={institution.id}>
                       <td>{institution.code}</td>
+                      <td>
+                        {institution.cartNumbers && institution.cartNumbers.length > 0
+                          ? institution.cartNumbers.join("、")
+                          : "—"}
+                      </td>
                       <td>{institution.name}</td>
                       <td>
                         {institution.operating_sites.code} · {institution.operating_sites.name}

@@ -26,6 +26,7 @@ const organizationWorkspaceSchema = z.object({
         code: z.string().min(1),
         name: z.string().min(1),
       }),
+      cartNumbers: z.array(z.string()).default([]),
     }),
   ),
 });
@@ -71,7 +72,7 @@ export async function getOrganizationWorkspace(): Promise<OrganizationWorkspace>
     .map((membership) => membership.operating_site_id)
     .filter((siteId): siteId is string => siteId !== null);
   const supabase = await createServerSupabaseClient();
-  const [sitesResult, institutionsResult] = await Promise.all([
+  const [sitesResult, institutionsResult, cartsResult] = await Promise.all([
     supabase
       .from("operating_sites")
       .select("id, code, name, active")
@@ -84,10 +85,29 @@ export async function getOrganizationWorkspace(): Promise<OrganizationWorkspace>
       )
       .in("operating_site_id", supervisorSiteIds)
       .order("code", { ascending: true }),
+    supabase
+      .from("laundry_carts")
+      .select("id, cart_number, institution_id, active")
+      .order("cart_number", { ascending: true }),
   ]);
+
+  const cartsByInstitution = new Map<string, string[]>();
+  if (cartsResult.data) {
+    for (const cart of cartsResult.data) {
+      const list = cartsByInstitution.get(cart.institution_id) ?? [];
+      list.push(cart.cart_number);
+      cartsByInstitution.set(cart.institution_id, list);
+    }
+  }
+
+  const enrichedInstitutions = institutionsResult.data?.map((inst) => ({
+    ...inst,
+    cartNumbers: cartsByInstitution.get(inst.id) ?? [],
+  }));
+
   const workspace = organizationWorkspaceSchema.safeParse({
     sites: sitesResult.data,
-    institutions: institutionsResult.data,
+    institutions: enrichedInstitutions,
   });
 
   if (sitesResult.error || institutionsResult.error || !workspace.success) {
