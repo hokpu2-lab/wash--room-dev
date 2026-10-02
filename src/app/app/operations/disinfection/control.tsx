@@ -155,6 +155,7 @@ export function DisinfectionControl({
   );
 
   const selectedBatch = batches.find((b) => b.id === batchId);
+  const displayEquipment = equipmentInfo?.equipmentName || null;
   const displayInstitution = selectedBatch?.institutionName || selectedInstitutionName;
   const displayCart = selectedBatch?.cartNumber || selectedCartNumber;
   const displayOrderNumber = selectedBatch?.orderNumber || selectedOrderNumber;
@@ -221,33 +222,37 @@ export function DisinfectionControl({
           <div
             style={{
               margin: "0.5rem 0",
-              padding: "0.5rem 0.75rem",
-              background: "var(--surface-subtle, #f0f7f4)",
-              border: "1px solid var(--border-subtle, #bad7cc)",
+              padding: "0.6rem 0.85rem",
+              background: "#e6f4ea",
+              border: "1px solid #a8dab5",
               borderRadius: "6px",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
               gap: "0.5rem",
               flexWrap: "wrap",
+              color: "#134e4a",
             }}
           >
-            <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>
+            <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "#134e4a" }}>
               🖥️ 已載入消毒設備：
-              {equipmentInfo?.equipmentName || (loadingEquipment ? "設備資訊查詢中…" : "消毒設備")}
+              <span style={{ color: "#065f46", fontWeight: 800 }}>
+                {equipmentInfo?.equipmentName || (loadingEquipment ? "設備資訊查詢中…" : "消毒設備")}
+              </span>
               {equipmentInfo?.operatingSiteName ? `（據點：${equipmentInfo.operatingSiteName}）` : ""}
             </span>
             <button
               type="button"
               onClick={handleClearEquipment}
               style={{
-                background: "transparent",
-                border: "1px solid var(--border-subtle, #ccc)",
-                color: "inherit",
+                background: "#ffffff",
+                border: "1px solid #0d7e6d",
+                color: "#0d7e6d",
                 cursor: "pointer",
-                padding: "0.25rem 0.6rem",
+                padding: "0.3rem 0.7rem",
                 borderRadius: "4px",
                 fontSize: "0.85rem",
+                fontWeight: 700,
               }}
             >
               🔄 清除此設備快取 / 重新掃描
@@ -255,7 +260,7 @@ export function DisinfectionControl({
           </div>
         ) : null}
 
-        {displayInstitution || displayCart || displayOrderNumber ? (
+        {displayEquipment || displayInstitution || displayCart || displayOrderNumber ? (
           <div
             style={{
               margin: "0.5rem 0",
@@ -270,6 +275,14 @@ export function DisinfectionControl({
               fontSize: "0.9rem",
             }}
           >
+            {displayEquipment ? (
+              <span>
+                設備：
+                <strong style={{ color: "#ffffff", fontWeight: 700 }}>
+                  {displayEquipment}
+                </strong>
+              </span>
+            ) : null}
             <span>
               機構：
               <strong style={{ color: "#ffffff", fontWeight: 700 }}>
