@@ -448,7 +448,6 @@ export function LiveQueue({
             <span>機構</span>
             <span>車號</span>
             <span>收單時間</span>
-            <span>洗衣單號</span>
           </div>
 
           {displayedOrders.length === 0 ? (
@@ -499,9 +498,6 @@ export function LiveQueue({
                     <span className={styles.orderItemTime}>
                       {formatReceiptTime(timeValue)}
                     </span>
-                    <strong className={styles.orderItemNumber} title={order.orderNumber}>
-                      {order.orderNumber}
-                    </strong>
                   </button>
                 );
               })}
