@@ -12,7 +12,7 @@
 
 ## 目前交付基線
 
-- 接手前先讀 `README.md` 的「2026-09-12 最新接手快照」、「2026-08-31 系統管理員與 System Guide 切片（歷史）」、「2026-08-28 沉浸式洗衣流程與已取件詳情切片（歷史）」、「2026-08-22 戰情室、BI 與交付快照（歷史）」、「2026-08-18 正式環境與接手快照」及「效能與操作體驗診斷」。
+- 接手前先讀 `README.md` 的「2026-10-02 最新接手快照」、「2026-09-12 操作控制台設備據點解析與快取清除切片（歷史）」、「2026-08-31 系統管理員與 System Guide 切片（歷史）」、「2026-08-28 沉浸式洗衣流程與已取件詳情切片（歷史）」、「2026-08-22 戰情室、BI 與交付快照（歷史）」、「2026-08-18 正式環境與接手快照」及「效能與操作體驗診斷」。
   最新 commit、部署、測試數量、region 與量測值只記在 README 的日期化快照；仍須以實際 `HEAD`、
   工作樹、GitHub Actions、Vercel、Supabase migration 與本次測試輸出覆核，不能沿用舊數字。
 - 正式登入後介面使用 `src/app/app/layout.tsx`、`workspace-shell.tsx`、
@@ -24,7 +24,23 @@
 - 頂級角色與權限防護：`system_administrator`（系統管理員）具備最高優先權，預設導向 `/app/admin`；`src/lib/auth/principal.ts` 之
   `principalSatisfiesRole` 確保系統管理員完全滿足 `laundry_supervisor` 之檢查，徹底杜絕無窮重定向死循環。
 
-## 2026-09-12 最新接手快照
+## 2026-10-02 最新接手快照
+
+- **選取洗衣單卡片欄位更新與等待時間計算**：
+  - **欄位語意重構**：於 `src/app/app/live-queue.tsx` 將選取洗衣單卡片（`Selected Order`）內部 metadata 欄位由原本 `Status | Institution | Vehicle | Time | Batches` 更新為 `使用中設備 | 車號 | 收單時間 | 等待時間`（省略 `Institution` 欄位）。
+  - **等待時間精確計算**：實作 `calculateWaitingTime`，以收單時間（`orderReceivedAt` / `orderCreatedAt`）為基準，扣除第一階段（`stageOrder === 1`）之開始時間（`startedAt`）計算實際等待分鐘數（若未開始則動態計算至當前時間已等待分鐘數，格式化為 `X 小時 Y 分鐘` 或 `X 分鐘`）。
+  - **版面樣式微調**：於 `src/app/app/workspace.module.css` 將 `.orderMetaGridCard` 調整為 4 等分 grid（`repeat(4, 1fr)`）。
+  - **單元測試**：新增 `tests/unit/selected-order-meta.spec.ts` 驗證不同時間差之等待時間格式化。
+- **目前設備清單新增「正使用機構」與「桶數」資訊**：
+  - **資料解析擴充**：於 `src/lib/laundry-equipment/administration.ts` 擴充 `equipmentSchema`，新增 `active_institutions` 與 `active_cart_count` 欄位；在 `getLaundryEquipmentWorkspace` 併發查詢 `laundry_batch_stage_runs`（狀態為 `in_progress` 或 `paused` 之活躍階段執行），由關聯的批次（`laundry_batches`）與來源（`laundry_batch_sources`）推導當前占用設備的送洗機構列表及累計使用桶數（一車一桶，合批累計）。
+  - **前端表格介面優化**：於 `/app/admin/laundry-equipment` 目前設備表格中，在「狀態」欄位右側新增「機構」與「桶數」兩欄。當設備使用中時，顯示運作中機構名稱（若合批多機構以頓號連接）與桶數（如 `1 桶`、`2 桶`）；非使用中設備則顯示 `—`。
+  - **Mock 與測試支援**：於 `tests/support/fake-supabase-server.mjs` 擴充 `laundry_batch_stage_runs` 關聯 mock 資料；新增 `tests/unit/equipment-usage.spec.ts` 驗證單一機構、合批多機構與閒置設備之機構與桶數推導邏輯。
+- **測試與建置覆核**（2026-10-02）：
+  - `npm test`：31 個測試檔、108 個 tests 全數通過。
+  - `npm run typecheck`：0 錯誤通過。
+  - `npm run build`：Next.js 16.3.0 正式生產建置成功。
+
+## 2026-09-12 操作控制台設備據點解析與快取清除切片（歷史）
 
 - **操作控制台設備據點解析與快取清除機制**：
   - **根本原因排查**：跨作業據點（清福本館 MAIN vs 清福法人 CORP）的設備 QR 快取殘留在 `sessionStorage` 時，後端 `private.start_batch_stage_from_equipment` 嚴格阻擋跨據點混洗（`equipment.operating_site_id <> batch.operating_site_id`）觸發 `equipment_scope_denied`。然而前台控制台未顯示載入設備所屬據點、無重設清除按鈕，且選單未過濾批次據點，導致操作者深陷錯誤快取死循環。

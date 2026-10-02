@@ -10,22 +10,27 @@
 - GitHub 串接 Vercel 部署
 - Playwright 公開介面驗收測試
 
-## 2026-09-12 最新接手快照
+## 2026-10-02 最新接手快照
 
 本節是目前接手的第一個入口。先執行 `git status --short --branch`、`git log -5 --oneline`，再閱讀
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
 
-- **操作控制台設備據點解析與快取清除機制**：
-  - **根本原因排查**：跨作業據點（清福本館 MAIN vs 清福法人 CORP）的設備 QR 快取殘留在 `sessionStorage` 時，後端 `private.start_batch_stage_from_equipment` 嚴格阻擋跨據點混洗（`equipment.operating_site_id <> batch.operating_site_id`）觸發 `equipment_scope_denied`。然而前台控制台未顯示載入設備所屬據點、無重設清除按鈕，且選單未過濾批次據點，導致操作者深陷錯誤快取死循環。
-  - **設備與據點資訊解析**：在 `src/lib/laundry-equipment/dispatch.ts` 擴充 `dispatchEquipmentQr`，查詢並回傳 `equipmentName`、`operatingSiteId`、`operatingSiteName` 與 `operatingSiteCode`。
-  - **批次標籤與選單優化**：在 `src/app/app/operations/batch-label.ts` 與 `load-site-batches.ts` 加入據點欄位，`formatBatchLabel` 呈現據點名稱（如 `(清福本館)`），`use-live-batches.ts` 同步支援據點資訊。
-  - **快取清理與跨據點防呆**：在 `use-qr-fragment.ts` 引入 `clear` 函式；於清洗（`washing/start-control.tsx`）、烘乾（`drying/control.tsx`）與消毒（`disinfection/control.tsx`）控制台加入「已載入設備卡片」與「🔄 清除此設備快取 / 重新掃描」按鈕。
-  - **智慧過濾與警告防呆**：依設備據點優先篩選同據點批次；若偵測到跨據點批次，呈現醒目紅色警示並鎖定按鈕。若送出後 API 回傳 `equipment_scope_denied` 或 `invalid_qr`，前端自動清除快取並引導重新掃碼。
-- **測試與建置覆核**（2026-09-12）：
-  - `npm test`：28 個測試檔、100 個 tests 全數通過（新增 `tests/unit/operations-control.spec.ts`）。
+- **選取洗衣單卡片欄位更新與等待時間計算**：
+  - **欄位語意重構**：於 `src/app/app/live-queue.tsx` 將選取洗衣單卡片（`Selected Order`）內部 metadata 欄位由原本 `Status | Institution | Vehicle | Time | Batches` 更新為 `使用中設備 | 車號 | 收單時間 | 等待時間`（省略 `Institution` 欄位）。
+  - **等待時間精確計算**：實作 `calculateWaitingTime`，以收單時間（`orderReceivedAt` / `orderCreatedAt`）為基準，扣除第一階段（`stageOrder === 1`）之開始時間（`startedAt`）計算實際等待分鐘數（若未開始則動態計算至當前時間已等待分鐘數，格式化為 `X 小時 Y 分鐘` 或 `X 分鐘`）。
+  - **版面樣式微調**：於 `src/app/app/workspace.module.css` 將 `.orderMetaGridCard` 調整為 4 等分 grid（`repeat(4, 1fr)`）。
+  - **單元測試**：新增 `tests/unit/selected-order-meta.spec.ts` 驗證不同時間差之等待時間格式化。
+- **目前設備清單新增「正使用機構」與「桶數」資訊**：
+  - **資料解析擴充**：於 `src/lib/laundry-equipment/administration.ts` 擴充 `equipmentSchema`，新增 `active_institutions` 與 `active_cart_count` 欄位；在 `getLaundryEquipmentWorkspace` 併發查詢 `laundry_batch_stage_runs`（狀態為 `in_progress` 或 `paused` 之活躍階段執行），由關聯的批次（`laundry_batches`）與來源（`laundry_batch_sources`）推導當前占用設備的送洗機構列表及累計使用桶數（一車一桶，合批累計）。
+  - **前端表格介面優化**：於 `/app/admin/laundry-equipment` 目前設備表格中，在「狀態」欄位右側新增「機構」與「桶數」兩欄。當設備使用中時，顯示運作中機構名稱（若合批多機構以頓號連接）與桶數（如 `1 桶`、`2 桶`）；非使用中設備則顯示 `—`。
+  - **Mock 與測試支援**：於 `tests/support/fake-supabase-server.mjs` 擴充 `laundry_batch_stage_runs` 關聯 mock 資料；新增 `tests/unit/equipment-usage.spec.ts` 驗證單一機構、合批多機構與閒置設備之機構與桶數推導邏輯。
+- **測試與建置覆核**（2026-10-02）：
+  - `npm test`：31 個測試檔、108 個 tests 全數通過。
   - `npm run typecheck`：0 錯誤通過。
   - `npm run build`：Next.js 16.3.0 正式生產建置成功。
+
+## 2026-09-12 操作控制台設備據點解析與快取清除切片（歷史）
 
 ## 2026-08-31 系統管理員與 System Guide 切片（歷史）
 

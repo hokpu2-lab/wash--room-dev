@@ -124,6 +124,51 @@ function getOrderStatusDisplay(
   return orderStatusLabel(order.status) || "待清洗";
 }
 
+function calculateWaitingTime(
+  order: WorkspaceOrder,
+  detail: WorkspaceOrderDetail | null,
+): string {
+  if (order.status === "awaiting_receipt") {
+    return "待收單";
+  }
+
+  const receiptIso = detail?.orderReceivedAt || detail?.orderCreatedAt;
+  if (!receiptIso) return "—";
+
+  const receiptTime = new Date(receiptIso).getTime();
+  if (isNaN(receiptTime)) return "—";
+
+  let stage1StartedTime: number | null = null;
+  if (detail?.batches && detail.batches.length > 0) {
+    for (const batch of detail.batches) {
+      const stage1 = batch.stages.find((s) => s.stageOrder === 1);
+      if (stage1?.startedAt) {
+        const t = new Date(stage1.startedAt).getTime();
+        if (!isNaN(t)) {
+          if (stage1StartedTime === null || t < stage1StartedTime) {
+            stage1StartedTime = t;
+          }
+        }
+      }
+    }
+  }
+
+  let diffMinutes: number;
+  if (stage1StartedTime !== null) {
+    const diffMs = Math.max(0, stage1StartedTime - receiptTime);
+    diffMinutes = Math.round(diffMs / (1000 * 60));
+  } else {
+    const diffMs = Math.max(0, Date.now() - receiptTime);
+    diffMinutes = Math.round(diffMs / (1000 * 60));
+  }
+
+  if (diffMinutes < 1) return "0 分鐘";
+  if (diffMinutes < 60) return `${diffMinutes} 分鐘`;
+  const hours = Math.floor(diffMinutes / 60);
+  const mins = diffMinutes % 60;
+  return mins > 0 ? `${hours} 小時 ${mins} 分鐘` : `${hours} 小時`;
+}
+
 function matchesSearch(order: WorkspaceOrder, term: string): boolean {
   if (!term) return true;
   const q = term.trim().toLocaleLowerCase("zh-Hant");
@@ -457,33 +502,25 @@ export function LiveQueue({
 
               <div className={styles.orderMetaGridCard}>
                 <div className={styles.orderMetaCol}>
-                  <span className={styles.orderMetaColLabel}>Status</span>
+                  <span className={styles.orderMetaColLabel}>使用中設備</span>
                   <strong className={styles.orderMetaColVal}>
                     {getOrderStatusDisplay(selected, selectedDetail)}
                   </strong>
                 </div>
                 <div className={styles.orderMetaCol}>
-                  <span className={styles.orderMetaColLabel}>Institution</span>
-                  <strong className={styles.orderMetaColVal}>{selected.institutionName}</strong>
-                </div>
-                <div className={styles.orderMetaCol}>
-                  <span className={styles.orderMetaColLabel}>Vehicle</span>
+                  <span className={styles.orderMetaColLabel}>車號</span>
                   <strong className={styles.orderMetaColVal}>{selected.cartNumber}</strong>
                 </div>
                 <div className={styles.orderMetaCol}>
-                  <span className={styles.orderMetaColLabel}>Time</span>
+                  <span className={styles.orderMetaColLabel}>收單時間</span>
                   <strong className={styles.orderMetaColVal}>
-                    {formatOrderTime(selectedDetail?.orderCreatedAt)}
+                    {formatOrderTime(selectedDetail?.orderReceivedAt ?? selectedDetail?.orderCreatedAt)}
                   </strong>
                 </div>
                 <div className={styles.orderMetaCol}>
-                  <span className={styles.orderMetaColLabel}>Batches</span>
+                  <span className={styles.orderMetaColLabel}>等待時間</span>
                   <strong className={styles.orderMetaColVal}>
-                    {selectedDetail?.batches.length
-                      ? `${selectedDetail.batches.length} 個批次`
-                      : selected.status === "awaiting_receipt"
-                        ? "待收單建批"
-                        : "0 個批次"}
+                    {calculateWaitingTime(selected, selectedDetail)}
                   </strong>
                 </div>
               </div>

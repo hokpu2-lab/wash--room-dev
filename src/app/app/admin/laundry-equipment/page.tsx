@@ -179,26 +179,42 @@ export default async function LaundryEquipmentPage({
                     <th>據點</th>
                     <th>可容納洗衣車</th>
                     <th>狀態</th>
+                    <th>機構</th>
+                    <th>桶數</th>
                     <th>操作</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {workspace.equipment.map((equipment) => (
-                    <tr key={equipment.id}>
-                      <td>{equipment.name}</td>
-                      <td>{typeLabels[equipment.equipment_type]}</td>
-                      <td>
-                        {equipment.operating_sites.code} · {equipment.operating_sites.name}
-                      </td>
-                      <td>1 台</td>
-                      <td>{equipment.occupied ? "使用中" : statusLabels[equipment.status]}</td>
-                      <td>
-                        <a href={`/app/admin/laundry-equipment/${equipment.id}/qr`}>
-                          查看 {equipment.name} 固定 QR
-                        </a>
-                      </td>
-                    </tr>
-                  ))}
+                  {workspace.equipment.map((equipment) => {
+                    const isOccupied = Boolean(equipment.occupied || (equipment.active_cart_count && equipment.active_cart_count > 0));
+                    const institutionText = isOccupied
+                      ? equipment.active_institutions && equipment.active_institutions.length > 0
+                        ? equipment.active_institutions.join("、")
+                        : "使用中"
+                      : "—";
+                    const cartCountText = isOccupied
+                      ? `${equipment.active_cart_count && equipment.active_cart_count > 0 ? equipment.active_cart_count : 1} 桶`
+                      : "—";
+
+                    return (
+                      <tr key={equipment.id}>
+                        <td>{equipment.name}</td>
+                        <td>{typeLabels[equipment.equipment_type]}</td>
+                        <td>
+                          {equipment.operating_sites.code} · {equipment.operating_sites.name}
+                        </td>
+                        <td>1 台</td>
+                        <td>{isOccupied ? "使用中" : statusLabels[equipment.status]}</td>
+                        <td>{institutionText}</td>
+                        <td>{cartCountText}</td>
+                        <td>
+                          <a href={`/app/admin/laundry-equipment/${equipment.id}/qr`}>
+                            查看 {equipment.name} 固定 QR
+                          </a>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

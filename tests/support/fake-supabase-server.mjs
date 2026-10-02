@@ -2639,11 +2639,31 @@ const server = createServer(async (request, response) => {
       200,
       laundryBatches
         .filter((batch) => batch.active_stage_run_id && (!equipmentFilter || batch.active_equipment_id === equipmentFilter))
-        .map((batch) => ({
-          laundry_batch_id: batch.id,
-          laundry_equipment_id: batch.active_equipment_id,
-          status: "in_progress",
-        })),
+        .map((batch) => {
+          const order = laundryOrders.find((candidate) => candidate.id === batch.laundry_order_id);
+          const cart = laundryCarts.find((candidate) => candidate.id === order?.laundry_cart_id);
+          const instName = cart?.institutions?.name ?? "照護機構 A";
+          return {
+            id: batch.active_stage_run_id,
+            laundry_batch_id: batch.id,
+            laundry_equipment_id: batch.active_equipment_id,
+            status: "in_progress",
+            laundry_batches: {
+              id: batch.id,
+              laundry_orders: {
+                institutions: { name: instName },
+              },
+              laundry_batch_sources: [
+                {
+                  id: `source-${batch.id}`,
+                  laundry_orders: {
+                    institutions: { name: instName },
+                  },
+                },
+              ],
+            },
+          };
+        }),
     );
     return;
   }

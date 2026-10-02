@@ -20,6 +20,8 @@ const equipmentSchema = z.object({
   operating_site_id: z.uuid().optional(),
   category_codes: z.array(z.string()).optional().default([]),
   procedure_template_ids: z.array(z.uuid()).optional().default([]),
+  active_institutions: z.array(z.string()).optional().default([]),
+  active_cart_count: z.number().int().nonnegative().optional().default(0),
   operating_sites: z.union([namedSiteSchema, z.array(namedSiteSchema)]).transform((value) => (
     Array.isArray(value) ? value[0] ?? { code: "—", name: "—" } : value
   )),
@@ -95,13 +97,33 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
   const allSiteIds = principal.memberships.filter((m) => isLaundrySupervisorRole(m.role)).map((m) => m.operating_site_id).filter((id): id is string => id !== null);
   const siteIds = scope.siteId && allSiteIds.includes(scope.siteId) ? [scope.siteId] : allSiteIds;
   const supabase = await createServerSupabaseClient();
-  const [equipmentResult, categoryResult, procedureResult, siteResult, categoryCapResult, procedureCapResult] = await Promise.all([
+  const [equipmentResult, categoryResult, procedureResult, siteResult, categoryCapResult, procedureCapResult, activeRunsResult] = await Promise.all([
     supabase.from("laundry_equipment").select("id, name, equipment_type, capacity_kg, status, occupied, current_qr_version, operating_site_id, operating_sites(code, name)").in("operating_site_id", siteIds).order("name", { ascending: true }),
     supabase.from("laundry_categories").select("id, code, name").eq("active", true).order("sort_order", { ascending: true }),
     supabase.from("procedure_templates").select("id, operating_site_id, procedure_template_versions(template_name, status)").in("operating_site_id", siteIds),
     supabase.from("operating_sites").select("id, code, name").in("id", siteIds).order("code", { ascending: true }),
     supabase.from("laundry_equipment_categories").select("laundry_equipment_id, laundry_categories(code)"),
     supabase.from("laundry_equipment_procedures").select("laundry_equipment_id, procedure_template_id"),
+    supabase
+      .from("laundry_batch_stage_runs")
+      .select(`
+        id,
+        laundry_equipment_id,
+        laundry_batches (
+          id,
+          laundry_orders (
+            institutions (name)
+          ),
+          laundry_batch_sources (
+            id,
+            laundry_orders (
+              institutions (name)
+            )
+          )
+        )
+      `)
+      .in("status", ["in_progress", "paused"])
+      .in("operating_site_id", siteIds),
   ]);
   const categoryCaps = new Map<string, string[]>();
   for (const row of categoryCapResult.data ?? []) {
@@ -120,13 +142,67 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
       ]);
     }
   }
+  const equipmentUsageMap = new Map<string, { institutions: Set<string>; cartCount: number }>();
+  for (const row of activeRunsResult.data ?? []) {
+    const equipId = (row as { laundry_equipment_id?: string | null })?.laundry_equipment_id;
+    if (typeof equipId === "string" && equipId) {
+      const current = equipmentUsageMap.get(equipId) ?? {
+        institutions: new Set<string>(),
+        cartCount: 0,
+      };
+      const rowData = row as {
+        laundry_batches?: {
+          laundry_orders?: { institutions?: { name?: string } | Array<{ name?: string }> | null } | Array<{ institutions?: { name?: string } | Array<{ name?: string }> | null }> | null;
+          laundry_batch_sources?: Array<{
+            id?: string;
+            laundry_orders?: { institutions?: { name?: string } | Array<{ name?: string }> | null } | Array<{ institutions?: { name?: string } | Array<{ name?: string }> | null }> | null;
+          }> | null;
+        } | Array<{
+          laundry_orders?: { institutions?: { name?: string } | Array<{ name?: string }> | null } | Array<{ institutions?: { name?: string } | Array<{ name?: string }> | null }> | null;
+          laundry_batch_sources?: Array<{
+            id?: string;
+            laundry_orders?: { institutions?: { name?: string } | Array<{ name?: string }> | null } | Array<{ institutions?: { name?: string } | Array<{ name?: string }> | null }> | null;
+          }> | null;
+        }> | null;
+      };
+      const batch = Array.isArray(rowData.laundry_batches) ? rowData.laundry_batches[0] : rowData.laundry_batches;
+      if (batch) {
+        const sources = Array.isArray(batch.laundry_batch_sources) ? batch.laundry_batch_sources : [];
+        if (sources.length > 0) {
+          current.cartCount += sources.length;
+          for (const src of sources) {
+            const order = Array.isArray(src.laundry_orders) ? src.laundry_orders[0] : src.laundry_orders;
+            const inst = Array.isArray(order?.institutions) ? order?.institutions[0] : order?.institutions;
+            if (typeof inst?.name === "string" && inst.name.trim()) {
+              current.institutions.add(inst.name.trim());
+            }
+          }
+        } else {
+          current.cartCount += 1;
+          const order = Array.isArray(batch.laundry_orders) ? batch.laundry_orders[0] : batch.laundry_orders;
+          const inst = Array.isArray(order?.institutions) ? order?.institutions[0] : order?.institutions;
+          if (typeof inst?.name === "string" && inst.name.trim()) {
+            current.institutions.add(inst.name.trim());
+          }
+        }
+      } else {
+        current.cartCount += 1;
+      }
+      equipmentUsageMap.set(equipId, current);
+    }
+  }
   const workspace = workspaceSchema.safeParse({
-    equipment: (equipmentResult.data ?? []).map((item) => ({
-      ...item,
-      capacity_kg: 1,
-      category_codes: categoryCaps.get(item.id) ?? [],
-      procedure_template_ids: procedureCaps.get(item.id) ?? [],
-    })),
+    equipment: (equipmentResult.data ?? []).map((item) => {
+      const usage = equipmentUsageMap.get(item.id);
+      return {
+        ...item,
+        capacity_kg: 1,
+        category_codes: categoryCaps.get(item.id) ?? [],
+        procedure_template_ids: procedureCaps.get(item.id) ?? [],
+        active_institutions: usage ? Array.from(usage.institutions) : [],
+        active_cart_count: usage ? usage.cartCount : (item.occupied ? 1 : 0),
+      };
+    }),
     categories: categoryResult.data ?? [],
     procedures: procedureResult.data ?? [],
     sites: siteResult.data ?? [],
