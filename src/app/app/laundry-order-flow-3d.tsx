@@ -183,10 +183,13 @@ function stageLabel(stage: FlowStage) {
 }
 
 function stageDetail(stage: FlowStage, activeEquipmentName?: string | null, cartNumber?: string) {
-  const label = stageLabel(stage);
   const equip = activeEquipmentName || equipmentLabel(stage.equipmentType);
-  const base = label === stage.name ? equip : `${stage.name} · ${equip}`;
-  return cartNumber ? `${base} · 車號 ${cartNumber}` : base;
+  const stageNameWithOrder = stage.stageOrder ? `${stage.name}${stage.stageOrder}` : stage.name;
+  const parts = [equip, stageNameWithOrder];
+  if (cartNumber) {
+    parts.push(`車號 ${cartNumber}`);
+  }
+  return parts.filter(Boolean).join(" · ");
 }
 
 function stageVisual(stage: FlowStage): FlowVisual {

@@ -2468,8 +2468,8 @@
 .flowSelectionMotion[data-state="pending"] .flowSelectionTag { color: #89817e; }
 .flowSelectionCopy strong { overflow-wrap: anywhere; color: var(--flow-ink); font-size: clamp(1.3rem, 3.2cqi, 1.75rem); letter-spacing: -.02em; line-height: 1.05; }
 .flowSelectionDetail {
-  justify-self: end;
-  text-align: right;
+  justify-self: start;
+  text-align: left;
   color: var(--flow-brand-dark, #8f232b);
   font-size: clamp(.88rem, 2.2cqi, 1.05rem);
   font-weight: 850;
