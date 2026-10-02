@@ -104,6 +104,7 @@ export default async function LaundryCartsPage({
                     <th scope="col">送洗機構</th>
                     <th scope="col">作業據點</th>
                     <th scope="col">狀態</th>
+                    <th scope="col">待取件車號</th>
                     <th scope="col">操作</th>
                   </tr>
                 </thead>
@@ -116,6 +117,7 @@ export default async function LaundryCartsPage({
                       </td>
                       <td>{cart.institutions.operating_sites.name}</td>
                       <td>{cart.active ? "啟用" : "停用"}</td>
+                      <td>{cart.has_ready_pickup ? cart.cart_number : "—"}</td>
                       <td>
                         <form
                           action={changeLaundryCartActive}

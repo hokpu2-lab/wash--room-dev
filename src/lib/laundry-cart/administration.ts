@@ -28,6 +28,8 @@ const laundryCartWorkspaceSchema = z.object({
       institution_id: z.uuid(),
       active: z.boolean(),
       current_qr_version: z.number().int().positive(),
+      ready_pickup_cart_number: z.string().nullable().optional().default(null),
+      has_ready_pickup: z.boolean().optional().default(false),
       institutions: z.object({
         code: z.string().min(1),
         name: z.string().min(1),
@@ -134,7 +136,7 @@ export async function getLaundryCartWorkspace(): Promise<LaundryCartWorkspace> {
     .filter((siteId): siteId is string => siteId !== null);
   const supervisorSiteIds = scope.siteId && allSiteIds.includes(scope.siteId) ? [scope.siteId] : allSiteIds;
   const supabase = await createServerSupabaseClient();
-  const [institutionsResult, cartsResult] = await Promise.all([
+  const [institutionsResult, cartsResult, activeOrdersResult] = await Promise.all([
     supabase
       .from("institutions")
       .select(
@@ -149,10 +151,28 @@ export async function getLaundryCartWorkspace(): Promise<LaundryCartWorkspace> {
         "id, cart_number, institution_id, active, current_qr_version, institutions!inner(code, name, operating_sites!inner(code, name))",
       )
       .order("cart_number", { ascending: true }),
+    supabase
+      .from("laundry_orders")
+      .select("id, order_number, status, laundry_cart_id")
+      .eq("status", "ready_for_pickup"),
   ]);
+
+  const readyCartIds = new Set<string>();
+  for (const order of activeOrdersResult.data ?? []) {
+    if (order.laundry_cart_id) {
+      readyCartIds.add(order.laundry_cart_id);
+    }
+  }
+
+  const enrichedCarts = (cartsResult.data ?? []).map((cart: any) => ({
+    ...cart,
+    has_ready_pickup: readyCartIds.has(cart.id),
+    ready_pickup_cart_number: readyCartIds.has(cart.id) ? cart.cart_number : null,
+  }));
+
   const workspace = laundryCartWorkspaceSchema.safeParse({
     institutions: institutionsResult.data,
-    carts: cartsResult.data,
+    carts: enrichedCarts,
   });
 
   if (institutionsResult.error || cartsResult.error || !workspace.success) {
