@@ -15,7 +15,7 @@ export type WorkspaceLink = {
 const supervisorLinks: WorkspaceLink[] = [
   { href: "/app/admin", label: "營運總覽", description: "今日 KPI 與主管控制", group: "workspace", marker: "總" },
   { href: "/app/dashboard", label: "洗衣單與批次", description: "待收件、處理中與待取件", group: "workspace", marker: "單" },
-  { href: "/app/history", label: "歷史紀錄查詢", description: "查詢歷史取件紀錄", group: "workspace", marker: "歷" },
+  { href: "/app/history", label: "洗衣單狀態", description: "查詢歷史取件紀錄", group: "workspace", marker: "態" },
   { href: "/app/admin/laundry-equipment", label: "設備狀態", description: "設備能力、狀態與固定 QR", group: "workspace", marker: "機" },
   { href: "/app/admin/notifications", label: "異常與通知", description: "通知矩陣與外部目的地", group: "workspace", marker: "訊" },
   { href: "/app/admin/accounts", label: "帳號與權限", description: "帳號、角色、密碼與安全刪除", group: "management", marker: "人" },
@@ -31,7 +31,7 @@ const workerLinks: WorkspaceLink[] = [
   { href: "/app/operations", label: "營運總覽", description: "授權據點與工作入口", group: "workspace", marker: "總" },
   { href: "/app/operations/receive", label: "收單與分類", description: "掃描洗衣車並建立批次", group: "workspace", marker: "收" },
   { href: "/app/operations/control-center", label: "洗衣單與批次", description: "批次控制、異常與重排", group: "workspace", marker: "單" },
-  { href: "/app/history", label: "歷史紀錄查詢", description: "查詢歷史取件紀錄", group: "workspace", marker: "歷" },
+  { href: "/app/history", label: "洗衣單狀態", description: "查詢歷史取件紀錄", group: "workspace", marker: "態" },
   { href: "/app/operations/washing", label: "開始清洗", description: "掃描相容洗衣機", group: "management", marker: "洗" },
   { href: "/app/operations/disinfection", label: "消毒浸泡", description: "消毒分類必要控制點", group: "management", marker: "消" },
   { href: "/app/operations/drying", label: "清洗完成與烘乾", description: "完成清洗並啟動烘衣機", group: "management", marker: "烘" },
@@ -41,7 +41,7 @@ const workerLinks: WorkspaceLink[] = [
 const institutionLinks: WorkspaceLink[] = [
   { href: "/app/institution", label: "營運總覽", description: "本機構洗衣單與通知", group: "workspace", marker: "總" },
   { href: "/app/dashboard", label: "洗衣單與批次", description: "本機構進度與待取件", group: "workspace", marker: "單" },
-  { href: "/app/history", label: "歷史紀錄查詢", description: "查詢本機構歷史取件", group: "workspace", marker: "歷" },
+  { href: "/app/history", label: "洗衣單狀態", description: "查詢本機構歷史取件", group: "workspace", marker: "態" },
 ];
 
 const systemGuideLink: WorkspaceLink = {
