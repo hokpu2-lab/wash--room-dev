@@ -2335,10 +2335,12 @@
   padding: 10px 12px;
   border: 1px solid rgba(240, 214, 215, .55);
   border-radius: 16px 16px 16px 6px;
-  background: rgba(255, 253, 252, .56);
+  background: rgba(255, 253, 252, .92);
   box-shadow: 0 10px 22px rgba(96, 58, 52, .08);
   backdrop-filter: blur(10px);
   pointer-events: none;
+  opacity: 0;
+  transition: opacity .18s ease;
 }
 .flowCanvasMeta span { color: var(--flow-brand); font-size: .57rem; font-weight: 900; letter-spacing: .14em; }
 .flowCanvasMeta strong { color: var(--flow-ink); font-size: clamp(.85rem, 1.7cqi, 1.08rem); letter-spacing: .02em; }
@@ -2450,6 +2452,22 @@
   place-items: center;
   border-radius: 24px 24px 24px 7px;
   background: radial-gradient(circle at 50% 44%, #fff 0 35%, #ffedec 72%, transparent 73%);
+}
+
+.flowActiveBadge {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 2;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: #fef2f2;
+  border: 1.5px solid #ef4444;
+  color: #dc2626;
+  font-size: .74rem;
+  font-weight: 900;
+  letter-spacing: .06em;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, .18);
 }
 
 .flowSelectionImage {

@@ -1412,37 +1412,45 @@ export function LaundryOrderFlow3D({
             });
           }
           const tooltip = tooltipRef.current;
-          const inspectIndex = hoveredNodeIndex ?? selectedIndex;
-          const inspectGroup = nodeGroups[inspectIndex];
-          if (tooltip && inspectGroup) {
-            const viewWidth = renderer.domElement.clientWidth;
-            const viewHeight = renderer.domElement.clientHeight;
-            const projectNode = (index: number) => {
-              const group = nodeGroups[index];
-              if (!group) return null;
-              group.getWorldPosition(tooltipWorld);
-              tooltipWorld.y += nodeSize * 0.38;
-              tooltipWorld.project(camera);
-              return {
-                x: (tooltipWorld.x * 0.5 + 0.5) * viewWidth,
-                y: (-tooltipWorld.y * 0.5 + 0.5) * viewHeight,
-              };
-            };
-            const currentPoint = projectNode(inspectIndex);
-            if (currentPoint) {
-              const avoid = nodeGroups
-                .map((_, index) => index === inspectIndex ? null : projectNode(index))
-                .filter((point): point is { x: number; y: number } => (
-                  point !== null && Math.abs(point.y - currentPoint.y) < 56
-                ));
-              placeFlowTooltip(
-                tooltip,
-                currentPoint.x,
-                currentPoint.y,
-                viewWidth,
-                viewHeight,
-                avoid,
-              );
+          if (tooltip) {
+            if (hoveredNodeIndex === null) {
+              tooltip.style.opacity = "0";
+              tooltip.style.pointerEvents = "none";
+            } else {
+              const inspectGroup = nodeGroups[hoveredNodeIndex];
+              if (inspectGroup) {
+                tooltip.style.opacity = "1";
+                tooltip.style.pointerEvents = "auto";
+                const viewWidth = renderer.domElement.clientWidth;
+                const viewHeight = renderer.domElement.clientHeight;
+                const projectNode = (index: number) => {
+                  const group = nodeGroups[index];
+                  if (!group) return null;
+                  group.getWorldPosition(tooltipWorld);
+                  tooltipWorld.y += nodeSize * 0.38;
+                  tooltipWorld.project(camera);
+                  return {
+                    x: (tooltipWorld.x * 0.5 + 0.5) * viewWidth,
+                    y: (-tooltipWorld.y * 0.5 + 0.5) * viewHeight,
+                  };
+                };
+                const currentPoint = projectNode(hoveredNodeIndex);
+                if (currentPoint) {
+                  const avoid = nodeGroups
+                    .map((_, index) => index === hoveredNodeIndex ? null : projectNode(index))
+                    .filter((point): point is { x: number; y: number } => (
+                      point !== null && Math.abs(point.y - currentPoint.y) < 56
+                    ));
+                  placeFlowTooltip(
+                    tooltip,
+                    currentPoint.x,
+                    currentPoint.y,
+                    viewWidth,
+                    viewHeight,
+                    avoid,
+                  );
+                }
+              }
             }
           }
           renderer.render(scene, camera);
@@ -1606,6 +1614,9 @@ export function LaundryOrderFlow3D({
                   height={160}
                   loading="eager"
                 />
+                {selectedStep.state === "active" ? (
+                  <span className={styles.flowActiveBadge}>進行中</span>
+                ) : null}
                 <i>{selectedStep.state === "completed" ? "✓" : selectedStepIndex + 1}</i>
               </span>
               <span className={styles.flowSelectionCopy}>
