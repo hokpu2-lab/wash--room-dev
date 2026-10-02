@@ -1268,7 +1268,7 @@
 
 .topCardsGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.22fr);
   gap: 20px;
   align-items: stretch;
   margin-bottom: 24px;
@@ -1471,10 +1471,10 @@
 .orderListTableHead,
 .orderListItem {
   display: grid;
-  grid-template-columns: 80px minmax(60px, 1fr) 68px minmax(110px, 1.2fr) minmax(130px, 1.5fr);
-  gap: 10px;
+  grid-template-columns: 68px 48px 52px 120px 1fr;
+  gap: 8px;
   align-items: center;
-  min-width: 480px;
+  min-width: 420px;
 }
 
 .orderListTableHead {
@@ -1617,7 +1617,7 @@
 
 .orderMetaGridCard {
   display: grid;
-  grid-template-columns: minmax(130px, 1.4fr) minmax(65px, 0.8fr) minmax(130px, 1.3fr) minmax(105px, 1.1fr);
+  grid-template-columns: minmax(165px, 1.6fr) minmax(55px, 0.6fr) minmax(130px, 1.2fr) minmax(110px, 1fr);
   gap: 16px;
   padding: 16px 20px;
   border-radius: 12px;
