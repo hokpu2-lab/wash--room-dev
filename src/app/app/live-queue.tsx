@@ -210,7 +210,7 @@ function matchesSearch(order: WorkspaceOrder, term: string): boolean {
   );
 }
 
-export function LiveQueueFallback({ title = "機構排程" }: { title?: string } = {}) {
+export function LiveQueueFallback({ title = "洗衣排程" }: { title?: string } = {}) {
   const displayTitle = title.includes("Order List") ? title : `${title} (Order List)`;
   return (
     <section className={styles.liveQueueSection} aria-labelledby="live-queue-title">
@@ -252,7 +252,7 @@ export function LiveQueue({
   pageSize = 20,
   total = orders.length,
   siteId,
-  title = "機構排程",
+  title = "洗衣排程",
   syncedAt,
   onSelectOrder,
 }: LiveQueueProps) {

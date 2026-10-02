@@ -334,7 +334,7 @@ test("洗衣主管工作台提供正式營運導覽與可操作的功能搜尋",
   await navigation.getByRole("link", { name: "洗衣單與批次" }).click();
   await expect(page).toHaveURL(/\/app\/dashboard/);
   await expect(page.locator("#dashboard-title")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "機構排程" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "洗衣排程" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "目前洗滌批次" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "營運戰情室" })).toHaveCount(0);
 });
@@ -393,7 +393,7 @@ test("待取件洗衣單只能由送洗人員掃描洗衣車固定 QR 結案", a
 
   await page.goto("/app/dashboard");
   await expect(page.locator("#dashboard-title")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "機構排程" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "洗衣排程" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "目前洗滌批次" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "營運戰情室" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "洗衣單流程" })).toBeVisible();
