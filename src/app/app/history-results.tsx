@@ -318,9 +318,7 @@ export function HistoryResults({ items }: { items: LaundryOrderHistoryItem[] }) 
                     </button>
                   </th>
                   <td>
-                    {item.institutionName}
-                    {item.institutionCode ? <span className={styles.tableSubtle}> ({item.institutionCode})</span> : null}
-                    {item.cartNumber ? ` · ${item.cartNumber}` : ""}
+                    {item.institutionName}{item.cartNumber ? ` ${item.cartNumber}` : ""}
                   </td>
                   <td>{formatDateTime(item.createdAt)}</td>
                   <td>{formatDateTime(item.closedAt)}</td>
