@@ -118,3 +118,12 @@ test("已取件詳情解析成訂單、稽核事件與批次程序 DTO", () => {
 test("非 ok 的歷史詳情 RPC 結果不會進入彈窗", () => {
   expect(parseLaundryOrderHistoryDetail({ outcome: "not_found" })).toBeNull();
 });
+
+test("完成時間計算與格式化", async () => {
+  const { formatCompletionTime } = await import("../../src/app/app/history-results");
+  expect(formatCompletionTime("", null)).toBe("—");
+  expect(formatCompletionTime("2026-09-23T06:09:00.000Z", "2026-09-24T06:24:00.000Z")).toBe("24 小時 15 分鐘");
+  expect(formatCompletionTime("2026-09-16T08:36:00.000Z", "2026-09-16T08:41:00.000Z")).toBe("5 分鐘");
+  expect(formatCompletionTime("2026-09-16T08:00:00.000Z", "2026-09-16T10:00:00.000Z")).toBe("2 小時");
+  expect(formatCompletionTime("2026-09-16T08:00:00.000Z", "2026-09-16T08:00:20.000Z")).toBe("0 分鐘");
+});

@@ -1030,7 +1030,7 @@
 
 .tableScroller th,
 .tableScroller td {
-  padding: 13px 15px;
+  padding: 11px 9px;
   border-bottom: 1px solid var(--line);
   text-align: left;
   white-space: nowrap;

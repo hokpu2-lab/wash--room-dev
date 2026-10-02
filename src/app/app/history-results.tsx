@@ -37,6 +37,19 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
+export function formatCompletionTime(createdAtIso: string, closedAtIso: string | null): string {
+  if (!createdAtIso || !closedAtIso) return "—";
+  const start = new Date(createdAtIso).getTime();
+  const end = new Date(closedAtIso).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return "—";
+  const diffMinutes = Math.round((end - start) / (1000 * 60));
+  if (diffMinutes < 1) return "0 分鐘";
+  if (diffMinutes < 60) return `${diffMinutes} 分鐘`;
+  const hours = Math.floor(diffMinutes / 60);
+  const mins = diffMinutes % 60;
+  return mins > 0 ? `${hours} 小時 ${mins} 分鐘` : `${hours} 小時`;
+}
+
 function eventLabel(event: LaundryOrderHistoryEvent) {
   return eventLabels[event.action] ?? event.action.replaceAll("_", " ");
 }
@@ -285,9 +298,9 @@ export function HistoryResults({ items }: { items: LaundryOrderHistoryItem[] }) 
               <tr>
                 <th scope="col">洗衣單號</th>
                 <th scope="col">送洗機構</th>
-                <th scope="col">洗衣車</th>
                 <th scope="col">送單時間</th>
                 <th scope="col">取件時間</th>
+                <th scope="col">完成時間</th>
                 <th scope="col">狀態</th>
               </tr>
             </thead>
@@ -304,10 +317,14 @@ export function HistoryResults({ items }: { items: LaundryOrderHistoryItem[] }) 
                       {item.orderNumber}
                     </button>
                   </th>
-                  <td>{item.institutionName} <span className={styles.tableSubtle}>({item.institutionCode})</span></td>
-                  <td>{item.cartNumber}</td>
+                  <td>
+                    {item.institutionName}
+                    {item.institutionCode ? <span className={styles.tableSubtle}> ({item.institutionCode})</span> : null}
+                    {item.cartNumber ? ` · ${item.cartNumber}` : ""}
+                  </td>
                   <td>{formatDateTime(item.createdAt)}</td>
                   <td>{formatDateTime(item.closedAt)}</td>
+                  <td>{formatCompletionTime(item.createdAt, item.closedAt)}</td>
                   <td><span className={`${styles.badge} ${styles.badgeGreen}`}>已取件</span></td>
                 </tr>
               ))}
