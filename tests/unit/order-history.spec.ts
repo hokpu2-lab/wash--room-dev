@@ -127,3 +127,11 @@ test("完成時間計算與格式化", async () => {
   expect(formatCompletionTime("2026-09-16T08:00:00.000Z", "2026-09-16T10:00:00.000Z")).toBe("2 小時");
   expect(formatCompletionTime("2026-09-16T08:00:00.000Z", "2026-09-16T08:00:20.000Z")).toBe("0 分鐘");
 });
+
+test("歷史日期時間格式化為 YYYY/MM/DD 上午/下午HH:mm", async () => {
+  const { formatDateTime } = await import("../../src/app/app/history-results");
+  expect(formatDateTime("")).toBe("—");
+  expect(formatDateTime("invalid-date")).toBe("—");
+  expect(formatDateTime("2026-09-30T16:00:00.000Z")).toBe("2026/10/01 上午12:00");
+  expect(formatDateTime("2026-09-24T06:21:00.000Z")).toBe("2026/09/24 下午02:21");
+});

@@ -29,12 +29,27 @@ const eventLabels: Record<string, string> = {
   laundry_batch_incident_recorded: "回報異常",
 };
 
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("zh-TW", {
-    dateStyle: "medium",
-    timeStyle: "short",
+export function formatDateTime(value: string | null | undefined): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const formatter = new Intl.DateTimeFormat("zh-TW", {
     timeZone: "Asia/Taipei",
-  }).format(new Date(value));
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+  const parts = formatter.formatToParts(date);
+  const year = parts.find((p) => p.type === "year")?.value ?? "";
+  const month = parts.find((p) => p.type === "month")?.value ?? "";
+  const day = parts.find((p) => p.type === "day")?.value ?? "";
+  const dayPeriod = parts.find((p) => p.type === "dayPeriod")?.value ?? "";
+  const hour = parts.find((p) => p.type === "hour")?.value ?? "";
+  const minute = parts.find((p) => p.type === "minute")?.value ?? "";
+  return `${year}/${month}/${day} ${dayPeriod}${hour}:${minute}`;
 }
 
 export function formatCompletionTime(createdAtIso: string, closedAtIso: string | null): string {
