@@ -1606,9 +1606,9 @@ export function LaundryOrderFlow3D({
                 <i>{selectedStep.state === "completed" ? "✓" : selectedStepIndex + 1}</i>
               </span>
               <span className={styles.flowSelectionCopy}>
-                <span>STEP {String(selectedStepIndex + 1).padStart(2, "0")} · {stateLabels[selectedStep.state]}</span>
+                <span className={styles.flowSelectionTag}>STEP {String(selectedStepIndex + 1).padStart(2, "0")} · {stateLabels[selectedStep.state]}</span>
                 <strong>{selectedStep.label}</strong>
-                <small>{selectedStep.detail}</small>
+                <span className={styles.flowSelectionDetail}>{selectedStep.detail}</span>
                 <FlowTimingDetails timing={selectedStep.timing} state={selectedStep.state} now={clock} />
               </span>
             </div>

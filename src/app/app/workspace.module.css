@@ -2463,11 +2463,38 @@
 .flowSelectionMotion[data-state="completed"] .flowSelectionVisual i { background: var(--flow-completed); }
 .flowSelectionMotion[data-state="pending"] .flowSelectionVisual i { color: #77706d; background: #eee8e5; }
 .flowSelectionCopy { display: grid; min-width: 0; gap: 7px; }
-.flowSelectionCopy > span { color: var(--flow-brand); font-size: .6rem; font-weight: 900; letter-spacing: .08em; }
-.flowSelectionMotion[data-state="completed"] .flowSelectionCopy > span { color: var(--flow-completed); }
-.flowSelectionMotion[data-state="pending"] .flowSelectionCopy > span { color: #89817e; }
+.flowSelectionTag { color: var(--flow-brand); font-size: .6rem; font-weight: 900; letter-spacing: .08em; }
+.flowSelectionMotion[data-state="completed"] .flowSelectionTag { color: var(--flow-completed); }
+.flowSelectionMotion[data-state="pending"] .flowSelectionTag { color: #89817e; }
 .flowSelectionCopy strong { overflow-wrap: anywhere; color: var(--flow-ink); font-size: clamp(1.3rem, 3.2cqi, 1.75rem); letter-spacing: -.02em; line-height: 1.05; }
-.flowSelectionCopy small { overflow-wrap: anywhere; color: #746a67; font-size: .69rem; line-height: 1.6; }
+.flowSelectionDetail {
+  justify-self: end;
+  text-align: right;
+  color: var(--flow-brand-dark, #8f232b);
+  font-size: clamp(.88rem, 2.2cqi, 1.05rem);
+  font-weight: 850;
+  line-height: 1.4;
+  padding: 6px 14px;
+  border-radius: 12px;
+  background: rgba(221, 55, 66, .08);
+  border: 1px solid rgba(221, 55, 66, .18);
+  box-shadow: 0 2px 8px rgba(182, 73, 78, .08);
+  letter-spacing: .02em;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.flowSelectionMotion[data-state="completed"] .flowSelectionDetail {
+  color: #0d553e;
+  background: rgba(46, 139, 107, .1);
+  border-color: rgba(46, 139, 107, .24);
+  box-shadow: 0 2px 8px rgba(46, 139, 107, .08);
+}
+.flowSelectionMotion[data-state="pending"] .flowSelectionDetail {
+  color: #5c5552;
+  background: rgba(0, 0, 0, .04);
+  border-color: rgba(0, 0, 0, .08);
+  box-shadow: none;
+}
 
 .flowTiming {
   display: grid;
