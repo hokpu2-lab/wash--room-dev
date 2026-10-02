@@ -164,6 +164,9 @@ function HistoryModal({
 
             <LaundryOrderFlow3D
               animateAllNodes
+              orderNumber={detail.order.orderNumber}
+              institutionName={detail.order.institutionName}
+              cartNumber={detail.order.cartNumber}
               orderStatus={detail.order.status}
               batches={detail.batches}
               orderCreatedAt={detail.order.createdAt}

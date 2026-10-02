@@ -182,9 +182,11 @@ function stageLabel(stage: FlowStage) {
   return stage.name;
 }
 
-function stageDetail(stage: FlowStage) {
+function stageDetail(stage: FlowStage, activeEquipmentName?: string | null, cartNumber?: string) {
   const label = stageLabel(stage);
-  return label === stage.name ? equipmentLabel(stage.equipmentType) : `${stage.name} · ${equipmentLabel(stage.equipmentType)}`;
+  const equip = activeEquipmentName || equipmentLabel(stage.equipmentType);
+  const base = label === stage.name ? equip : `${stage.name} · ${equip}`;
+  return cartNumber ? `${base} · 車號 ${cartNumber}` : base;
 }
 
 function stageVisual(stage: FlowStage): FlowVisual {
@@ -207,6 +209,7 @@ function getFlowSteps(
   orderStatus: WorkspaceOrder["status"],
   batches: WorkspaceBatchDetail[],
   orderTimes: Pick<LaundryOrderFlow3DProps, "orderCreatedAt" | "orderReceivedAt" | "orderReadyAt" | "orderClosedAt">,
+  cartNumber?: string,
 ): FlowStep[] {
   const procedureStages = getProcedureStages(batches);
   const firstStageStartedAt = earliestTimestamp(procedureStages.map((stage) => stage.startedAt));
@@ -217,7 +220,7 @@ function getFlowSteps(
     {
       id: "submitted",
       label: "送單",
-      detail: "洗衣單已建立",
+      detail: cartNumber ? `洗衣單已建立 · 車號 ${cartNumber}` : "洗衣單已建立",
       state: "completed",
       kind: "milestone",
       visual: "sending-staff",
@@ -226,7 +229,7 @@ function getFlowSteps(
     {
       id: "awaiting-receipt",
       label: "待收件",
-      detail: "等待洗衣員掃洗衣車固定 QR",
+      detail: cartNumber ? `等待洗衣員掃車 · 車號 ${cartNumber}` : "等待洗衣員掃洗衣車固定 QR",
       state: orderStatus === "awaiting_receipt" ? "active" : "completed",
       kind: "milestone",
       visual: "laundry-worker",
@@ -235,7 +238,7 @@ function getFlowSteps(
     {
       id: "awaiting-cleaning",
       label: "待清洗",
-      detail: "收單分類完成，等待第一個設備控制點",
+      detail: cartNumber ? `收單分類完成 · 車號 ${cartNumber}` : "收單分類完成，等待第一個設備控制點",
       state: orderStatus === "awaiting_receipt"
         ? "pending"
         : orderStatus === "awaiting_cleaning"
@@ -248,11 +251,14 @@ function getFlowSteps(
   ];
 
   procedureStages.forEach((stage, index) => {
+    const matchingBatch = batches.find((b) => b.stages.some((s) => s.stageOrder === stage.stageOrder && (s.state === "active" || s.startedAt)));
+    const activeEquip = matchingBatch?.activeEquipmentName ?? null;
+
     if (stage.equipmentType === "dryer" && index > 0) {
       steps.push({
         id: `waiting-before-${stage.stageOrder}-${stage.name}`,
         label: "待烘衣",
-        detail: "清洗完成後掃烘衣機開始下一階段",
+        detail: cartNumber ? `清洗完成等待烘衣 · 車號 ${cartNumber}` : "清洗完成後掃烘衣機開始下一階段",
         state: getWaitingStageState(orderStatus, batches, procedureStages, index),
         kind: "waiting",
         visual: "laundry-cart",
@@ -267,7 +273,7 @@ function getFlowSteps(
     steps.push({
       id: `stage-${stage.stageOrder}-${stage.name}`,
       label: stageLabel(stage),
-      detail: stageDetail(stage),
+      detail: stageDetail(stage, activeEquip, cartNumber),
       state: getStageState(orderStatus, batches, stage, index),
       kind: "stage",
       visual: stageVisual(stage),
@@ -280,7 +286,7 @@ function getFlowSteps(
     {
       id: "ready",
       label: "待取件",
-      detail: "等待送洗人員掃車領回",
+      detail: cartNumber ? `等待送洗人員掃車領回 · 車號 ${cartNumber}` : "等待送洗人員掃車領回",
       state: orderStatus === "ready_for_pickup"
         ? "active"
         : orderStatus === "picked_up"
@@ -293,7 +299,7 @@ function getFlowSteps(
     {
       id: "picked-up",
       label: "已取件",
-      detail: "洗衣單結案",
+      detail: cartNumber ? `洗衣單結案 · 車號 ${cartNumber}` : "洗衣單結案",
       state: orderStatus === "picked_up" ? "completed" : "pending",
       kind: "milestone",
       visual: "sending-staff",
@@ -830,7 +836,7 @@ export function LaundryOrderFlow3D({
     orderReceivedAt,
     orderReadyAt,
     orderClosedAt,
-  }), [batches, orderClosedAt, orderCreatedAt, orderReadyAt, orderReceivedAt, orderStatus]);
+  }, cartNumber), [batches, cartNumber, orderClosedAt, orderCreatedAt, orderReadyAt, orderReceivedAt, orderStatus]);
   const stepsRef = useRef(steps);
   const sceneSignature = steps
     .map((step) => `${step.id}:${step.state}:${step.visual}`)

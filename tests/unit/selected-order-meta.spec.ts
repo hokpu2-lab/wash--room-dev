@@ -100,4 +100,22 @@ describe("選取洗衣單卡片欄位與等待時間計算 (Selected Order Meta 
     expect(getEquipmentNameDisplay("in_process", ["本館洗衣-1"])).toBe("本館洗衣-1");
     expect(getEquipmentNameDisplay("in_process", ["洗衣機", "烘衣機"])).toBe("洗衣機、烘衣機");
   });
+
+  it("流程節點與焦點卡片應正確帶入車號資訊", () => {
+    function stageDetail(
+      stageName: string,
+      equipmentTypeLabel: string,
+      activeEquipmentName?: string | null,
+      cartNumber?: string,
+    ) {
+      const equip = activeEquipmentName || equipmentTypeLabel;
+      const base = stageName === equip ? equip : `${stageName} · ${equip}`;
+      return cartNumber ? `${base} · 車號 ${cartNumber}` : base;
+    }
+
+    expect(stageDetail("清洗", "洗衣機", null, "8E-1")).toBe("清洗 · 洗衣機 · 車號 8E-1");
+    expect(stageDetail("清洗", "洗衣機", "本館洗衣-1", "8E-1")).toBe("清洗 · 本館洗衣-1 · 車號 8E-1");
+    expect(stageDetail("烘乾", "烘衣機", null, "8E-1")).toBe("烘乾 · 烘衣機 · 車號 8E-1");
+    expect(stageDetail("清洗", "洗衣機", null, undefined)).toBe("清洗 · 洗衣機");
+  });
 });
