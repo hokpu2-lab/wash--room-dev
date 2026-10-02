@@ -341,6 +341,7 @@ export function LiveQueue({
   }, [activeSelectedId, orderDetails]);
 
   const awaitingReceiptCount = orders.filter((o) => o.status === "awaiting_receipt").length;
+  const inProcessCount = orders.filter((o) => o.status === "in_process").length;
   const awaitingCleaningCount = orders.filter((o) => o.status === "awaiting_cleaning").length;
 
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
@@ -422,6 +423,14 @@ export function LiveQueue({
               </button>
               <button
                 type="button"
+                className={statusFilter === "in_process" ? `${styles.filterPill} ${styles.filterPillOrange} ${styles.filterPillActive}` : `${styles.filterPill} ${styles.filterPillOrange}`}
+                onClick={() => setStatusFilter(statusFilter === "in_process" ? null : "in_process")}
+                aria-pressed={statusFilter === "in_process"}
+              >
+                處理中{inProcessCount > 0 ? ` (${inProcessCount})` : ""}
+              </button>
+              <button
+                type="button"
                 className={statusFilter === "awaiting_cleaning" ? `${styles.filterPill} ${styles.filterPillBlue} ${styles.filterPillActive}` : `${styles.filterPill} ${styles.filterPillBlue}`}
                 onClick={() => setStatusFilter(statusFilter === "awaiting_cleaning" ? null : "awaiting_cleaning")}
                 aria-pressed={statusFilter === "awaiting_cleaning"}
@@ -435,7 +444,7 @@ export function LiveQueue({
             <span>排序隊列 / {String(displayedOrders.length).padStart(2, "0")}</span>
             {statusFilter ? (
               <span className={styles.filterActiveNotice}>
-                （已篩選：{orderStatusLabel(statusFilter as any) || (statusFilter === "awaiting_receipt" ? "待收件" : "待清洗")}，共 {displayedOrders.length} 筆）
+                （已篩選：{orderStatusLabel(statusFilter as any) || "篩選項目"}，共 {displayedOrders.length} 筆）
               </span>
             ) : null}
           </div>
