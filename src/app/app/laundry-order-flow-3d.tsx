@@ -1551,6 +1551,8 @@ export function LaundryOrderFlow3D({
                 />
                 {selectedStep.state === "active" ? (
                   <span className={styles.flowActiveBadge}>進行中</span>
+                ) : selectedStep.state === "completed" ? (
+                  <span className={styles.flowCompletedBadge}>已完成</span>
                 ) : null}
                 <i>{selectedStep.state === "completed" ? "✓" : selectedStepIndex + 1}</i>
               </span>
