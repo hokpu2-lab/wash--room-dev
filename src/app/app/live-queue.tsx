@@ -169,6 +169,27 @@ function calculateWaitingTime(
   return mins > 0 ? `${hours} 小時 ${mins} 分鐘` : `${hours} 小時`;
 }
 
+function getOrderProgressDisplay(
+  order: WorkspaceOrder,
+  detail: WorkspaceOrderDetail | null,
+): string {
+  if (order.status === "awaiting_receipt") return "0%";
+  if (order.status === "ready_for_pickup" || order.status === "picked_up") return "100%";
+
+  if (detail?.batches && detail.batches.length > 0) {
+    const totalPercent = detail.batches.reduce(
+      (sum, b) => sum + (b.progress?.overallProgressPercent ?? 0),
+      0,
+    );
+    const avgPercent = Math.min(100, Math.max(0, Math.round(totalPercent / detail.batches.length)));
+    return `${avgPercent}%`;
+  }
+
+  if (order.status === "awaiting_cleaning") return "0%";
+  if (order.status === "in_process") return "25%";
+  return "0%";
+}
+
 function matchesSearch(order: WorkspaceOrder, term: string): boolean {
   if (!term) return true;
   const q = term.trim().toLocaleLowerCase("zh-Hant");
@@ -524,6 +545,12 @@ export function LiveQueue({
                   <span className={styles.orderMetaColLabel}>使用中設備</span>
                   <strong className={styles.orderMetaColVal}>
                     {getOrderStatusDisplay(selected, selectedDetail)}
+                  </strong>
+                </div>
+                <div className={styles.orderMetaCol}>
+                  <span className={styles.orderMetaColLabel}>進度</span>
+                  <strong className={styles.orderMetaColVal}>
+                    {getOrderProgressDisplay(selected, selectedDetail)}
                   </strong>
                 </div>
                 <div className={styles.orderMetaCol}>

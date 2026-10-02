@@ -58,4 +58,24 @@ describe("選取洗衣單卡片欄位與等待時間計算 (Selected Order Meta 
     const wait = calculateWaitingTime("awaiting_receipt", null, null);
     expect(wait).toBe("待收單");
   });
+
+  it("各階段進度應正確計算與格式化", () => {
+    function getOrderProgressDisplay(
+      orderStatus: string,
+      batchProgressList: number[] = [],
+    ): string {
+      if (orderStatus === "awaiting_receipt") return "0%";
+      if (orderStatus === "ready_for_pickup" || orderStatus === "picked_up") return "100%";
+      if (batchProgressList.length > 0) {
+        const total = batchProgressList.reduce((sum, p) => sum + p, 0);
+        return `${Math.min(100, Math.max(0, Math.round(total / batchProgressList.length)))}%`;
+      }
+      return "0%";
+    }
+
+    expect(getOrderProgressDisplay("awaiting_receipt")).toBe("0%");
+    expect(getOrderProgressDisplay("ready_for_pickup")).toBe("100%");
+    expect(getOrderProgressDisplay("in_process", [50])).toBe("50%");
+    expect(getOrderProgressDisplay("in_process", [50, 100])).toBe("75%");
+  });
 });
