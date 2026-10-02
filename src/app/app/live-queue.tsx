@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import type {
-  WorkspaceBatchDetail,
   WorkspaceEquipment,
   WorkspaceOrder,
   WorkspaceOrderDetail,
@@ -14,7 +13,6 @@ import { AppLink } from "./app-link";
 import { LaundryOrderFlow3D } from "./laundry-order-flow-3d";
 import { WashingModalContent } from "./operations/washing/modal-content";
 import {
-  batchStatusLabels,
   equipmentStatusLabels,
   equipmentTypeLabels,
   orderStatusLabel,
@@ -660,15 +658,6 @@ export function LiveQueue({
           <p className={styles.flowEmptyNotice}>選取一張洗衣單後，這裡會顯示目前允許的控制點與流程進度。</p>
         )}
 
-        {selectedDetail?.batches && selectedDetail.batches.length > 0 ? (
-          <div className={styles.orderDetailList} aria-label="洗衣單批次詳情">
-            <p className={styles.eyebrow}>BATCH DETAIL / 此單專屬批次（{selectedDetail.batches.length}）</p>
-            {selectedDetail.batches.map((batch) => (
-              <BatchDetail key={batch.id} batch={batch} readOnly={readOnly} />
-            ))}
-          </div>
-        ) : null}
-
         {equipment.length ? (
           <div className={styles.equipmentList}>
             <p className={styles.eyebrow}>EQUIPMENT</p>
@@ -727,60 +716,5 @@ export function LiveQueue({
         )
         : null}
     </section>
-  );
-}
-
-function BatchDetail({ batch, readOnly }: { batch: WorkspaceBatchDetail; readOnly: boolean }) {
-  const activeStage = batch.stages.find((stage) => stage.state === "active");
-  const currentStage = activeStage ?? batch.stages.find((stage) => stage.stageOrder === batch.currentStageOrder);
-  const activeEquipment = batch.activeEquipmentName
-    ? `${batch.activeEquipmentName}${batch.activeEquipmentType ? ` · ${equipmentTypeLabels[batch.activeEquipmentType]}` : ""}`
-    : currentStage?.equipmentType && currentStage.equipmentType !== "manual" && currentStage.equipmentType !== "cart"
-      ? equipmentTypeLabels[currentStage.equipmentType]
-      : "待控制點";
-  const statusLabel = batchStatusLabels[batch.status] ?? batch.status;
-  const statusClass = batch.status === "paused"
-    ? styles.badgeWarm
-    : batch.status === "completed" || batch.status === "loaded"
-      ? styles.badgeGreen
-      : styles.badgeTeal;
-
-  return (
-    <article className={styles.batchDetailCard} aria-label={`批次 ${batch.batchSequence} ${batch.categoryName}`}>
-      <header className={styles.batchDetailHead}>
-        <div>
-          <h3>B-{String(batch.batchSequence).padStart(3, "0")} · {batch.categoryName}</h3>
-          <p>{batch.procedureName} v{batch.procedureVersion} · {activeEquipment}</p>
-        </div>
-        <span className={`${styles.badge} ${statusClass}`}>{statusLabel}</span>
-      </header>
-
-      {batch.stages.length ? (
-        <ol className={styles.orderTimeline} aria-label="程序階段">
-          {batch.stages.map((stage) => (
-            <li
-              key={stage.stageOrder}
-              className={stage.state === "completed" ? styles.timelineCompleted : stage.state === "active" ? styles.timelineActive : styles.timelinePending}
-            >
-              <span aria-hidden="true">{stage.state === "completed" ? "✓" : stage.stageOrder}</span>
-              <div>
-                <strong>{stage.name}{stage.state === "completed" ? "已完成" : stage.state === "active" ? "實際狀態" : "等候控制點"}</strong>
-                <small>{stage.standardMinutes} 分鐘標準時間 · {stage.state === "active" ? Math.round(batch.progress.stageProgressPercent) : stage.state === "completed" ? 100 : 0}% 預估</small>
-              </div>
-            </li>
-          ))}
-        </ol>
-      ) : null}
-
-      <div className={styles.batchProgress}>
-        <div><strong>程序預估進度（不自動改實際狀態）</strong><b>{Math.round(batch.progress.overallProgressPercent)}%</b></div>
-        <progress max="100" value={batch.progress.overallProgressPercent} aria-label={`${batch.categoryName} 程序預估進度`} />
-        {batch.progress.overdueMinutes > 0 ? <small>已超過預估 {batch.progress.overdueMinutes} 分鐘，仍需人員確認。</small> : null}
-      </div>
-
-      {!readOnly && batch.progress.stageRunId && currentStage ? (
-        <p className={styles.detailActionHint}>再掃同一{batch.activeEquipmentType ? equipmentTypeLabels[batch.activeEquipmentType] : "設備"}結束{currentStage.name} ↗</p>
-      ) : null}
-    </article>
   );
 }
