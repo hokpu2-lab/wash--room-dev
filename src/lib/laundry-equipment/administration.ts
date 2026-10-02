@@ -22,6 +22,7 @@ const equipmentSchema = z.object({
   procedure_template_ids: z.array(z.uuid()).optional().default([]),
   active_institutions: z.array(z.string()).optional().default([]),
   active_cart_count: z.number().int().nonnegative().optional().default(0),
+  active_cart_numbers: z.array(z.string()).optional().default([]),
   operating_sites: z.union([namedSiteSchema, z.array(namedSiteSchema)]).transform((value) => (
     Array.isArray(value) ? value[0] ?? { code: "—", name: "—" } : value
   )),
@@ -112,12 +113,14 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
         laundry_batches (
           id,
           laundry_orders (
-            institutions (name)
+            institutions (name),
+            laundry_carts (cart_number)
           ),
           laundry_batch_sources (
             id,
             laundry_orders (
-              institutions (name)
+              institutions (name),
+              laundry_carts (cart_number)
             )
           )
         )
@@ -142,26 +145,45 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
       ]);
     }
   }
-  const equipmentUsageMap = new Map<string, { institutions: Set<string>; cartCount: number }>();
+  const equipmentUsageMap = new Map<string, { institutions: Set<string>; cartNumbers: Set<string>; cartCount: number }>();
   for (const row of activeRunsResult.data ?? []) {
     const equipId = (row as { laundry_equipment_id?: string | null })?.laundry_equipment_id;
     if (typeof equipId === "string" && equipId) {
       const current = equipmentUsageMap.get(equipId) ?? {
         institutions: new Set<string>(),
+        cartNumbers: new Set<string>(),
         cartCount: 0,
       };
+      const extractOrderInfo = (orderObj: unknown) => {
+        if (!orderObj || typeof orderObj !== "object") return;
+        const ord = orderObj as {
+          institutions?: { name?: string } | Array<{ name?: string }> | null;
+          laundry_carts?: { cart_number?: string } | Array<{ cart_number?: string }> | null;
+          cart_number?: string | null;
+        };
+        const inst = Array.isArray(ord.institutions) ? ord.institutions[0] : ord.institutions;
+        if (typeof inst?.name === "string" && inst.name.trim()) {
+          current.institutions.add(inst.name.trim());
+        }
+        const cart = Array.isArray(ord.laundry_carts) ? ord.laundry_carts[0] : ord.laundry_carts;
+        const cartNum = (typeof cart?.cart_number === "string" && cart.cart_number.trim()) || (typeof ord.cart_number === "string" && ord.cart_number.trim()) || null;
+        if (cartNum) {
+          current.cartNumbers.add(cartNum);
+        }
+      };
+
       const rowData = row as {
         laundry_batches?: {
-          laundry_orders?: { institutions?: { name?: string } | Array<{ name?: string }> | null } | Array<{ institutions?: { name?: string } | Array<{ name?: string }> | null }> | null;
+          laundry_orders?: unknown;
           laundry_batch_sources?: Array<{
             id?: string;
-            laundry_orders?: { institutions?: { name?: string } | Array<{ name?: string }> | null } | Array<{ institutions?: { name?: string } | Array<{ name?: string }> | null }> | null;
+            laundry_orders?: unknown;
           }> | null;
         } | Array<{
-          laundry_orders?: { institutions?: { name?: string } | Array<{ name?: string }> | null } | Array<{ institutions?: { name?: string } | Array<{ name?: string }> | null }> | null;
+          laundry_orders?: unknown;
           laundry_batch_sources?: Array<{
             id?: string;
-            laundry_orders?: { institutions?: { name?: string } | Array<{ name?: string }> | null } | Array<{ institutions?: { name?: string } | Array<{ name?: string }> | null }> | null;
+            laundry_orders?: unknown;
           }> | null;
         }> | null;
       };
@@ -172,18 +194,12 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
           current.cartCount += sources.length;
           for (const src of sources) {
             const order = Array.isArray(src.laundry_orders) ? src.laundry_orders[0] : src.laundry_orders;
-            const inst = Array.isArray(order?.institutions) ? order?.institutions[0] : order?.institutions;
-            if (typeof inst?.name === "string" && inst.name.trim()) {
-              current.institutions.add(inst.name.trim());
-            }
+            extractOrderInfo(order);
           }
         } else {
           current.cartCount += 1;
           const order = Array.isArray(batch.laundry_orders) ? batch.laundry_orders[0] : batch.laundry_orders;
-          const inst = Array.isArray(order?.institutions) ? order?.institutions[0] : order?.institutions;
-          if (typeof inst?.name === "string" && inst.name.trim()) {
-            current.institutions.add(inst.name.trim());
-          }
+          extractOrderInfo(order);
         }
       } else {
         current.cartCount += 1;
@@ -201,6 +217,7 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
         procedure_template_ids: procedureCaps.get(item.id) ?? [],
         active_institutions: usage ? Array.from(usage.institutions) : [],
         active_cart_count: usage ? usage.cartCount : (item.occupied ? 1 : 0),
+        active_cart_numbers: usage ? Array.from(usage.cartNumbers) : [],
       };
     }),
     categories: categoryResult.data ?? [],

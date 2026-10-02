@@ -2643,6 +2643,7 @@ const server = createServer(async (request, response) => {
           const order = laundryOrders.find((candidate) => candidate.id === batch.laundry_order_id);
           const cart = laundryCarts.find((candidate) => candidate.id === order?.laundry_cart_id);
           const instName = cart?.institutions?.name ?? "照護機構 A";
+          const cartNumber = cart?.cart_number ?? "8E-1";
           return {
             id: batch.active_stage_run_id,
             laundry_batch_id: batch.id,
@@ -2652,12 +2653,14 @@ const server = createServer(async (request, response) => {
               id: batch.id,
               laundry_orders: {
                 institutions: { name: instName },
+                laundry_carts: { cart_number: cartNumber },
               },
               laundry_batch_sources: [
                 {
                   id: `source-${batch.id}`,
                   laundry_orders: {
                     institutions: { name: instName },
+                    laundry_carts: { cart_number: cartNumber },
                   },
                 },
               ],
