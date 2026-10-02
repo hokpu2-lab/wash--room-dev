@@ -430,7 +430,26 @@ export function LiveQueue({
           </div>
 
           {displayedOrders.length === 0 ? (
-            <p className={styles.emptyQueue}>目前沒有符合條件的洗衣單。</p>
+            <div className={styles.emptyQueueBox}>
+              <p className={styles.emptyQueue}>目前沒有符合條件的洗衣單。</p>
+              {searchTerm || statusFilter ? (
+                <button
+                  type="button"
+                  className={styles.resetFilterBtn}
+                  onClick={() => {
+                    setSearchTerm("");
+                    setStatusFilter(null);
+                    if (typeof window !== "undefined") {
+                      const url = new URL(window.location.href);
+                      url.searchParams.delete("q");
+                      window.history.replaceState(null, "", url.toString());
+                    }
+                  }}
+                >
+                  🔄 清除搜尋與篩選條件
+                </button>
+              ) : null}
+            </div>
           ) : (
             <div className={styles.orderListContainer}>
               {displayedOrders.map((order) => {
