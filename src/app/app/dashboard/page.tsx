@@ -24,7 +24,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             <p className={styles.lede}>依授權範圍搜尋未結案洗衣單、查看選取詳情與目前洗滌批次；需要處理時再進入對應控制點。</p>
           </div>
         </header>
-        <Suspense fallback={<><SupervisorQueueKpiFallback /><LiveQueueFallback title="洗衣單清單" /></>}>
+        <Suspense fallback={<><SupervisorQueueKpiFallback /><LiveQueueFallback title="機構排程" /></>}>
           <DashboardLiveData
             query={typeof query.q === "string" ? query.q : undefined}
             page={typeof query.page === "string" && /^\d+$/.test(query.page) ? Number(query.page) : undefined}
@@ -61,7 +61,7 @@ async function DashboardLiveData({
       query={query}
       page={page}
       mode="queue"
-      queueTitle="洗衣單清單"
+      queueTitle="機構排程"
       variant="supervisor"
       selectedOrderId={selectedOrderId}
     />
