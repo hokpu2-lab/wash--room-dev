@@ -211,13 +211,12 @@ function matchesSearch(order: WorkspaceOrder, term: string): boolean {
 }
 
 export function LiveQueueFallback({ title = "洗衣排程" }: { title?: string } = {}) {
-  const displayTitle = title.includes("Order List") ? title : `${title} (Order List)`;
   return (
     <section className={styles.liveQueueSection} aria-labelledby="live-queue-title">
       <div className={styles.topCardsGrid}>
         <div className={styles.queueCard}>
           <div className={styles.queueCardHead}>
-            <h2 id="live-queue-title" className={styles.queueCardTitle}>{displayTitle}</h2>
+            <h2 id="live-queue-title" className={styles.queueCardTitle}>{title}</h2>
             <p className={styles.queueCardSubtitle}>載入中...</p>
           </div>
           <div className={styles.skeletonStack} aria-hidden="true">
@@ -228,7 +227,7 @@ export function LiveQueueFallback({ title = "洗衣排程" }: { title?: string }
         </div>
         <div className={styles.selectedOrderCardContainer}>
           <div className={styles.selectedOrderCardHeader}>
-            <h2 className={styles.selectedOrderCardTitle}>選取的洗衣單 (Selected Order)</h2>
+            <h2 className={styles.selectedOrderCardTitle}>選取的洗衣單</h2>
           </div>
           <div className={styles.skeletonStack} aria-hidden="true">
             <span className={styles.skeletonLine} />
@@ -341,7 +340,7 @@ export function LiveQueue({
     };
   }, [activeSelectedId, orderDetails]);
 
-  const inProcessCount = orders.filter((o) => o.status === "in_process").length;
+  const awaitingReceiptCount = orders.filter((o) => o.status === "awaiting_receipt").length;
   const awaitingCleaningCount = orders.filter((o) => o.status === "awaiting_cleaning").length;
 
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
@@ -369,21 +368,19 @@ export function LiveQueue({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [closeDetail, detailOpen]);
 
-  const displayTitle = title.includes("Order List") ? title : `${title} (Order List)`;
-
   return (
     <section className={styles.liveQueueSection} aria-labelledby="live-queue-title">
-      {/* Top Cards Row: Left (Order List) + Right (Selected Order) */}
+      {/* Top Cards Row: Left + Right */}
       <div className={styles.topCardsGrid}>
-        {/* Left Card: 洗衣單清單 (Order List) */}
+        {/* Left Card: 洗衣排程 */}
         <div className={styles.queueCard}>
           <div className={styles.queueCardHead}>
             <div>
               <h2 id="live-queue-title" className={styles.queueCardTitle}>
-                {displayTitle}
+                {title}
               </h2>
               <p className={styles.queueCardSubtitle}>
-                最後更新 : {formatLastUpdated(syncedAt)} (Last Updated)
+                最後更新 : {formatLastUpdated(syncedAt)}
               </p>
             </div>
           </div>
@@ -402,7 +399,7 @@ export function LiveQueue({
                 />
               </label>
               <button type="submit" className={styles.queueSearchBtn}>
-                搜尋 (Search)
+                搜尋
               </button>
             </form>
 
@@ -417,11 +414,11 @@ export function LiveQueue({
               </button>
               <button
                 type="button"
-                className={statusFilter === "in_process" ? `${styles.filterPill} ${styles.filterPillOrange} ${styles.filterPillActive}` : `${styles.filterPill} ${styles.filterPillOrange}`}
-                onClick={() => setStatusFilter(statusFilter === "in_process" ? null : "in_process")}
-                aria-pressed={statusFilter === "in_process"}
+                className={statusFilter === "awaiting_receipt" ? `${styles.filterPill} ${styles.filterPillGray} ${styles.filterPillActive}` : `${styles.filterPill} ${styles.filterPillGray}`}
+                onClick={() => setStatusFilter(statusFilter === "awaiting_receipt" ? null : "awaiting_receipt")}
+                aria-pressed={statusFilter === "awaiting_receipt"}
               >
-                處理中{inProcessCount > 0 ? ` (${inProcessCount})` : ""}
+                待收件{awaitingReceiptCount > 0 ? ` (${awaitingReceiptCount})` : ""}
               </button>
               <button
                 type="button"
@@ -438,7 +435,7 @@ export function LiveQueue({
             <span>排序隊列 / {String(displayedOrders.length).padStart(2, "0")}</span>
             {statusFilter ? (
               <span className={styles.filterActiveNotice}>
-                （已篩選：{statusFilter === "in_process" ? "處理中" : "待清洗"}，共 {displayedOrders.length} 筆）
+                （已篩選：{orderStatusLabel(statusFilter as any) || (statusFilter === "awaiting_receipt" ? "待收件" : "待清洗")}，共 {displayedOrders.length} 筆）
               </span>
             ) : null}
           </div>
@@ -513,11 +510,11 @@ export function LiveQueue({
           ) : null}
         </div>
 
-        {/* Right Card: 選取的洗衣單 (Selected Order) */}
+        {/* Right Card: 選取的洗衣單 */}
         <div className={styles.selectedOrderCardContainer} aria-label="選取洗衣單詳情">
           <div className={styles.selectedOrderCardHeader}>
             <h2 className={styles.selectedOrderCardTitle}>
-              選取的洗衣單 (Selected Order)
+              選取的洗衣單
             </h2>
           </div>
 

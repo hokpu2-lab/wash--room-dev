@@ -1425,6 +1425,23 @@
   box-shadow: 0 2px 6px rgba(245, 158, 11, 0.35);
 }
 
+.filterPillGray {
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  background: #f1f5f9;
+}
+
+.filterPillGray:hover {
+  background: #e2e8f0;
+}
+
+.filterPillGray.filterPillActive {
+  background: #64748b;
+  border-color: #475569;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(100, 116, 139, 0.35);
+}
+
 .filterPillBlue {
   border: 1px solid #bae6fd;
   color: #0369a1;
