@@ -99,8 +99,7 @@ function getEquipmentNameDisplay(
   detail: WorkspaceOrderDetail | null,
 ): string {
   if (order.status === "awaiting_receipt") return "待收單";
-  if (order.status === "ready_for_pickup") return "待取件";
-  if (order.status === "picked_up") return "已取件";
+  if (order.status === "ready_for_pickup" || order.status === "picked_up") return "已完成";
 
   if (detail?.batches && detail.batches.length > 0) {
     const equipmentNames = detail.batches.map((batch) => {
@@ -115,11 +114,15 @@ function getEquipmentNameDisplay(
         "洗衣機"
       );
     });
-    return Array.from(new Set(equipmentNames)).join("、");
+    const result = Array.from(new Set(equipmentNames)).join("、");
+    if (result === "待取件" || result === "已取件") return "已完成";
+    return result;
   }
 
   if (order.status === "awaiting_cleaning" || order.status === "in_process") return "洗衣機";
-  return orderStatusLabel(order.status) || "待清洗";
+  const label = orderStatusLabel(order.status) || "待清洗";
+  if (label === "待取件" || label === "已取件") return "已完成";
+  return label;
 }
 
 function getOrderStageProgressDisplay(
