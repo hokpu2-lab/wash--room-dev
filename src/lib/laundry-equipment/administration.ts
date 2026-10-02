@@ -98,35 +98,30 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
   const allSiteIds = principal.memberships.filter((m) => isLaundrySupervisorRole(m.role)).map((m) => m.operating_site_id).filter((id): id is string => id !== null);
   const siteIds = scope.siteId && allSiteIds.includes(scope.siteId) ? [scope.siteId] : allSiteIds;
   const supabase = await createServerSupabaseClient();
-  const [equipmentResult, categoryResult, procedureResult, siteResult, categoryCapResult, procedureCapResult, activeRunsResult] = await Promise.all([
+  const [
+    equipmentResult,
+    categoryResult,
+    procedureResult,
+    siteResult,
+    categoryCapResult,
+    procedureCapResult,
+    activeRunsResult,
+    activeBatchesResult,
+    allCartsResult,
+    allOrdersResult,
+    allSourcesResult,
+  ] = await Promise.all([
     supabase.from("laundry_equipment").select("id, name, equipment_type, capacity_kg, status, occupied, current_qr_version, operating_site_id, operating_sites(code, name)").in("operating_site_id", siteIds).order("name", { ascending: true }),
     supabase.from("laundry_categories").select("id, code, name").eq("active", true).order("sort_order", { ascending: true }),
     supabase.from("procedure_templates").select("id, operating_site_id, procedure_template_versions(template_name, status)").in("operating_site_id", siteIds),
     supabase.from("operating_sites").select("id, code, name").in("id", siteIds).order("code", { ascending: true }),
     supabase.from("laundry_equipment_categories").select("laundry_equipment_id, laundry_categories(code)"),
     supabase.from("laundry_equipment_procedures").select("laundry_equipment_id, procedure_template_id"),
-    supabase
-      .from("laundry_batch_stage_runs")
-      .select(`
-        id,
-        laundry_equipment_id,
-        laundry_batches (
-          id,
-          laundry_orders (
-            institutions (name),
-            laundry_carts (cart_number)
-          ),
-          laundry_batch_sources (
-            id,
-            laundry_orders (
-              institutions (name),
-              laundry_carts (cart_number)
-            )
-          )
-        )
-      `)
-      .in("status", ["in_progress", "paused"])
-      .in("operating_site_id", siteIds),
+    supabase.from("laundry_batch_stage_runs").select("id, laundry_equipment_id, laundry_batch_id, status").in("operating_site_id", siteIds),
+    supabase.from("laundry_batches").select("id, source_laundry_cart_id, laundry_order_id, status, active_stage_run_id").in("operating_site_id", siteIds),
+    supabase.from("laundry_carts").select("id, cart_number"),
+    supabase.from("laundry_orders").select("id, laundry_cart_id").in("operating_site_id", siteIds),
+    supabase.from("laundry_batch_sources").select("shared_batch_id, source_laundry_cart_id, laundry_order_id").in("operating_site_id", siteIds),
   ]);
   const categoryCaps = new Map<string, string[]>();
   for (const row of categoryCapResult.data ?? []) {
@@ -145,68 +140,110 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
       ]);
     }
   }
-  const equipmentUsageMap = new Map<string, { institutions: Set<string>; cartNumbers: Set<string>; cartCount: number }>();
-  for (const row of activeRunsResult.data ?? []) {
-    const equipId = (row as { laundry_equipment_id?: string | null })?.laundry_equipment_id;
-    if (typeof equipId === "string" && equipId) {
-      const current = equipmentUsageMap.get(equipId) ?? {
-        institutions: new Set<string>(),
-        cartNumbers: new Set<string>(),
-        cartCount: 0,
-      };
-      const extractOrderInfo = (orderObj: unknown) => {
-        if (!orderObj || typeof orderObj !== "object") return;
-        const ord = orderObj as {
-          institutions?: { name?: string } | Array<{ name?: string }> | null;
-          laundry_carts?: { cart_number?: string } | Array<{ cart_number?: string }> | null;
-          cart_number?: string | null;
-        };
-        const inst = Array.isArray(ord.institutions) ? ord.institutions[0] : ord.institutions;
-        if (typeof inst?.name === "string" && inst.name.trim()) {
-          current.institutions.add(inst.name.trim());
-        }
-        const cart = Array.isArray(ord.laundry_carts) ? ord.laundry_carts[0] : ord.laundry_carts;
-        const cartNum = (typeof cart?.cart_number === "string" && cart.cart_number.trim()) || (typeof ord.cart_number === "string" && ord.cart_number.trim()) || null;
-        if (cartNum) {
-          current.cartNumbers.add(cartNum);
-        }
-      };
 
-      const rowData = row as {
-        laundry_batches?: {
-          laundry_orders?: unknown;
-          laundry_batch_sources?: Array<{
-            id?: string;
-            laundry_orders?: unknown;
-          }> | null;
-        } | Array<{
-          laundry_orders?: unknown;
-          laundry_batch_sources?: Array<{
-            id?: string;
-            laundry_orders?: unknown;
-          }> | null;
-        }> | null;
-      };
-      const batch = Array.isArray(rowData.laundry_batches) ? rowData.laundry_batches[0] : rowData.laundry_batches;
-      if (batch) {
-        const sources = Array.isArray(batch.laundry_batch_sources) ? batch.laundry_batch_sources : [];
-        if (sources.length > 0) {
-          current.cartCount += sources.length;
-          for (const src of sources) {
-            const order = Array.isArray(src.laundry_orders) ? src.laundry_orders[0] : src.laundry_orders;
-            extractOrderInfo(order);
-          }
-        } else {
-          current.cartCount += 1;
-          const order = Array.isArray(batch.laundry_orders) ? batch.laundry_orders[0] : batch.laundry_orders;
-          extractOrderInfo(order);
+  const cartMap = new Map<string, string>();
+  for (const cart of (allCartsResult.data ?? []) as Array<{ id?: string; cart_number?: string }>) {
+    if (cart.id && cart.cart_number) {
+      cartMap.set(cart.id, cart.cart_number);
+    }
+  }
+
+  const orderToCartIdMap = new Map<string, string>();
+  for (const order of (allOrdersResult.data ?? []) as Array<{ id?: string; laundry_cart_id?: string }>) {
+    if (order.id && order.laundry_cart_id) {
+      orderToCartIdMap.set(order.id, order.laundry_cart_id);
+    }
+  }
+
+  const batchSourcesMap = new Map<string, Array<{ source_laundry_cart_id?: string | null; laundry_order_id?: string | null }>>();
+  for (const src of (allSourcesResult.data ?? []) as Array<{ shared_batch_id?: string; source_laundry_cart_id?: string | null; laundry_order_id?: string | null }>) {
+    if (src.shared_batch_id) {
+      batchSourcesMap.set(src.shared_batch_id, [...(batchSourcesMap.get(src.shared_batch_id) ?? []), src]);
+    }
+  }
+
+  const batchMap = new Map<string, { id: string; source_laundry_cart_id?: string | null; laundry_order_id?: string | null; status?: string | null; active_stage_run_id?: string | null }>();
+  for (const batch of (activeBatchesResult.data ?? []) as Array<{ id: string; source_laundry_cart_id?: string | null; laundry_order_id?: string | null; status?: string | null; active_stage_run_id?: string | null }>) {
+    if (batch.id) {
+      batchMap.set(batch.id, batch);
+    }
+  }
+
+  const runToBatchMap = new Map<string, { equipId: string; batchId: string }>();
+  for (const run of (activeRunsResult.data ?? []) as Array<{ id?: string; laundry_equipment_id?: string | null; laundry_batch_id?: string | null; status?: string | null }>) {
+    if (run.id && run.laundry_equipment_id && run.laundry_batch_id && (run.status === "in_progress" || run.status === "paused")) {
+      runToBatchMap.set(run.id, { equipId: run.laundry_equipment_id, batchId: run.laundry_batch_id });
+    }
+  }
+
+  const equipmentUsageMap = new Map<string, { cartNumbers: Set<string>; cartCount: number }>();
+  for (const run of (activeRunsResult.data ?? []) as Array<{ id?: string; laundry_equipment_id?: string | null; laundry_batch_id?: string | null; status?: string | null }>) {
+    const isRunActive = run.status === "in_progress" || run.status === "paused";
+    if (!isRunActive) continue;
+    const equipId = run.laundry_equipment_id;
+    const batchId = run.laundry_batch_id;
+    if (!equipId) continue;
+
+    const current = equipmentUsageMap.get(equipId) ?? {
+      cartNumbers: new Set<string>(),
+      cartCount: 0,
+    };
+
+    if (batchId) {
+      const sources = batchSourcesMap.get(batchId) ?? [];
+      if (sources.length > 0) {
+        current.cartCount += sources.length;
+        for (const src of sources) {
+          const cartId = src.source_laundry_cart_id || (src.laundry_order_id ? orderToCartIdMap.get(src.laundry_order_id) : null);
+          const cartNum = cartId ? cartMap.get(cartId) : null;
+          if (cartNum) current.cartNumbers.add(cartNum);
         }
       } else {
         current.cartCount += 1;
+        const batch = batchMap.get(batchId);
+        const cartId = batch?.source_laundry_cart_id || (batch?.laundry_order_id ? orderToCartIdMap.get(batch.laundry_order_id) : null);
+        const cartNum = cartId ? cartMap.get(cartId) : null;
+        if (cartNum) current.cartNumbers.add(cartNum);
       }
-      equipmentUsageMap.set(equipId, current);
+    }
+    equipmentUsageMap.set(equipId, current);
+  }
+
+  for (const batch of (activeBatchesResult.data ?? []) as Array<{ id: string; source_laundry_cart_id?: string | null; laundry_order_id?: string | null; status?: string | null; active_stage_run_id?: string | null }>) {
+    if (batch.active_stage_run_id) {
+      const runInfo = runToBatchMap.get(batch.active_stage_run_id);
+      if (runInfo?.equipId) {
+        const current = equipmentUsageMap.get(runInfo.equipId) ?? {
+          cartNumbers: new Set<string>(),
+          cartCount: 0,
+        };
+        const cartId = batch.source_laundry_cart_id || (batch.laundry_order_id ? orderToCartIdMap.get(batch.laundry_order_id) : null);
+        const cartNum = cartId ? cartMap.get(cartId) : null;
+        if (cartNum) current.cartNumbers.add(cartNum);
+        equipmentUsageMap.set(runInfo.equipId, current);
+      }
     }
   }
+
+  for (const item of (equipmentResult.data ?? []) as Array<{ id: string; occupied?: boolean }>) {
+    if (item.occupied) {
+      const current = equipmentUsageMap.get(item.id) ?? {
+        cartNumbers: new Set<string>(),
+        cartCount: 1,
+      };
+      if (current.cartNumbers.size === 0) {
+        for (const batch of (activeBatchesResult.data ?? []) as Array<{ id: string; source_laundry_cart_id?: string | null; laundry_order_id?: string | null; status?: string | null }>) {
+          if (batch.status === "in_progress" || batch.status === "paused") {
+            const cartId = batch.source_laundry_cart_id || (batch.laundry_order_id ? orderToCartIdMap.get(batch.laundry_order_id) : null);
+            const cartNum = cartId ? cartMap.get(cartId) : null;
+            if (cartNum) current.cartNumbers.add(cartNum);
+          }
+        }
+      }
+      equipmentUsageMap.set(item.id, current);
+    }
+  }
+
   const workspace = workspaceSchema.safeParse({
     equipment: (equipmentResult.data ?? []).map((item) => {
       const usage = equipmentUsageMap.get(item.id);
@@ -215,7 +252,7 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
         capacity_kg: 1,
         category_codes: categoryCaps.get(item.id) ?? [],
         procedure_template_ids: procedureCaps.get(item.id) ?? [],
-        active_institutions: usage ? Array.from(usage.institutions) : [],
+        active_institutions: [],
         active_cart_count: usage ? usage.cartCount : (item.occupied ? 1 : 0),
         active_cart_numbers: usage ? Array.from(usage.cartNumbers) : [],
       };

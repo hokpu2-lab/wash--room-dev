@@ -179,7 +179,6 @@ export default async function LaundryEquipmentPage({
                     <th>據點</th>
                     <th>可容納洗衣車</th>
                     <th>狀態</th>
-                    <th>機構</th>
                     <th>車號</th>
                     <th>操作</th>
                   </tr>
@@ -187,11 +186,6 @@ export default async function LaundryEquipmentPage({
                 <tbody>
                   {workspace.equipment.map((equipment) => {
                     const isOccupied = Boolean(equipment.occupied || (equipment.active_cart_count && equipment.active_cart_count > 0));
-                    const institutionText = isOccupied
-                      ? equipment.active_institutions && equipment.active_institutions.length > 0
-                        ? equipment.active_institutions.join("、")
-                        : "—"
-                      : "—";
                     const cartNumberText = isOccupied
                       ? equipment.active_cart_numbers && equipment.active_cart_numbers.length > 0
                         ? equipment.active_cart_numbers.join("、")
@@ -207,7 +201,6 @@ export default async function LaundryEquipmentPage({
                         </td>
                         <td>1 台</td>
                         <td>{isOccupied ? "使用中" : statusLabels[equipment.status]}</td>
-                        <td>{institutionText}</td>
                         <td>{cartNumberText}</td>
                         <td>
                           <a href={`/app/admin/laundry-equipment/${equipment.id}/qr`}>
