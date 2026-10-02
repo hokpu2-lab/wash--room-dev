@@ -1617,34 +1617,47 @@
 
 .orderMetaGridCard {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: 10px;
-  background: #eef7f2;
-  border: 1px solid #dcefe5;
+  grid-template-columns: minmax(130px, 1.4fr) minmax(65px, 0.8fr) minmax(130px, 1.3fr) minmax(105px, 1.1fr);
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f2f9f5 0%, #e6f3ec 100%);
+  border: 1px solid #cbe4d7;
+  box-shadow: 0 1px 3px rgba(16, 68, 48, 0.04);
   margin-bottom: 20px;
+  align-items: center;
 }
 
 .orderMetaCol {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .orderMetaColLabel {
-  color: #4b5563;
-  font-size: 0.8rem;
-  font-weight: 500;
-  margin-bottom: 4px;
+  color: #4f6d5e;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-bottom: 5px;
 }
 
 .orderMetaColVal {
-  color: #111827;
+  color: #0d231a;
   font-size: 0.95rem;
-  font-weight: 800;
+  font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .orderMetaGridCard {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    padding: 14px 16px;
+  }
 }
 
 .selectedOrderMainActionRow {
