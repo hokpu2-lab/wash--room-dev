@@ -42,12 +42,45 @@ test("已取件歷史結果解析成頁面使用的 DTO", () => {
   });
 });
 
-test("非已取件或缺少必要欄位的 RPC 結果不會進入頁面", () => {
+test("進行中訂單歷史結果解析成頁面使用的 DTO", () => {
+  const result = parseLaundryOrderHistory({
+    outcome: "ok",
+    site_id: siteId,
+    period: { start: "2026-08-01T00:00:00.000Z", end: "2026-09-01T00:00:00.000Z" },
+    queue: {
+      total: 1,
+      limit: 20,
+      offset: 0,
+      items: [{
+        id: orderId,
+        order_number: "MAIN-20260818-0002",
+        status: "in_process",
+        created_at: "2026-08-18T05:00:00.000Z",
+        closed_at: null,
+        institution_code: "CARE-A",
+        institution_name: "照護機構 A",
+        cart_number: "CART-A-01",
+        site_code: "MAIN",
+        site_name: "本館",
+      }],
+    },
+  }, { query: "0002", page: 1, pageSize: 20 });
+
+  expect(result).toMatchObject({ siteId, total: 1, query: "0002" });
+  expect(result?.items[0]).toMatchObject({
+    id: orderId,
+    orderNumber: "MAIN-20260818-0002",
+    status: "in_process",
+    closedAt: null,
+  });
+});
+
+test("缺少必要欄位的 RPC 結果不會進入頁面", () => {
   expect(parseLaundryOrderHistory({
     outcome: "ok",
     site_id: siteId,
     period: { start: "2026-08-01T00:00:00.000Z", end: "2026-09-01T00:00:00.000Z" },
-    queue: { total: 1, limit: 20, offset: 0, items: [{ id: orderId, order_number: "MAIN-20260818-0001", status: "in_process" }] },
+    queue: { total: 1, limit: 20, offset: 0, items: [{ id: orderId, order_number: "MAIN-20260818-0001" }] },
   }, { page: 1, pageSize: 20 })).toBeNull();
 });
 

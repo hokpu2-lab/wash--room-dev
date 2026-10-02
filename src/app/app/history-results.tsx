@@ -7,11 +7,31 @@ import type {
   LaundryOrderHistoryEvent,
   LaundryOrderHistoryItem,
 } from "@/lib/analytics/order-history-model";
-import type { WorkspaceBatchDetail } from "@/lib/analytics/workspace-snapshot";
+import type { WorkspaceBatchDetail, WorkspaceOrder } from "@/lib/analytics/workspace-snapshot";
 
 import { LaundryOrderFlow3D } from "./laundry-order-flow-3d";
-import { batchStatusLabels, equipmentTypeLabels } from "./status-labels";
+import { batchStatusLabels, equipmentTypeLabels, orderStatusLabels } from "./status-labels";
 import styles from "./workspace.module.css";
+
+function orderStatusBadgeClass(status: string) {
+  switch (status) {
+    case "picked_up":
+      return styles.badgeGreen;
+    case "ready_for_pickup":
+      return styles.badgeGreen;
+    case "in_process":
+      return styles.badgeWarm;
+    case "awaiting_cleaning":
+      return styles.badgeBlue;
+    case "awaiting_receipt":
+    default:
+      return styles.badgeNeutral;
+  }
+}
+
+function renderOrderStatusLabel(status: string) {
+  return orderStatusLabels[status as keyof typeof orderStatusLabels] ?? status;
+}
 
 const eventLabels: Record<string, string> = {
   laundry_order_created_from_cart_qr: "建立洗衣單",
@@ -185,7 +205,7 @@ function HistoryModal({
               <div><dt>送洗機構</dt><dd>{detail.order.institutionName}（{detail.order.institutionCode}）</dd></div>
               <div><dt>洗衣車</dt><dd>{detail.order.cartNumber}</dd></div>
               <div><dt>作業據點</dt><dd>{detail.order.siteName}（{detail.order.siteCode}）</dd></div>
-              <div><dt>目前狀態</dt><dd><span className={`${styles.badge} ${styles.badgeGreen}`}>已取件</span></dd></div>
+              <div><dt>目前狀態</dt><dd><span className={`${styles.badge} ${orderStatusBadgeClass(detail.order.status)}`}>{renderOrderStatusLabel(detail.order.status)}</span></dd></div>
               <div><dt>送單時間</dt><dd>{formatDateTime(detail.order.createdAt)}</dd></div>
               <div><dt>取件時間</dt><dd>{formatDateTime(detail.order.closedAt)}</dd></div>
             </dl>
@@ -195,7 +215,7 @@ function HistoryModal({
               orderNumber={detail.order.orderNumber}
               institutionName={detail.order.institutionName}
               cartNumber={detail.order.cartNumber}
-              orderStatus={detail.order.status}
+              orderStatus={detail.order.status as WorkspaceOrder["status"]}
               batches={detail.batches}
               orderCreatedAt={detail.order.createdAt}
               orderReceivedAt={firstEventTime(detail.events, "laundry_order_received")}
@@ -338,7 +358,7 @@ export function HistoryResults({ items }: { items: LaundryOrderHistoryItem[] }) 
                   <td>{formatDateTime(item.createdAt)}</td>
                   <td>{formatDateTime(item.closedAt)}</td>
                   <td>{formatCompletionTime(item.createdAt, item.closedAt)}</td>
-                  <td><span className={`${styles.badge} ${styles.badgeGreen}`}>已取件</span></td>
+                  <td><span className={`${styles.badge} ${orderStatusBadgeClass(item.status)}`}>{renderOrderStatusLabel(item.status)}</span></td>
                 </tr>
               ))}
             </tbody>

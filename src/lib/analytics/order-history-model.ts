@@ -5,9 +5,9 @@ import type { WorkspaceBatchDetail } from "./workspace-snapshot";
 const historyItemSchema = z.object({
   id: z.uuid(),
   order_number: z.string().min(1),
-  status: z.literal("picked_up"),
+  status: z.string().min(1),
   created_at: z.string(),
-  closed_at: z.string(),
+  closed_at: z.string().nullable(),
   institution_code: z.string().min(1),
   institution_name: z.string().min(1),
   cart_number: z.string().min(1),
@@ -86,9 +86,9 @@ const historyDetailRpcSchema = z.object({
   order: z.object({
     id: z.uuid(),
     order_number: z.string().min(1),
-    status: z.literal("picked_up"),
+    status: z.string().min(1),
     created_at: z.string(),
-    closed_at: z.string(),
+    closed_at: z.string().nullable(),
     institution_code: z.string().min(1),
     institution_name: z.string().min(1),
     cart_number: z.string().min(1),
@@ -102,9 +102,9 @@ const historyDetailRpcSchema = z.object({
 export type LaundryOrderHistoryItem = {
   id: string;
   orderNumber: string;
-  status: "picked_up";
+  status: string;
   createdAt: string;
-  closedAt: string;
+  closedAt: string | null;
   institutionCode: string;
   institutionName: string;
   cartNumber: string;

@@ -970,19 +970,18 @@ const server = createServer(async (request, response) => {
     const limit = Math.min(Math.max(Number(historyInput.order_limit) || 20, 1), 40);
     const offset = Math.min(Math.max(Number(historyInput.order_offset) || 0, 0), 1000000);
     const matches = laundryOrders
-      .filter((order) => order.status === "picked_up")
       .filter((order) => {
         const cart = laundryCarts.find((candidate) => candidate.id === order.laundry_cart_id);
         const siteCode = cart?.institutions?.operating_sites?.code;
         const site = organizationSites.find((candidate) => candidate.code === siteCode);
         if (site?.id !== targetSiteId) return false;
-        const closedAt = new Date(order.closed_at ?? order.updated_at ?? "1970-01-01T00:00:00.000Z");
-        if (!(closedAt >= periodStart && closedAt < periodEnd)) return false;
+        const orderTime = new Date(order.closed_at ?? order.created_at ?? order.updated_at ?? "1970-01-01T00:00:00.000Z");
+        if (!(orderTime >= periodStart && orderTime < periodEnd)) return false;
         if (!needle) return true;
         return [order.order_number, cart?.institutions?.code, cart?.institutions?.name, cart?.cart_number]
           .some((value) => typeof value === "string" && value.toLowerCase().includes(needle));
       })
-      .sort((left, right) => new Date(right.closed_at).valueOf() - new Date(left.closed_at).valueOf());
+      .sort((left, right) => new Date(right.closed_at ?? right.created_at ?? 0).valueOf() - new Date(left.closed_at ?? left.created_at ?? 0).valueOf());
     const items = matches.slice(offset, offset + limit).map((order) => {
       const cart = laundryCarts.find((candidate) => candidate.id === order.laundry_cart_id);
       const site = organizationSites.find((candidate) => candidate.code === cart?.institutions?.operating_sites?.code);
@@ -991,7 +990,7 @@ const server = createServer(async (request, response) => {
         order_number: order.order_number,
         status: order.status,
         created_at: order.created_at ?? "2026-08-18T05:00:00.000Z",
-        closed_at: order.closed_at ?? order.updated_at ?? "2026-08-18T08:00:00.000Z",
+        closed_at: order.closed_at ?? null,
         institution_code: cart?.institutions?.code ?? "CARE-A",
         institution_name: cart?.institutions?.name ?? "照護機構 A",
         cart_number: cart?.cart_number ?? "—",
@@ -1015,7 +1014,7 @@ const server = createServer(async (request, response) => {
     if (!requireSessionBearer(request, response)) return;
     const detailInput = await readJsonBody(request).catch(() => ({}));
     const order = laundryOrders.find((candidate) => candidate.id === detailInput.target_laundry_order_id);
-    if (!order || order.status !== "picked_up") {
+    if (!order) {
       json(response, 200, { outcome: "not_found", order_id: detailInput.target_laundry_order_id ?? null });
       return;
     }
@@ -1030,8 +1029,8 @@ const server = createServer(async (request, response) => {
         id: order.id,
         order_number: order.order_number,
         status: order.status,
-        created_at: order.created_at,
-        closed_at: order.closed_at,
+        created_at: order.created_at ?? "2026-08-18T05:00:00.000Z",
+        closed_at: order.closed_at ?? null,
         institution_code: institution?.code ?? "CARE-A",
         institution_name: institution?.name ?? "照護機構 A",
         cart_number: cart?.cart_number ?? "CART-MAIN-01",
