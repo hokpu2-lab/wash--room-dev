@@ -5,7 +5,6 @@ import { useState } from "react";
 import type { WorkspaceSnapshot } from "@/lib/analytics/workspace-snapshot";
 
 import { AppLink } from "./app-link";
-import { SupervisorBatchQueue } from "./batch-queue";
 import { LiveQueue } from "./live-queue";
 import { PendingReceiptModal } from "./operations/receive/pending-receipt-modal";
 import { equipmentStatusLabels, equipmentTypeLabels } from "./status-labels";
@@ -192,7 +191,6 @@ export function WorkspaceLive({
     page,
     pageSize,
   });
-  const [selectedOrderNumber, setSelectedOrderNumber] = useState<string | null>(null);
 
   return (
     <>
@@ -217,15 +215,7 @@ export function WorkspaceLive({
           title={queueTitle}
           syncedAt={syncedAt}
           selectedOrderId={selectedOrderId}
-          onSelectOrder={(_id, orderNum) => setSelectedOrderNumber(orderNum)}
         /> : null}
-      {variant === "supervisor" && mode === "queue" ? (
-        <SupervisorBatchQueue
-          batches={snapshot?.batches ?? []}
-          siteId={siteId}
-          selectedOrderNumber={selectedOrderNumber}
-        />
-      ) : null}
     </>
   );
 }
