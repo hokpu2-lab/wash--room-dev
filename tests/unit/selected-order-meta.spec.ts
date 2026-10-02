@@ -59,23 +59,45 @@ describe("選取洗衣單卡片欄位與等待時間計算 (Selected Order Meta 
     expect(wait).toBe("待收單");
   });
 
-  it("各階段進度應正確計算與格式化", () => {
-    function getOrderProgressDisplay(
+  it("各階段進度應顯示第幾階段而非百分比", () => {
+    function getOrderStageProgressDisplay(
       orderStatus: string,
-      batchProgressList: number[] = [],
+      stageOrders: number[] = [],
     ): string {
-      if (orderStatus === "awaiting_receipt") return "0%";
-      if (orderStatus === "ready_for_pickup" || orderStatus === "picked_up") return "100%";
-      if (batchProgressList.length > 0) {
-        const total = batchProgressList.reduce((sum, p) => sum + p, 0);
-        return `${Math.min(100, Math.max(0, Math.round(total / batchProgressList.length)))}%`;
+      if (orderStatus === "awaiting_receipt") return "待收單";
+      if (orderStatus === "ready_for_pickup") return "待取件";
+      if (orderStatus === "picked_up") return "已取件";
+      if (stageOrders.length > 0) {
+        return Array.from(new Set(stageOrders.map((o) => `第 ${o} 階段`))).join("、");
       }
-      return "0%";
+      return "第 1 階段";
     }
 
-    expect(getOrderProgressDisplay("awaiting_receipt")).toBe("0%");
-    expect(getOrderProgressDisplay("ready_for_pickup")).toBe("100%");
-    expect(getOrderProgressDisplay("in_process", [50])).toBe("50%");
-    expect(getOrderProgressDisplay("in_process", [50, 100])).toBe("75%");
+    expect(getOrderStageProgressDisplay("awaiting_receipt")).toBe("待收單");
+    expect(getOrderStageProgressDisplay("ready_for_pickup")).toBe("待取件");
+    expect(getOrderStageProgressDisplay("picked_up")).toBe("已取件");
+    expect(getOrderStageProgressDisplay("in_process", [1])).toBe("第 1 階段");
+    expect(getOrderStageProgressDisplay("in_process", [2])).toBe("第 2 階段");
+    expect(getOrderStageProgressDisplay("in_process", [1, 2])).toBe("第 1 階段、第 2 階段");
+  });
+
+  it("使用中設備欄位應專門顯示純設備名稱", () => {
+    function getEquipmentNameDisplay(
+      orderStatus: string,
+      batchEquipmentNames: string[] = [],
+    ): string {
+      if (orderStatus === "awaiting_receipt") return "待收單";
+      if (orderStatus === "ready_for_pickup") return "待取件";
+      if (orderStatus === "picked_up") return "已取件";
+      if (batchEquipmentNames.length > 0) {
+        return Array.from(new Set(batchEquipmentNames)).join("、");
+      }
+      return "洗衣機";
+    }
+
+    expect(getEquipmentNameDisplay("awaiting_receipt")).toBe("待收單");
+    expect(getEquipmentNameDisplay("ready_for_pickup")).toBe("待取件");
+    expect(getEquipmentNameDisplay("in_process", ["本館洗衣-1"])).toBe("本館洗衣-1");
+    expect(getEquipmentNameDisplay("in_process", ["洗衣機", "烘衣機"])).toBe("洗衣機、烘衣機");
   });
 });

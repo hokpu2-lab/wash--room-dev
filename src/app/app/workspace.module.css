@@ -1617,7 +1617,7 @@
 
 .orderMetaGridCard {
   display: grid;
-  grid-template-columns: minmax(135px, 1.4fr) minmax(46px, 0.5fr) minmax(50px, 0.5fr) minmax(120px, 1.2fr) minmax(110px, 1.1fr);
+  grid-template-columns: minmax(105px, 1.1fr) minmax(75px, 0.9fr) minmax(45px, 0.5fr) minmax(135px, 1.3fr) minmax(110px, 1.1fr);
   gap: 14px;
   padding: 16px 20px;
   border-radius: 12px;

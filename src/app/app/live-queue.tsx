@@ -94,34 +94,56 @@ function getEquipmentTypeName(type: string | undefined | null): string {
   return type;
 }
 
-function getOrderStatusDisplay(
+function getEquipmentNameDisplay(
   order: WorkspaceOrder,
   detail: WorkspaceOrderDetail | null,
 ): string {
-  if (order.status === "awaiting_receipt") return "待收單建批";
+  if (order.status === "awaiting_receipt") return "待收單";
   if (order.status === "ready_for_pickup") return "待取件";
   if (order.status === "picked_up") return "已取件";
 
   if (detail?.batches && detail.batches.length > 0) {
-    const batchDisplays = detail.batches.map((batch) => {
+    const equipmentNames = detail.batches.map((batch) => {
       const activeStage = batch.stages.find((s) => s.state === "active");
       const currentStage =
         activeStage ??
         batch.stages.find((s) => s.stageOrder === batch.currentStageOrder) ??
         batch.stages[0];
-      const equipmentName =
+      return (
         batch.activeEquipmentName ||
         (currentStage?.equipmentType && getEquipmentTypeName(currentStage.equipmentType)) ||
-        "洗衣機";
-      const stageOrder = currentStage?.stageOrder ?? batch.currentStageOrder ?? 1;
-      return `${equipmentName} · 第 ${stageOrder} 階段`;
+        "洗衣機"
+      );
     });
-    return Array.from(new Set(batchDisplays)).join("、");
+    return Array.from(new Set(equipmentNames)).join("、");
   }
 
-  if (order.status === "awaiting_cleaning") return "洗衣機 · 第 1 階段";
-  if (order.status === "in_process") return "洗衣機 · 第 1 階段";
+  if (order.status === "awaiting_cleaning" || order.status === "in_process") return "洗衣機";
   return orderStatusLabel(order.status) || "待清洗";
+}
+
+function getOrderStageProgressDisplay(
+  order: WorkspaceOrder,
+  detail: WorkspaceOrderDetail | null,
+): string {
+  if (order.status === "awaiting_receipt") return "待收單";
+  if (order.status === "ready_for_pickup") return "待取件";
+  if (order.status === "picked_up") return "已取件";
+
+  if (detail?.batches && detail.batches.length > 0) {
+    const stageDisplays = detail.batches.map((batch) => {
+      const activeStage = batch.stages.find((s) => s.state === "active");
+      const currentStage =
+        activeStage ??
+        batch.stages.find((s) => s.stageOrder === batch.currentStageOrder) ??
+        batch.stages[0];
+      const stageOrder = currentStage?.stageOrder ?? batch.currentStageOrder ?? 1;
+      return `第 ${stageOrder} 階段`;
+    });
+    return Array.from(new Set(stageDisplays)).join("、");
+  }
+
+  return "第 1 階段";
 }
 
 function calculateWaitingTime(
@@ -167,27 +189,6 @@ function calculateWaitingTime(
   const hours = Math.floor(diffMinutes / 60);
   const mins = diffMinutes % 60;
   return mins > 0 ? `${hours} 小時 ${mins} 分鐘` : `${hours} 小時`;
-}
-
-function getOrderProgressDisplay(
-  order: WorkspaceOrder,
-  detail: WorkspaceOrderDetail | null,
-): string {
-  if (order.status === "awaiting_receipt") return "0%";
-  if (order.status === "ready_for_pickup" || order.status === "picked_up") return "100%";
-
-  if (detail?.batches && detail.batches.length > 0) {
-    const totalPercent = detail.batches.reduce(
-      (sum, b) => sum + (b.progress?.overallProgressPercent ?? 0),
-      0,
-    );
-    const avgPercent = Math.min(100, Math.max(0, Math.round(totalPercent / detail.batches.length)));
-    return `${avgPercent}%`;
-  }
-
-  if (order.status === "awaiting_cleaning") return "0%";
-  if (order.status === "in_process") return "25%";
-  return "0%";
 }
 
 function matchesSearch(order: WorkspaceOrder, term: string): boolean {
@@ -544,13 +545,13 @@ export function LiveQueue({
                 <div className={styles.orderMetaCol}>
                   <span className={styles.orderMetaColLabel}>使用中設備</span>
                   <strong className={styles.orderMetaColVal}>
-                    {getOrderStatusDisplay(selected, selectedDetail)}
+                    {getEquipmentNameDisplay(selected, selectedDetail)}
                   </strong>
                 </div>
                 <div className={styles.orderMetaCol}>
                   <span className={styles.orderMetaColLabel}>進度</span>
                   <strong className={styles.orderMetaColVal}>
-                    {getOrderProgressDisplay(selected, selectedDetail)}
+                    {getOrderStageProgressDisplay(selected, selectedDetail)}
                   </strong>
                 </div>
                 <div className={styles.orderMetaCol}>
