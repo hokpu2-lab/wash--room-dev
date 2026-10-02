@@ -12,11 +12,13 @@ export function WashingModalContent({
   focusedBatchId,
   selectedOrderNumber,
   selectedCartNumber,
+  selectedInstitutionName,
 }: {
   siteId?: string;
   focusedBatchId?: string;
   selectedOrderNumber?: string;
   selectedCartNumber?: string;
+  selectedInstitutionName?: string;
 }) {
   const [batches, setBatches] = useState<ControlBatch[] | null>(null);
   const [resolvedSiteId, setResolvedSiteId] = useState<string | undefined>(siteId);
@@ -48,6 +50,10 @@ export function WashingModalContent({
     null;
   const targetBatchId = matchedBatch?.id ?? focusedBatchId;
 
+  const currentInstitution = matchedBatch?.institutionName || selectedInstitutionName;
+  const currentCart = matchedBatch?.cartNumber || selectedCartNumber;
+  const currentOrderNumber = matchedBatch?.orderNumber || selectedOrderNumber;
+
   return (
     <section className={styles.panel} aria-labelledby="washing-modal-title">
       <header className={styles.pageHeader}>
@@ -62,6 +68,9 @@ export function WashingModalContent({
           batches={batches}
           siteId={resolvedSiteId}
           focusedBatchId={targetBatchId}
+          selectedInstitutionName={currentInstitution}
+          selectedCartNumber={currentCart}
+          selectedOrderNumber={currentOrderNumber}
         />
       </Suspense>
     </section>

@@ -628,6 +628,7 @@ export function LiveQueue({
                   siteId={siteId}
                   selectedOrderNumber={selected.orderNumber}
                   selectedCartNumber={selected.cartNumber}
+                  selectedInstitutionName={selected.institutionName}
                   focusedBatchId={selectedDetail?.batches[0]?.id}
                 />
               )}

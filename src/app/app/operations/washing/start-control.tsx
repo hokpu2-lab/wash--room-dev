@@ -41,11 +41,17 @@ export function StartWashingControl({
   siteId,
   mode = "start",
   focusedBatchId,
+  selectedInstitutionName,
+  selectedCartNumber,
+  selectedOrderNumber,
 }: {
   batches: Batch[];
   siteId?: string;
   mode?: "start" | "complete";
   focusedBatchId?: string;
+  selectedInstitutionName?: string;
+  selectedCartNumber?: string;
+  selectedOrderNumber?: string;
 }) {
   const { batches } = useLiveBatches(
     initial,
@@ -151,6 +157,10 @@ export function StartWashingControl({
   );
 
   const selectedBatch = batches.find((b) => b.id === batchId);
+  const displayInstitution = selectedBatch?.institutionName || selectedInstitutionName;
+  const displayCart = selectedBatch?.cartNumber || selectedCartNumber;
+  const displayOrderNumber = selectedBatch?.orderNumber || selectedOrderNumber;
+
   const isSiteMismatch = Boolean(
     selectedBatch?.operating_site_id &&
       equipmentInfo?.operatingSiteId &&
@@ -243,6 +253,44 @@ export function StartWashingControl({
             >
               🔄 清除此設備快取 / 重新掃描
             </button>
+          </div>
+        ) : null}
+
+        {displayInstitution || displayCart || displayOrderNumber ? (
+          <div
+            style={{
+              margin: "0.5rem 0",
+              padding: "0.5rem 0.75rem",
+              background: "rgba(255, 255, 255, 0.08)",
+              border: "1px solid rgba(255, 255, 255, 0.15)",
+              borderRadius: "6px",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.75rem 1.25rem",
+              flexWrap: "wrap",
+              fontSize: "0.9rem",
+            }}
+          >
+            <span>
+              機構：
+              <strong style={{ color: "#ffffff", fontWeight: 700 }}>
+                {displayInstitution || "未指定"}
+              </strong>
+            </span>
+            <span>
+              車號：
+              <strong style={{ color: "#ffffff", fontWeight: 700 }}>
+                {displayCart || "未指定"}
+              </strong>
+            </span>
+            {displayOrderNumber ? (
+              <span>
+                單號：
+                <strong style={{ color: "#ffffff" }}>
+                  {displayOrderNumber}
+                </strong>
+              </span>
+            ) : null}
           </div>
         ) : null}
 
