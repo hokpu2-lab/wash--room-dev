@@ -17,17 +17,6 @@ type FlowStepKind = "milestone" | "stage" | "waiting";
 type FlowDirection = "forward" | "backward";
 type FlowVisual = "sending-staff" | "laundry-worker" | "laundry-cart" | "disinfection-tank" | "washer" | "dryer";
 type FlowEquipmentType = WorkspaceProcedureStage["equipmentType"];
-type FlowPhase = {
-  id: "handoff" | "care" | "return";
-  index: number;
-  label: string;
-  eyebrow: string;
-  detail: string;
-  state: FlowState;
-  startIndex: number;
-  endIndex: number;
-  targetIndex: number;
-};
 type FlowStage = Omit<
   Pick<
     WorkspaceProcedureStage,
@@ -323,41 +312,6 @@ function getFlowSummary(steps: FlowStep[], orderStatus: WorkspaceOrder["status"]
     completedCount,
     currentStep,
   };
-}
-
-function getFlowPhases(steps: FlowStep[]): FlowPhase[] {
-  const phaseDefinitions = [
-    { id: "handoff" as const, label: "照護交接", eyebrow: "01 · HANDOFF", detail: "送單、收件與分類", startIndex: 0, endIndex: Math.min(2, steps.length - 1) },
-    { id: "care" as const, label: "專業洗滌", eyebrow: "02 · LAUNDRY", detail: "消毒、清洗與烘乾", startIndex: Math.min(3, steps.length - 1), endIndex: Math.max(0, steps.length - 3) },
-    { id: "return" as const, label: "安心送回", eyebrow: "03 · RETURN", detail: "待取件與完成領回", startIndex: Math.max(0, steps.length - 2), endIndex: Math.max(0, steps.length - 1) },
-  ];
-
-  return phaseDefinitions.map((phase, index) => {
-    const startIndex = Math.min(phase.startIndex, phase.endIndex);
-    const endIndex = Math.max(phase.startIndex, phase.endIndex);
-    const phaseSteps = steps.slice(startIndex, endIndex + 1);
-    const activeOffset = phaseSteps.findIndex((step) => step.state === "active");
-    const pendingOffset = phaseSteps.findIndex((step) => step.state === "pending");
-    const state: FlowState = phaseSteps.length > 0 && phaseSteps.every((step) => step.state === "completed")
-      ? "completed"
-      : activeOffset >= 0
-        ? "active"
-        : "pending";
-    const targetOffset = activeOffset >= 0
-      ? activeOffset
-      : pendingOffset >= 0
-        ? pendingOffset
-        : Math.max(0, phaseSteps.length - 1);
-
-    return {
-      ...phase,
-      index,
-      state,
-      startIndex,
-      endIndex,
-      targetIndex: startIndex + targetOffset,
-    };
-  });
 }
 
 const flowDateTimeFormatter = new Intl.DateTimeFormat("zh-TW", {
@@ -845,7 +799,6 @@ export function LaundryOrderFlow3D({
     .map((step) => `${step.id}:${step.state}:${step.visual}`)
     .join("|");
   const summary = useMemo(() => getFlowSummary(steps, orderStatus), [orderStatus, steps]);
-  const phases = useMemo(() => getFlowPhases(steps), [steps]);
   const completionPercent = Math.round(summary.completedCount / steps.length * 100);
   const defaultStepId = steps.find((step) => step.state === "active")?.id
     ?? steps.find((step) => step.state === "pending")?.id
@@ -1536,24 +1489,6 @@ export function LaundryOrderFlow3D({
         </span>
         <b>{String(completionPercent).padStart(2, "0")}%</b>
       </div>
-
-      <nav className={styles.flowPhaseRail} aria-label="洗衣旅程三大階段">
-        {phases.map((phase) => (
-          <button
-            key={phase.id}
-            type="button"
-            data-state={phase.state}
-            data-selected={selectedStepIndex >= phase.startIndex && selectedStepIndex <= phase.endIndex}
-            onClick={() => selectStep(phase.targetIndex)}
-            aria-label={`查看${phase.label}：${stateLabels[phase.state]}`}
-          >
-            <span>{phase.eyebrow}</span>
-            <strong>{phase.label}</strong>
-            <small>{phase.detail}</small>
-            <i aria-hidden="true">{phase.state === "completed" ? "✓" : phase.index + 1}</i>
-          </button>
-        ))}
-      </nav>
 
       <div className={styles.flowJourneyStage}>
         <div className={styles.flowCanvasStage} role="group" aria-label="LIVE PROCESS MAP">
