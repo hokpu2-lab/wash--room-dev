@@ -42,7 +42,7 @@ test("已取件歷史結果解析成頁面使用的 DTO", () => {
   });
 });
 
-test("進行中訂單歷史結果解析成頁面使用的 DTO", () => {
+test("進行中訂單歷史結果解析成頁面使用的 DTO（含 stageName 待烘衣/待洗衣/待清洗/待取件/取件完成）", () => {
   const result = parseLaundryOrderHistory({
     outcome: "ok",
     site_id: siteId,
@@ -55,6 +55,7 @@ test("進行中訂單歷史結果解析成頁面使用的 DTO", () => {
         id: orderId,
         order_number: "MAIN-20260818-0002",
         status: "in_process",
+        stage_name: "待烘衣",
         created_at: "2026-08-18T05:00:00.000Z",
         closed_at: null,
         institution_code: "CARE-A",
@@ -71,6 +72,7 @@ test("進行中訂單歷史結果解析成頁面使用的 DTO", () => {
     id: orderId,
     orderNumber: "MAIN-20260818-0002",
     status: "in_process",
+    stageName: "待烘衣",
     closedAt: null,
   });
 });

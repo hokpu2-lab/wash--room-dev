@@ -13,23 +13,29 @@ import { LaundryOrderFlow3D } from "./laundry-order-flow-3d";
 import { batchStatusLabels, equipmentTypeLabels, orderStatusLabels } from "./status-labels";
 import styles from "./workspace.module.css";
 
-function orderStatusBadgeClass(status: string) {
-  switch (status) {
-    case "picked_up":
-      return styles.badgeGreen;
-    case "ready_for_pickup":
-      return styles.badgeGreen;
-    case "in_process":
-      return styles.badgeWarm;
-    case "awaiting_cleaning":
-      return styles.badgeBlue;
-    case "awaiting_receipt":
-    default:
-      return styles.badgeNeutral;
+function orderStatusBadgeClass(status: string, stageName?: string | null) {
+  const display = stageName || status;
+  if (display === "取件完成" || display === "已取件" || status === "picked_up") {
+    return styles.badgeGreen;
   }
+  if (display === "待取件" || status === "ready_for_pickup") {
+    return styles.badgeGreen;
+  }
+  if (display === "待烘衣" || display === "烘乾中" || status === "in_process") {
+    return styles.badgeWarm;
+  }
+  if (display === "待洗衣" || display === "待清洗" || display === "清洗中" || status === "awaiting_cleaning") {
+    return styles.badgeBlue;
+  }
+  if (display === "待收件" || display === "待收單" || status === "awaiting_receipt") {
+    return styles.badgeNeutral;
+  }
+  return styles.badgeWarm;
 }
 
-function renderOrderStatusLabel(status: string) {
+function renderOrderStatusLabel(status: string, stageName?: string | null) {
+  if (stageName) return stageName;
+  if (status === "picked_up") return "取件完成";
   return orderStatusLabels[status as keyof typeof orderStatusLabels] ?? status;
 }
 
@@ -205,7 +211,7 @@ function HistoryModal({
               <div><dt>送洗機構</dt><dd>{detail.order.institutionName}（{detail.order.institutionCode}）</dd></div>
               <div><dt>洗衣車</dt><dd>{detail.order.cartNumber}</dd></div>
               <div><dt>作業據點</dt><dd>{detail.order.siteName}（{detail.order.siteCode}）</dd></div>
-              <div><dt>目前狀態</dt><dd><span className={`${styles.badge} ${orderStatusBadgeClass(detail.order.status)}`}>{renderOrderStatusLabel(detail.order.status)}</span></dd></div>
+              <div><dt>目前狀態</dt><dd><span className={`${styles.badge} ${orderStatusBadgeClass(detail.order.status, detail.order.stageName)}`}>{renderOrderStatusLabel(detail.order.status, detail.order.stageName)}</span></dd></div>
               <div><dt>送單時間</dt><dd>{formatDateTime(detail.order.createdAt)}</dd></div>
               <div><dt>取件時間</dt><dd>{formatDateTime(detail.order.closedAt)}</dd></div>
             </dl>
@@ -358,7 +364,7 @@ export function HistoryResults({ items }: { items: LaundryOrderHistoryItem[] }) 
                   <td>{formatDateTime(item.createdAt)}</td>
                   <td>{formatDateTime(item.closedAt)}</td>
                   <td>{formatCompletionTime(item.createdAt, item.closedAt)}</td>
-                  <td><span className={`${styles.badge} ${orderStatusBadgeClass(item.status)}`}>{renderOrderStatusLabel(item.status)}</span></td>
+                  <td><span className={`${styles.badge} ${orderStatusBadgeClass(item.status, item.stageName)}`}>{renderOrderStatusLabel(item.status, item.stageName)}</span></td>
                 </tr>
               ))}
             </tbody>

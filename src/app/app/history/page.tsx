@@ -92,7 +92,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
       <section className={styles.panel} aria-labelledby="history-title">
         <header className={styles.pageHeader}>
           <div>
-            <p className={styles.eyebrow}>COMPLETED ORDERS</p>
+            <p className={styles.eyebrow}>ORDER STATUS</p>
             <h1 id="history-title">洗衣單狀態</h1>
           </div>
           <AppLink className={styles.headerLink} href={withWorkspaceScope("/app/dashboard", scope)}>
@@ -115,7 +115,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
             搜尋單號、機構或洗衣車
             <input name="q" defaultValue={searchQuery} maxLength={120} placeholder="例如 MAIN-20260827-0001" />
           </label>
-          <button type="submit">查詢歷史洗衣單</button>
+          <button type="submit">查詢洗衣單狀態</button>
         </form>
 
         {!history ? (

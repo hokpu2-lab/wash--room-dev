@@ -985,10 +985,24 @@ const server = createServer(async (request, response) => {
     const items = matches.slice(offset, offset + limit).map((order) => {
       const cart = laundryCarts.find((candidate) => candidate.id === order.laundry_cart_id);
       const site = organizationSites.find((candidate) => candidate.code === cart?.institutions?.operating_sites?.code);
+      const orderBatch = laundryBatches.find((batch) => batch.laundry_order_id === order.id);
+      let stageName = "處理中";
+      if (order.status === "picked_up") stageName = "取件完成";
+      else if (order.status === "ready_for_pickup") stageName = "待取件";
+      else if (order.status === "awaiting_receipt") stageName = "待收件";
+      else if (order.status === "awaiting_cleaning") stageName = "待清洗";
+      else if (orderBatch) {
+        if (orderBatch.current_stage_order === 1) {
+          stageName = orderBatch.status === "in_progress" ? "清洗中" : "待洗衣";
+        } else if (orderBatch.current_stage_order === 2) {
+          stageName = orderBatch.status === "in_progress" ? "烘乾中" : "待烘衣";
+        }
+      }
       return {
         id: order.id,
         order_number: order.order_number,
         status: order.status,
+        stage_name: stageName,
         created_at: order.created_at ?? "2026-08-18T05:00:00.000Z",
         closed_at: order.closed_at ?? null,
         institution_code: cart?.institutions?.code ?? "CARE-A",
@@ -1023,12 +1037,25 @@ const server = createServer(async (request, response) => {
     const institution = cart?.institutions;
     const site = organizationSites.find((candidate) => candidate.code === institution?.operating_sites?.code);
     const orderBatch = laundryBatches.find((batch) => batch.laundry_order_id === order.id);
+    let stageName = "處理中";
+    if (order.status === "picked_up") stageName = "取件完成";
+    else if (order.status === "ready_for_pickup") stageName = "待取件";
+    else if (order.status === "awaiting_receipt") stageName = "待收件";
+    else if (order.status === "awaiting_cleaning") stageName = "待清洗";
+    else if (orderBatch) {
+      if (orderBatch.current_stage_order === 1) {
+        stageName = orderBatch.status === "in_progress" ? "清洗中" : "待洗衣";
+      } else if (orderBatch.current_stage_order === 2) {
+        stageName = orderBatch.status === "in_progress" ? "烘乾中" : "待烘衣";
+      }
+    }
     json(response, 200, {
       outcome: "ok",
       order: {
         id: order.id,
         order_number: order.order_number,
         status: order.status,
+        stage_name: stageName,
         created_at: order.created_at ?? "2026-08-18T05:00:00.000Z",
         closed_at: order.closed_at ?? null,
         institution_code: institution?.code ?? "CARE-A",

@@ -6,6 +6,7 @@ const historyItemSchema = z.object({
   id: z.uuid(),
   order_number: z.string().min(1),
   status: z.string().min(1),
+  stage_name: z.string().optional().nullable(),
   created_at: z.string(),
   closed_at: z.string().nullable(),
   institution_code: z.string().min(1),
@@ -87,6 +88,7 @@ const historyDetailRpcSchema = z.object({
     id: z.uuid(),
     order_number: z.string().min(1),
     status: z.string().min(1),
+    stage_name: z.string().optional().nullable(),
     created_at: z.string(),
     closed_at: z.string().nullable(),
     institution_code: z.string().min(1),
@@ -103,6 +105,7 @@ export type LaundryOrderHistoryItem = {
   id: string;
   orderNumber: string;
   status: string;
+  stageName?: string | null;
   createdAt: string;
   closedAt: string | null;
   institutionCode: string;
@@ -167,6 +170,7 @@ export function parseLaundryOrderHistory(
       id: item.id,
       orderNumber: item.order_number,
       status: item.status,
+      stageName: item.stage_name ?? null,
       createdAt: item.created_at,
       closedAt: item.closed_at,
       institutionCode: item.institution_code,
@@ -191,6 +195,7 @@ export function parseLaundryOrderHistoryDetail(data: unknown): LaundryOrderHisto
       id: parsed.data.order.id,
       orderNumber: parsed.data.order.order_number,
       status: parsed.data.order.status,
+      stageName: parsed.data.order.stage_name ?? null,
       createdAt: parsed.data.order.created_at,
       closedAt: parsed.data.order.closed_at,
       institutionCode: parsed.data.order.institution_code,

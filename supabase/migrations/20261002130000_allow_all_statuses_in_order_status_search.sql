@@ -94,15 +94,19 @@ begin
           on cart.id = laundry_order.laundry_cart_id
         where laundry_order.operating_site_id = site_id
           and (
-            (laundry_order.status = 'picked_up' and laundry_order.closed_at >= period_start and laundry_order.closed_at < period_end)
+            (laundry_order.status = 'picked_up' and coalesce(laundry_order.closed_at, laundry_order.updated_at, laundry_order.created_at) >= period_start and coalesce(laundry_order.closed_at, laundry_order.updated_at, laundry_order.created_at) < period_end)
             or
-            (laundry_order.status <> 'picked_up' and laundry_order.created_at >= period_start and laundry_order.created_at < period_end)
+            (laundry_order.status <> 'picked_up' and (
+              (laundry_order.created_at >= period_start and laundry_order.created_at < period_end)
+              or (coalesce(laundry_order.updated_at, laundry_order.created_at) >= period_start and coalesce(laundry_order.updated_at, laundry_order.created_at) < period_end)
+            ))
           )
           and (site_wide or laundry_order.institution_id = any (scoped_institutions))
           and (target_institution_id is null or laundry_order.institution_id = target_institution_id)
           and (
             needle is null
             or laundry_order.order_number ilike '%' || needle || '%'
+            or laundry_order.status ilike '%' || needle || '%'
             or institution.code ilike '%' || needle || '%'
             or institution.name ilike '%' || needle || '%'
             or cart.cart_number ilike '%' || needle || '%'
@@ -117,6 +121,44 @@ begin
             'id', laundry_order.id,
             'order_number', laundry_order.order_number,
             'status', laundry_order.status,
+            'stage_name', (
+              select case
+                when laundry_order.status = 'picked_up' then '取件完成'
+                when laundry_order.status = 'ready_for_pickup' then '待取件'
+                when laundry_order.status = 'awaiting_receipt' then '待收件'
+                when laundry_order.status = 'awaiting_cleaning' then '待清洗'
+                when laundry_order.status = 'in_process' then (
+                  select case
+                    when active_run.id is not null and stage.equipment_type = 'washer' then '清洗中'
+                    when active_run.id is not null and stage.equipment_type = 'dryer' then '烘乾中'
+                    when active_run.id is not null and stage.equipment_type = 'disinfection_tank' then '消毒中'
+                    when batch.status = 'not_started' and stage.equipment_type = 'washer' then '待洗衣'
+                    when batch.status = 'not_started' and stage.equipment_type = 'dryer' then '待烘衣'
+                    when batch.status = 'not_started' and stage.equipment_type = 'disinfection_tank' then '待消毒'
+                    when batch.status in ('completed', 'loaded') then '待取件'
+                    when stage.name is not null then stage.name
+                    else '處理中'
+                  end
+                  from public.laundry_batches as batch
+                  left join public.procedure_template_stages as stage
+                    on stage.procedure_version_id = batch.procedure_version_id
+                   and stage.stage_order = batch.current_stage_order
+                  left join public.laundry_batch_stage_runs as active_run
+                    on active_run.id = batch.active_stage_run_id
+                  where batch.laundry_order_id = laundry_order.id
+                    and batch.status <> 'cancelled'
+                  order by case
+                    when active_run.id is not null then 1
+                    when batch.status = 'in_progress' then 2
+                    when batch.status = 'not_started' and stage.equipment_type = 'dryer' then 3
+                    when batch.status = 'not_started' and stage.equipment_type = 'washer' then 4
+                    else 5
+                  end, batch.batch_sequence asc
+                  limit 1
+                )
+                else '處理中'
+              end
+            ),
             'created_at', laundry_order.created_at,
             'closed_at', laundry_order.closed_at,
             'institution_code', institution.code,
@@ -134,15 +176,19 @@ begin
             on operating_site.id = laundry_order.operating_site_id
           where laundry_order.operating_site_id = site_id
             and (
-              (laundry_order.status = 'picked_up' and laundry_order.closed_at >= period_start and laundry_order.closed_at < period_end)
+              (laundry_order.status = 'picked_up' and coalesce(laundry_order.closed_at, laundry_order.updated_at, laundry_order.created_at) >= period_start and coalesce(laundry_order.closed_at, laundry_order.updated_at, laundry_order.created_at) < period_end)
               or
-              (laundry_order.status <> 'picked_up' and laundry_order.created_at >= period_start and laundry_order.created_at < period_end)
+              (laundry_order.status <> 'picked_up' and (
+                (laundry_order.created_at >= period_start and laundry_order.created_at < period_end)
+                or (coalesce(laundry_order.updated_at, laundry_order.created_at) >= period_start and coalesce(laundry_order.updated_at, laundry_order.created_at) < period_end)
+              ))
             )
             and (site_wide or laundry_order.institution_id = any (scoped_institutions))
             and (target_institution_id is null or laundry_order.institution_id = target_institution_id)
             and (
               needle is null
               or laundry_order.order_number ilike '%' || needle || '%'
+              or laundry_order.status ilike '%' || needle || '%'
               or institution.code ilike '%' || needle || '%'
               or institution.name ilike '%' || needle || '%'
               or cart.cart_number ilike '%' || needle || '%'
