@@ -93,14 +93,14 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
         <header className={styles.pageHeader}>
           <div>
             <p className={styles.eyebrow}>ORDER STATUS</p>
-            <h1 id="history-title">洗衣單狀態</h1>
+            <h1 id="history-title">歷史查詢紀錄</h1>
           </div>
           <AppLink className={styles.headerLink} href={withWorkspaceScope("/app/dashboard", scope)}>
             回到進行中佇列 <span aria-hidden="true">→</span>
           </AppLink>
         </header>
 
-        <form className={styles.historyFilters} method="get" action="/app/history" aria-label="洗衣單狀態查詢條件">
+        <form className={styles.historyFilters} method="get" action="/app/history" aria-label="歷史查詢紀錄查詢條件">
           {scope.siteId ? <input type="hidden" name="site" value={scope.siteId} /> : null}
           {scope.institutionId ? <input type="hidden" name="institution" value={scope.institutionId} /> : null}
           <label>
@@ -115,7 +115,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
             搜尋單號、機構或洗衣車
             <input name="q" defaultValue={searchQuery} maxLength={120} placeholder="例如 MAIN-20260827-0001" />
           </label>
-          <button type="submit">查詢洗衣單狀態</button>
+          <button type="submit">查詢歷史紀錄</button>
         </form>
 
         {!history ? (
@@ -137,7 +137,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
             )}
 
             {history.total > history.pageSize ? (
-              <nav className={styles.queuePager} aria-label="洗衣單狀態分頁">
+              <nav className={styles.queuePager} aria-label="歷史查詢紀錄分頁">
                 {history.page > 1 ? (
                   <AppLink href={historyHref(scope, { from: dateRange.from, to: dateRange.to, query: searchQuery, page: history.page - 1 })}>← 上一頁</AppLink>
                 ) : <span />}
