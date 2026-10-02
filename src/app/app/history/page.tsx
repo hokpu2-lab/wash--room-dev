@@ -93,7 +93,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
         <header className={styles.pageHeader}>
           <div>
             <p className={styles.eyebrow}>COMPLETED ORDERS</p>
-            <h1 id="history-title">已取件洗衣單</h1>
+            <h1 id="history-title">歷史紀錄查詢</h1>
             <p className={styles.lede}>查詢已實際取件結案的歷史洗衣單；這裡只讀取資料，不會改變任何作業狀態。</p>
           </div>
           <AppLink className={styles.headerLink} href={withWorkspaceScope("/app/dashboard", scope)}>
@@ -101,7 +101,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
           </AppLink>
         </header>
 
-        <form className={styles.historyFilters} method="get" action="/app/history" aria-label="已取件洗衣單查詢條件">
+        <form className={styles.historyFilters} method="get" action="/app/history" aria-label="歷史紀錄查詢條件">
           {scope.siteId ? <input type="hidden" name="site" value={scope.siteId} /> : null}
           {scope.institutionId ? <input type="hidden" name="institution" value={scope.institutionId} /> : null}
           <label>
@@ -120,7 +120,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
         </form>
 
         {!history ? (
-          <p className={styles.errorNotice} role="alert">目前無法載入授權範圍內的已取件洗衣單。</p>
+          <p className={styles.errorNotice} role="alert">目前無法載入授權範圍內的歷史紀錄。</p>
         ) : (
           <section className={styles.historyResults} aria-labelledby="history-results-title">
             <div className={styles.sectionHeadingRow}>
@@ -138,7 +138,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
             )}
 
             {history.total > history.pageSize ? (
-              <nav className={styles.queuePager} aria-label="已取件洗衣單分頁">
+              <nav className={styles.queuePager} aria-label="歷史紀錄查詢分頁">
                 {history.page > 1 ? (
                   <AppLink href={historyHref(scope, { from: dateRange.from, to: dateRange.to, query: searchQuery, page: history.page - 1 })}>← 上一頁</AppLink>
                 ) : <span />}

@@ -447,8 +447,8 @@ test("主管可依日期與關鍵字查詢已取件洗衣單", async ({ page, re
   await submitPasswordLogin(page);
 
   await page.goto("/app/history");
-  await expect(page.getByRole("heading", { level: 1, name: "已取件洗衣單" })).toBeVisible();
-  await expect(page.getByLabel("已取件洗衣單查詢條件")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "歷史紀錄查詢" })).toBeVisible();
+  await expect(page.getByLabel("歷史紀錄查詢條件")).toBeVisible();
   await expect(page.getByTestId("history-results")).toContainText("MAIN-20260818-0007");
   await expect(page.getByTestId("history-results")).toContainText("已取件");
 

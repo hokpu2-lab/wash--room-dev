@@ -305,7 +305,7 @@ export function HistoryResults({ items }: { items: LaundryOrderHistoryItem[] }) 
   return (
     <>
       {items.length === 0 ? (
-        <p className={styles.historyEmpty}>此期間沒有符合條件的已取件洗衣單。</p>
+        <p className={styles.historyEmpty}>此期間沒有符合條件的歷史紀錄。</p>
       ) : (
         <div className={styles.tableScroller} data-testid="history-results">
           <table>
