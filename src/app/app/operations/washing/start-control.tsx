@@ -290,7 +290,7 @@ export function StartWashingControl({
         {/* 上方資訊卡片（字體加大、高對比清晰呈現） */}
         <div
           style={{
-            margin: "0.75rem 0 1.25rem 0",
+            margin: "0.75rem 0 1.5rem 0",
             padding: "1.25rem 1.5rem",
             background: "linear-gradient(145deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98))",
             border: "1px solid rgba(255, 255, 255, 0.2)",
@@ -306,17 +306,19 @@ export function StartWashingControl({
               🏢 機構名稱
             </div>
             <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "#ffffff", letterSpacing: "0.02em" }}>
-              {displayInstitution || "未指定"}
+              {displayInstitution || "—"}
             </div>
           </div>
-          <div>
-            <div style={{ fontSize: "1rem", color: "#94a3b8", marginBottom: "0.35rem", fontWeight: 700 }}>
-              🛒 洗衣車號
+          {displayCart ? (
+            <div>
+              <div style={{ fontSize: "1rem", color: "#94a3b8", marginBottom: "0.35rem", fontWeight: 700 }}>
+                🛒 洗衣車號
+              </div>
+              <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "#38bdf8", letterSpacing: "0.02em" }}>
+                {displayCart}
+              </div>
             </div>
-            <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "#38bdf8", letterSpacing: "0.02em" }}>
-              {displayCart || "未指定"}
-            </div>
-          </div>
+          ) : null}
           <div>
             <div style={{ fontSize: "1rem", color: "#94a3b8", marginBottom: "0.35rem", fontWeight: 700 }}>
               📋 洗衣單號
@@ -341,135 +343,6 @@ export function StartWashingControl({
               {displayEquipment}
             </div>
           </div>
-        </div>
-
-        {/* 待清洗批次卡片清單（取消下拉選單） */}
-        <div style={{ margin: "1.25rem 0" }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "0.75rem",
-            }}
-          >
-            <h3 style={{ fontSize: "1.15rem", fontWeight: 800, color: "#f8fafc", margin: 0 }}>
-              {mode === "complete" ? "執行中單據" : "待清洗批次清單"}
-            </h3>
-            {sortedBatches.length > 0 && (
-              <span style={{ fontSize: "0.95rem", color: "#94a3b8" }}>
-                共 {sortedBatches.length} 筆批次
-              </span>
-            )}
-          </div>
-
-          {sortedBatches.length === 0 ? (
-            <div
-              style={{
-                padding: "2rem",
-                textAlign: "center",
-                background: "rgba(255, 255, 255, 0.04)",
-                borderRadius: "10px",
-                border: "1px dashed rgba(255, 255, 255, 0.2)",
-                color: "#94a3b8",
-                fontSize: "1.1rem",
-              }}
-            >
-              {mode === "complete"
-                ? "目前沒有這台洗衣機的執行中單據"
-                : equipmentInfo?.operatingSiteName
-                  ? `【${equipmentInfo.operatingSiteName}】目前沒有待清洗批次`
-                  : "目前沒有待清洗批次"}
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-              {sortedBatches.map((batch) => {
-                const isSelected = batch.id === batchId;
-                return (
-                  <button
-                    key={batch.id}
-                    type="button"
-                    onClick={() => setBatchId(batch.id)}
-                    style={{
-                      padding: "1.15rem 1.4rem",
-                      textAlign: "left",
-                      background: isSelected
-                        ? "linear-gradient(135deg, rgba(13, 148, 136, 0.25), rgba(15, 118, 110, 0.35))"
-                        : "rgba(255, 255, 255, 0.04)",
-                      border: isSelected
-                        ? "2px solid #2dd4bf"
-                        : "1px solid rgba(255, 255, 255, 0.15)",
-                      borderRadius: "10px",
-                      cursor: "pointer",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "0.65rem",
-                      transition: "all 0.15s ease-in-out",
-                      boxShadow: isSelected ? "0 4px 14px rgba(45, 212, 191, 0.2)" : "none",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        flexWrap: "wrap",
-                        gap: "0.5rem",
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: "1.25rem",
-                          fontWeight: 800,
-                          color: isSelected ? "#2dd4bf" : "#f8fafc",
-                        }}
-                      >
-                        {batch.institutionName || "未指定機構"} · {batch.cartNumber || "未指定車號"}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: "0.9rem",
-                          padding: "0.3rem 0.85rem",
-                          borderRadius: "9999px",
-                          background: isSelected ? "#0d9488" : "rgba(255, 255, 255, 0.12)",
-                          color: "#ffffff",
-                          fontWeight: 800,
-                          border: isSelected ? "1px solid #2dd4bf" : "1px solid transparent",
-                        }}
-                      >
-                        {isSelected ? "✓ 目前選取" : "點擊選取"}
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "1.02rem",
-                        color: "#cbd5e1",
-                        display: "flex",
-                        gap: "1.25rem",
-                        flexWrap: "wrap",
-                        alignItems: "center",
-                      }}
-                    >
-                      <span>
-                        單號：<strong style={{ color: "#ffffff" }}>{batch.orderNumber || "—"}</strong>
-                      </span>
-                      <span>
-                        分類：<strong style={{ color: "#86efac" }}>{batch.categoryName || "汙衣"}</strong>
-                      </span>
-                      <span>
-                        階段：<strong style={{ color: "#fde047" }}>第 {batch.current_stage_order} 階段</strong>
-                      </span>
-                      {batch.operating_site_name ? (
-                        <span>
-                          據點：<strong style={{ color: "#93c5fd" }}>{batch.operating_site_name}</strong>
-                        </span>
-                      ) : null}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
         </div>
 
         {isSiteMismatch ? (
