@@ -3051,7 +3051,7 @@
 .commandSignal strong { color: #d8faed; font-size: .8rem; }
 .commandSignal small { grid-column: 2; color: #86b5a7; font-size: .7rem; }
 
-.commandKpis { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 24px; }
+.commandKpis { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-top: 24px; }
 .commandKpis article { display: grid; gap: 10px; min-height: 148px; padding: 18px 20px; border: 1px solid rgba(211, 249, 236, .16); border-radius: 16px; background: rgba(226, 253, 243, .08); }
 .commandKpis article > span { color: #b6e2d4; font-size: 1.05rem; font-weight: 850; line-height: 1.35; letter-spacing: 0.01em; }
 .commandKpis strong { color: #f5fffb; font-size: 2.85rem; line-height: 1; font-weight: 900; }
@@ -3194,6 +3194,10 @@
 .biPreviewReadiness::before { grid-column: 1 / -1; grid-row: 1; content: ""; height: 7px; border-radius: 999px; background: #e1ebe5; }
 .biPreviewReadiness i { grid-column: 1; grid-row: 1; z-index: 1; }
 .biPreviewReadiness span { grid-column: 2; grid-row: 1; }
+
+@media (max-width: 1200px) {
+  .commandKpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 
 @media (max-width: 980px) {
   .commandKpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
