@@ -22,7 +22,7 @@ type WorkspaceLiveProps = {
   mode?: "command" | "queue";
   queueTitle?: string;
   selectedOrderId?: string;
-  variant: "supervisor" | "worker" | "institution";
+  variant: "supervisor" | "worker" | "institution" | "guest";
 };
 
 function WorkerKpis({ snapshot }: { snapshot: WorkspaceSnapshot | null }) {
@@ -36,10 +36,10 @@ function WorkerKpis({ snapshot }: { snapshot: WorkspaceSnapshot | null }) {
   );
 }
 
-function InstitutionKpis({ snapshot }: { snapshot: WorkspaceSnapshot | null }) {
+function InstitutionKpis({ snapshot, guest = false }: { snapshot: WorkspaceSnapshot | null; guest?: boolean }) {
   const dashboard = snapshot?.dashboard;
   return (
-    <section className={styles.institutionKpis} aria-label="機構洗衣指標">
+    <section className={styles.institutionKpis} aria-label={guest ? "訪客據點洗衣指標" : "機構洗衣指標"}>
       <article><strong>{(dashboard?.orders.awaiting_receipt ?? 0) + (dashboard?.orders.in_process ?? 0) + (dashboard?.orders.ready_for_pickup ?? 0)}</strong><span>未結案洗衣單</span><small>待收件、處理中與待取件</small></article>
       <article><strong>{dashboard?.orders.ready_for_pickup ?? 0}</strong><span>待取件</span><small>可安排送洗人員領回</small></article>
       <article><strong>{dashboard ? Math.round((dashboard.batches.completed / Math.max(dashboard.batches.not_started + dashboard.batches.in_progress + dashboard.batches.paused + dashboard.batches.completed, 1)) * 100) : 0}%</strong><span>整體預估進度</span><small>不等同實際完成或取件</small></article>
@@ -198,7 +198,7 @@ export function WorkspaceLive({
       {variant === "worker" ? <WorkerKpis snapshot={snapshot} /> : null}
       {variant === "supervisor" && mode === "queue" ? <SupervisorQueueKpis snapshot={snapshot} /> : null}
       {variant === "supervisor" && mode === "command" ? <SupervisorCommandRoom snapshot={snapshot} siteId={siteId} syncedAt={syncedAt} liveMode={liveMode} /> : null}
-      {variant === "institution" ? <InstitutionKpis snapshot={snapshot} /> : null}
+      {variant === "institution" || variant === "guest" ? <InstitutionKpis snapshot={snapshot} guest={variant === "guest"} /> : null}
       {mode !== "command" ? <p className={styles.hint}>
         {liveMode === "realtime" ? "即時更新" : liveMode === "poll" ? "定時更新" : "伺服器快照"}
         {syncedAt ? ` · 最後同步 ${new Date(syncedAt).toLocaleTimeString("zh-Hant")}` : ""}

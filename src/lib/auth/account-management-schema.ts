@@ -26,7 +26,8 @@ export const accountMembershipInputSchema = z
     const siteRole =
       membership.role === "system_administrator" ||
       membership.role === "laundry_worker" ||
-      membership.role === "laundry_supervisor";
+      membership.role === "laundry_supervisor" ||
+      membership.role === "guest";
     const valid = siteRole
       ? Boolean(membership.site_code) && membership.institution_code === null
       : membership.site_code === null && Boolean(membership.institution_code);

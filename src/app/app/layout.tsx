@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Suspense } from "react";
 import { connection } from "next/server";
+import { getPrincipalState } from "@/lib/auth/principal";
 
 import { AppLink } from "./app-link";
 import { LogoutForm } from "./logout-form";
@@ -8,6 +9,7 @@ import { NavigationProgress } from "./navigation-progress";
 import { NotificationBell } from "./notification-bell";
 import { StyleSwitcher } from "./style-switcher";
 import { NavigationFallback } from "./workspace-fallbacks";
+import { SsoFlashNotice } from "./sso-flash-notice";
 import { WorkspaceShellNavigation } from "./workspace-shell";
 import styles from "./workspace-shell.module.css";
 
@@ -23,7 +25,7 @@ export default async function WorkspaceLayout({ children }: Readonly<{ children:
           <strong>洗衣房作業台<small>WASH ROOM OPERATIONS</small></strong>
         </AppLink>
         <div className={styles.topbarTools}>
-          <NotificationBell />
+          <Suspense fallback={null}><WorkspaceNotificationBell /></Suspense>
           <StyleSwitcher />
           <div className={styles.status}><i /> 系統連線中</div>
           <LogoutForm />
@@ -34,7 +36,19 @@ export default async function WorkspaceLayout({ children }: Readonly<{ children:
           <WorkspaceShellNavigation />
         </Suspense>
       </aside>
-        <div className={styles.content}>{children}</div>
+        <div className={styles.content}>
+          <SsoFlashNotice />
+          {children}
+        </div>
     </div>
   );
 }
+
+async function WorkspaceNotificationBell() {
+  const state = await getPrincipalState();
+  if (state.kind !== "authorized" || state.principal.memberships.every((membership) => membership.role === "guest")) {
+    return null;
+  }
+  return <NotificationBell />;
+}
+

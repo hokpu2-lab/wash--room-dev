@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { getPrincipalState } from "@/lib/auth/principal";
 import { getPublicSupabaseConfiguration } from "@/lib/supabase/config";
 
 import { signInWithPassword } from "./actions";
@@ -13,7 +15,13 @@ export const metadata: Metadata = {
   title: "登入",
 };
 
-const allowedNext = new Set(["/scan/cart", "/scan/equipment"]);
+export const dynamic = "force-dynamic";
+
+const allowedNext = new Set([
+  "/scan/cart",
+  "/scan/equipment",
+  "/api/sso-login",
+]);
 
 export default async function LoginPage({
   searchParams,
@@ -23,6 +31,20 @@ export default async function LoginPage({
   const query = await searchParams;
   const next = typeof query.next === "string" && allowedNext.has(query.next) ? query.next : "";
   const supabaseConfigured = getPublicSupabaseConfiguration() !== null;
+
+  if (supabaseConfigured) {
+    const principalState = await getPrincipalState();
+    if (principalState.kind === "password_change_required") {
+      redirect("/account/change-password");
+    }
+    if (principalState.kind === "denied") {
+      redirect("/auth/denied");
+    }
+    if (principalState.kind === "authorized") {
+      if (next === "/api/sso-login") redirect("/api/sso-login");
+      redirect("/app");
+    }
+  }
 
   return (
     <main className={styles.shell}>

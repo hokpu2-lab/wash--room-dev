@@ -44,6 +44,11 @@ const institutionLinks: WorkspaceLink[] = [
   { href: "/app/history", label: "歷史查詢紀錄", description: "查詢本機構歷史取件", group: "workspace", marker: "歷" },
 ];
 
+const guestLinks: WorkspaceLink[] = [
+  { href: "/app/guest", label: "營運總覽", description: "授權據點洗衣單與進度", group: "workspace", marker: "訪" },
+  { href: "/app/history", label: "歷史查詢紀錄", description: "查詢歷史取件紀錄", group: "workspace", marker: "歷" },
+];
+
 const systemGuideLink: WorkspaceLink = {
   href: "/app/system-guide",
   label: "系統說明",
@@ -74,6 +79,7 @@ export async function WorkspaceShellNavigation() {
     ...(roles.has("system_administrator") || roles.has("laundry_supervisor") ? supervisorLinks : []),
     ...(roles.has("laundry_worker") ? workerLinks : []),
     ...(roles.has("institution_supervisor") ? institutionLinks : []),
+    ...(roles.has("guest") ? guestLinks : []),
     ...(isSystemGuideAdministrator(principal) ? [systemGuideLink] : []),
   ];
   const links = Array.from(

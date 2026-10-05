@@ -3,6 +3,7 @@ export const accessRoles = [
   "laundry_worker",
   "laundry_supervisor",
   "institution_supervisor",
+  "guest",
 ] as const;
 
 export type AccessRole = (typeof accessRoles)[number];
@@ -12,13 +13,15 @@ export const accessRoleLabels: Record<AccessRole, string> = {
   laundry_worker: "洗衣員",
   laundry_supervisor: "洗衣主管",
   institution_supervisor: "送洗機構主管",
+  guest: "訪客",
 };
 
 export function primaryRole(roles: AccessRole[]) {
   if (roles.includes("system_administrator")) return "system_administrator" as const;
   if (roles.includes("laundry_supervisor")) return "laundry_supervisor" as const;
   if (roles.includes("laundry_worker")) return "laundry_worker" as const;
-  return "institution_supervisor" as const;
+  if (roles.includes("institution_supervisor")) return "institution_supervisor" as const;
+  return "guest" as const;
 }
 
 export function primaryRoleEntryPath(roles: AccessRole[]) {
@@ -34,6 +37,8 @@ export function roleEntryPath(role: AccessRole) {
       return "/app/operations";
     case "institution_supervisor":
       return "/app/institution";
+    case "guest":
+      return "/app/guest";
   }
 }
 
@@ -44,7 +49,9 @@ export function workspaceEntryHref(membership: {
 }) {
   const path = roleEntryPath(membership.role);
   if (
-    (membership.role === "system_administrator" || membership.role === "laundry_supervisor") &&
+    (membership.role === "system_administrator" ||
+      membership.role === "laundry_supervisor" ||
+      membership.role === "guest") &&
     membership.operating_site_id
   ) {
     return `${path}?site=${membership.operating_site_id}`;
@@ -60,5 +67,10 @@ export function isLaundrySupervisorRole(role: AccessRole): boolean {
 }
 
 export function isSiteRole(role: AccessRole): boolean {
-  return role === "laundry_worker" || role === "laundry_supervisor" || role === "system_administrator";
+  return (
+    role === "laundry_worker" ||
+    role === "laundry_supervisor" ||
+    role === "system_administrator" ||
+    role === "guest"
+  );
 }
