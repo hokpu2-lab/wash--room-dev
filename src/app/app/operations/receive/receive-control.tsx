@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { clearPendingQrToken } from "../../../scan/pending-qr-token";
 import { ScanStage } from "../../scan-stage";
@@ -10,6 +10,14 @@ import { PendingReceiptModal, type PendingReceiptOrder } from "./pending-receipt
 
 type Category = { code: string; name: string };
 type Result = { kind: "received" | "already-received"; batchCount: number; status: string } | { kind: "invalid" | "denied" | "failed"; reasonCode: string };
+
+const categoryEquipmentMap: Record<string, string[]> = {
+  DISINFECT: ["消毒鍋", "洗衣機", "烘衣機"],
+  BIB: ["洗衣機", "烘衣機"],
+  SOILED: ["洗衣機", "烘衣機"],
+  CURTAIN: ["洗衣機", "烘衣機"],
+  OTHER: ["洗衣機", "烘衣機"],
+};
 
 const reasons: Record<string, string> = {
   invalid_qr: "固定車卡 QR 無效或已撤銷。",
@@ -30,12 +38,46 @@ export function ReceiveCartControl({ categories }: { categories: Category[] }) {
   const [submitting, setSubmitting] = useState(false);
   const [manualReset, setManualReset] = useState(false);
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<PendingReceiptOrder | null>(null);
+  const [pendingOrders, setPendingOrders] = useState<PendingReceiptOrder[]>([]);
   const [pendingModalOpen, setPendingModalOpen] = useState(false);
   const activeToken = manualReset ? null : (selectedToken ?? token);
   const scanResult = result ?? (missing && !selectedToken && !manualReset ? { kind: "invalid" as const, reasonCode: "invalid_qr" } : null);
 
+  useEffect(() => {
+    let active = true;
+    fetch("/api/operations/pending-receipts")
+      .then(async (res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then((data) => {
+        if (!active || !data || !Array.isArray(data.orders)) return;
+        setPendingOrders(data.orders);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const matchedOrder = pendingOrders.find((o) => o.qrToken === activeToken) ?? selectedOrder;
+  const currentCartNumber = matchedOrder?.cartNumber;
+  const currentInstitutionName = matchedOrder?.institutionName;
+
+  const selectedCategoryObjects = categories.filter((c) => selected.includes(c.code));
+  const selectedCategoryNames = selectedCategoryObjects.map((c) => c.name);
+  const neededEquipment = Array.from(
+    new Set(selected.flatMap((code) => categoryEquipmentMap[code] ?? ["洗衣機", "烘衣機"])),
+  );
+  const expectedEquipmentText =
+    neededEquipment.length > 0
+      ? neededEquipment.join("、")
+      : "請先勾選洗滌分類";
+
   function handleSelectOrder(order: PendingReceiptOrder) {
     setSelectedToken(order.qrToken);
+    setSelectedOrder(order);
     setManualReset(false);
     setResult(null);
   }
@@ -55,6 +97,8 @@ export function ReceiveCartControl({ categories }: { categories: Category[] }) {
 
   function handleReset() {
     clearPendingQrToken("cart");
+    setSelectedToken(null);
+    setSelectedOrder(null);
     setManualReset(true);
     setResult(null);
     setSelected([]);
@@ -67,6 +111,53 @@ export function ReceiveCartControl({ categories }: { categories: Category[] }) {
         waitingText="請掃描固定洗衣車 QR。"
         readyText="已掃描車卡，請選擇本車內容的洗滌分類。"
       >
+        <div
+          style={{
+            margin: "0.5rem 0 1rem 0",
+            padding: "0.75rem 1rem",
+            background: "rgba(255, 255, 255, 0.08)",
+            border: "1px solid rgba(255, 255, 255, 0.18)",
+            borderRadius: "8px",
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+            gap: "0.75rem 1rem",
+            fontSize: "0.92rem",
+          }}
+        >
+          <div>
+            <span style={{ opacity: 0.8, fontSize: "0.82rem", display: "block", marginBottom: "0.2rem" }}>
+              車號 (Vehicle)
+            </span>
+            <strong style={{ color: "#ffffff", fontSize: "1.05rem" }}>
+              {currentCartNumber || (activeToken ? "已載入車卡" : "待掃描車卡")}
+            </strong>
+          </div>
+          <div>
+            <span style={{ opacity: 0.8, fontSize: "0.82rem", display: "block", marginBottom: "0.2rem" }}>
+              機構 (Institution)
+            </span>
+            <strong style={{ color: "#ffffff", fontSize: "1.05rem" }}>
+              {currentInstitutionName || (activeToken ? "待確認機構" : "待掃描車卡")}
+            </strong>
+          </div>
+          <div>
+            <span style={{ opacity: 0.8, fontSize: "0.82rem", display: "block", marginBottom: "0.2rem" }}>
+              所選分類 (Categories)
+            </span>
+            <strong style={{ color: selectedCategoryNames.length > 0 ? "var(--accent-glow, #a5f3fc)" : "#cbd5e1", fontSize: "1.05rem" }}>
+              {selectedCategoryNames.length > 0 ? selectedCategoryNames.join("、") : "未選取分類"}
+            </strong>
+          </div>
+          <div>
+            <span style={{ opacity: 0.8, fontSize: "0.82rem", display: "block", marginBottom: "0.2rem" }}>
+              使用設備名稱 (Equipment)
+            </span>
+            <strong style={{ color: selectedCategoryNames.length > 0 ? "#86efac" : "#cbd5e1", fontSize: "1.05rem" }}>
+              {expectedEquipmentText}
+            </strong>
+          </div>
+        </div>
+
         <fieldset>
           <legend>洗滌分類</legend>
           {categories.map((category) => (
@@ -77,7 +168,21 @@ export function ReceiveCartControl({ categories }: { categories: Category[] }) {
                 checked={selected.includes(category.code)}
                 onChange={(event) => setSelected((current) => event.target.checked ? [...current, category.code] : current.filter((code) => code !== category.code))}
               />
-              {category.name}（{category.code}）
+              <span>
+                {category.name}（{category.code}）
+                <small
+                  style={{
+                    marginLeft: "0.5rem",
+                    fontSize: "0.82rem",
+                    color: "rgba(255, 255, 255, 0.75)",
+                    background: "rgba(0, 0, 0, 0.25)",
+                    padding: "0.15rem 0.45rem",
+                    borderRadius: "4px",
+                  }}
+                >
+                  設備：{(categoryEquipmentMap[category.code] ?? ["洗衣機", "烘衣機"]).join("、")}
+                </small>
+              </span>
             </label>
           ))}
         </fieldset>
