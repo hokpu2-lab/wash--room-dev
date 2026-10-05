@@ -40,12 +40,13 @@ export function ReceiveCartControl({ categories }: { categories: Category[] }) {
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<PendingReceiptOrder | null>(null);
   const [pendingOrders, setPendingOrders] = useState<PendingReceiptOrder[]>([]);
-  const [pendingModalOpen, setPendingModalOpen] = useState(false);
+  const [loadingOrders, setLoadingOrders] = useState(true);
   const activeToken = manualReset ? null : (selectedToken ?? token);
   const scanResult = result ?? (missing && !selectedToken && !manualReset ? { kind: "invalid" as const, reasonCode: "invalid_qr" } : null);
 
   useEffect(() => {
     let active = true;
+    setLoadingOrders(true);
     fetch("/api/operations/pending-receipts")
       .then(async (res) => {
         if (!res.ok) return null;
@@ -55,7 +56,10 @@ export function ReceiveCartControl({ categories }: { categories: Category[] }) {
         if (!active || !data || !Array.isArray(data.orders)) return;
         setPendingOrders(data.orders);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (active) setLoadingOrders(false);
+      });
     return () => {
       active = false;
     };
@@ -64,6 +68,7 @@ export function ReceiveCartControl({ categories }: { categories: Category[] }) {
   const matchedOrder = pendingOrders.find((o) => o.qrToken === activeToken) ?? selectedOrder;
   const currentCartNumber = matchedOrder?.cartNumber;
   const currentInstitutionName = matchedOrder?.institutionName;
+  const currentOrderNumber = matchedOrder?.orderNumber;
 
   const selectedCategoryObjects = categories.filter((c) => selected.includes(c.code));
   const selectedCategoryNames = selectedCategoryObjects.map((c) => c.name);
@@ -102,14 +107,220 @@ export function ReceiveCartControl({ categories }: { categories: Category[] }) {
     setManualReset(true);
     setResult(null);
     setSelected([]);
+    if (typeof window !== "undefined" && window.location.hash) {
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+  }
+
+  // 待收單清單先顯示
+  if (!activeToken) {
+    return (
+      <div aria-live="polite" style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+        <div
+          style={{
+            background: "linear-gradient(135deg, #ffffff 0%, #f0f7f4 100%)",
+            border: "1px solid var(--border-subtle, #bad7cc)",
+            borderRadius: "14px",
+            padding: "1.25rem 1.5rem",
+            boxShadow: "0 4px 16px rgba(15, 91, 76, 0.05)",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem" }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: "1.25rem", color: "var(--brand, #0f5b4c)", fontWeight: 800 }}>
+                📋 待洗衣員收單清單
+              </h2>
+              <p style={{ margin: "0.25rem 0 0 0", color: "#55716a", fontSize: "0.9rem" }}>
+                請點選欲處理的洗衣單以進入洗滌分類與收單，或掃描洗衣車 QR 碼自動進入。
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setLoadingOrders(true);
+                fetch("/api/operations/pending-receipts")
+                  .then((res) => res.json())
+                  .then((data) => {
+                    if (data && Array.isArray(data.orders)) setPendingOrders(data.orders);
+                  })
+                  .catch(() => {})
+                  .finally(() => setLoadingOrders(false));
+              }}
+              style={{
+                background: "#ffffff",
+                border: "1px solid #cfdfd9",
+                borderRadius: "6px",
+                padding: "0.4rem 0.8rem",
+                color: "#165a4a",
+                cursor: "pointer",
+                fontWeight: 600,
+                fontSize: "0.85rem",
+              }}
+            >
+              🔄 重新整理
+            </button>
+          </div>
+
+          {loadingOrders ? (
+            <div style={{ padding: "2.5rem 0", textAlign: "center", color: "#666" }}>
+              <p>正在載入待收件洗衣單…</p>
+            </div>
+          ) : pendingOrders.length === 0 ? (
+            <div
+              style={{
+                padding: "2.5rem 1.5rem",
+                textAlign: "center",
+                background: "rgba(255, 255, 255, 0.6)",
+                borderRadius: "10px",
+                border: "1px dashed #cbd5e1",
+              }}
+            >
+              <p style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700, color: "#334155" }}>
+                目前沒有待收件的洗衣單
+              </p>
+              <small style={{ color: "#64748b", marginTop: "0.35rem", display: "block" }}>
+                所有已送單之洗衣車皆已完成現場收單與批次建立。
+              </small>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "70px 1.2fr 1fr 1.3fr 1.5fr 140px",
+                  gap: "0.75rem",
+                  padding: "0.5rem 1rem",
+                  fontSize: "0.82rem",
+                  fontWeight: 700,
+                  color: "#55716a",
+                  borderBottom: "1px solid #d8e6e0",
+                }}
+              >
+                <span>狀態</span>
+                <span>機構</span>
+                <span>車號</span>
+                <span>送單時間</span>
+                <span>洗衣單號</span>
+                <span style={{ textAlign: "right" }}>操作</span>
+              </div>
+
+              {pendingOrders.map((order) => {
+                const formattedDate = new Date(order.createdAt).toLocaleString("zh-TW", {
+                  month: "2-digit",
+                  day: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+                return (
+                  <div
+                    key={order.orderId}
+                    onClick={() => handleSelectOrder(order)}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "70px 1.2fr 1fr 1.3fr 1.5fr 140px",
+                      alignItems: "center",
+                      gap: "0.75rem",
+                      padding: "0.75rem 1rem",
+                      background: "#ffffff",
+                      border: "1px solid #d8e6e0",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = "#168167";
+                      e.currentTarget.style.boxShadow = "0 2px 8px rgba(18, 103, 82, 0.12)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "#d8e6e0";
+                      e.currentTarget.style.boxShadow = "none";
+                    }}
+                  >
+                    <div>
+                      <span className={`${styles.statusPill} ${styles.statusPillGray}`}>
+                        待收件
+                      </span>
+                    </div>
+                    <strong style={{ color: "var(--brand, #0f5b4c)", fontSize: "0.95rem" }}>
+                      {order.institutionName}
+                    </strong>
+                    <div>
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          color: "#165a4a",
+                          background: "#eef6f3",
+                          padding: "0.2rem 0.55rem",
+                          borderRadius: "4px",
+                          fontSize: "0.9rem",
+                        }}
+                      >
+                        {order.cartNumber}
+                      </span>
+                    </div>
+                    <span style={{ color: "#555", fontSize: "0.88rem" }}>
+                      {formattedDate}
+                    </span>
+                    <strong style={{ color: "#334155", fontSize: "0.92rem", wordBreak: "break-all" }}>
+                      {order.orderNumber}
+                    </strong>
+                    <div style={{ textAlign: "right" }}>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectOrder(order);
+                        }}
+                        style={{
+                          padding: "0.4rem 0.85rem",
+                          borderRadius: "6px",
+                          background: "var(--brand, #0f5b4c)",
+                          color: "#fff",
+                          border: "none",
+                          cursor: "pointer",
+                          fontWeight: 600,
+                          fontSize: "0.85rem",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        選取分類收單 →
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (
     <div aria-live="polite">
+      <div style={{ marginBottom: "0.75rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <button
+          type="button"
+          onClick={handleReset}
+          style={{
+            background: "transparent",
+            border: "1px solid var(--border-subtle, #bad7cc)",
+            color: "var(--brand, #0f5b4c)",
+            cursor: "pointer",
+            padding: "0.4rem 0.8rem",
+            borderRadius: "6px",
+            fontWeight: 600,
+            fontSize: "0.88rem",
+          }}
+        >
+          ← 返回待收單清單（重選車輛）
+        </button>
+      </div>
+
       <ScanStage
         scanned={Boolean(activeToken)}
         waitingText="請掃描固定洗衣車 QR。"
-        readyText="已掃描車卡，請選擇本車內容的洗滌分類。"
+        readyText="已載入待收單洗衣車，請選擇本車內容的洗滌分類。"
       >
         <div
           style={{
@@ -129,7 +340,7 @@ export function ReceiveCartControl({ categories }: { categories: Category[] }) {
               車號 (Vehicle)
             </span>
             <strong style={{ color: "#ffffff", fontSize: "1.05rem" }}>
-              {currentCartNumber || (activeToken ? "已載入車卡" : "待掃描車卡")}
+              {currentCartNumber || "已載入車卡"}
             </strong>
           </div>
           <div>
@@ -137,7 +348,7 @@ export function ReceiveCartControl({ categories }: { categories: Category[] }) {
               機構 (Institution)
             </span>
             <strong style={{ color: "#ffffff", fontSize: "1.05rem" }}>
-              {currentInstitutionName || (activeToken ? "待確認機構" : "待掃描車卡")}
+              {currentInstitutionName || "待確認機構"}
             </strong>
           </div>
           <div>
@@ -188,76 +399,66 @@ export function ReceiveCartControl({ categories }: { categories: Category[] }) {
         </fieldset>
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "1rem" }}>
           <button type="button" onClick={submit} disabled={!activeToken || submitting}>
-            {submitting ? "收單中…" : "確認收單並建立批次"}
+            {submitting ? "收單中…" : selected.length > 0 ? `確認收單並建立批次（${selected.length} 個分類）` : "確認收單並建立批次"}
           </button>
           <button
             type="button"
-            onClick={() => setPendingModalOpen(true)}
+            onClick={handleReset}
+            style={{ background: "transparent", border: "1px solid var(--border-subtle, #ccc)", color: "inherit", cursor: "pointer", padding: "0.5rem 1rem", borderRadius: "4px" }}
+          >
+            ← 返回待收單清單
+          </button>
+        </div>
+      </ScanStage>
+
+      {scanResult?.kind === "received" || scanResult?.kind === "already-received" ? (
+        <div style={{ marginTop: "1rem" }}>
+          <p className={styles.successNotice} role="status">
+            {scanResult.kind === "already-received" ? "收單已確認" : "收單完成"}，已建立 {scanResult.batchCount} 個初始批次，狀態為待清洗。
+          </p>
+          <button
+            type="button"
+            onClick={handleReset}
             style={{
-              background: "var(--surface-subtle, #f0f7f4)",
-              border: "1px solid var(--border-subtle, #bad7cc)",
-              color: "var(--brand, #0f5b4c)",
-              cursor: "pointer",
+              marginTop: "0.5rem",
               padding: "0.5rem 1rem",
-              borderRadius: "4px",
+              borderRadius: "6px",
+              background: "var(--brand, #0f5b4c)",
+              color: "#fff",
+              border: "none",
+              cursor: "pointer",
               fontWeight: 600,
             }}
           >
-            📋 從待收單清單選取（免掃碼）
+            📋 繼續處理其他待收單 →
           </button>
-          {activeToken ? (
-            <button
-              type="button"
-              onClick={handleReset}
-              style={{ background: "transparent", border: "1px solid var(--border-subtle, #ccc)", color: "inherit", cursor: "pointer", padding: "0.5rem 1rem", borderRadius: "4px" }}
-            >
-              清除此車卡 / 重新掃描其他車輛
-            </button>
-          ) : null}
         </div>
-      </ScanStage>
-      {scanResult?.kind === "received" || scanResult?.kind === "already-received" ? (
-        <p className={styles.successNotice} role="status">
-          {scanResult.kind === "already-received" ? "收單已確認" : "收單完成"}，已建立 {scanResult.batchCount} 個初始批次，狀態為待清洗。
-        </p>
       ) : scanResult && "reasonCode" in scanResult ? (
-        <div className={styles.errorNotice} role="alert">
+        <div className={styles.errorNotice} role="alert" style={{ marginTop: "1rem" }}>
           <p>{reasons[scanResult.reasonCode] ?? "收單沒有完成。"}</p>
-          {scanResult.reasonCode === "invalid_qr" ? (
-            <div style={{ marginTop: "0.5rem", fontSize: "0.9em" }}>
-              <p style={{ margin: "0 0 0.5rem 0" }}>
-                提示：目前尚未載入洗衣車卡。請使用手機掃描洗衣車 QR 碼，或直接從待收單清單選取：
-              </p>
-              <button
-                type="button"
-                onClick={() => setPendingModalOpen(true)}
-                style={{
-                  background: "#fff",
-                  border: "1px solid #d88",
-                  color: "#900",
-                  cursor: "pointer",
-                  padding: "0.35rem 0.75rem",
-                  borderRadius: "4px",
-                  fontWeight: 600,
-                }}
-              >
-                📋 開啟待收單清單選取 ➔
-              </button>
-            </div>
-          ) : null}
           {scanResult.reasonCode === "order_not_receivable" ? (
             <p style={{ marginTop: "0.5rem", fontSize: "0.9em" }}>
-              提示：此車卡目前無待收件單。請先至「洗衣單與批次」確認待收單對應之洗衣車號並掃描該車卡，或為此車先進行送單。
+              提示：此車卡目前無待收件單。請先返回清單確認待收單對應之洗衣車號。
             </p>
           ) : null}
+          <button
+            type="button"
+            onClick={handleReset}
+            style={{
+              marginTop: "0.5rem",
+              padding: "0.4rem 0.8rem",
+              borderRadius: "4px",
+              background: "#fff",
+              border: "1px solid #d88",
+              color: "#900",
+              cursor: "pointer",
+              fontWeight: 600,
+            }}
+          >
+            ← 返回待收單清單
+          </button>
         </div>
       ) : null}
-
-      <PendingReceiptModal
-        isOpen={pendingModalOpen}
-        onClose={() => setPendingModalOpen(false)}
-        onSelectOrder={handleSelectOrder}
-      />
     </div>
   );
 }
