@@ -9,9 +9,9 @@ export function SupervisorKpiFallback() {
         <div className={styles.commandSignal}><span aria-hidden="true" /><strong>同步中</strong><small>等待第一筆資料</small></div>
       </header>
       <div className={styles.commandKpis} aria-hidden="true">
-        <article className={styles.commandKpiPrimary}><span>未結案洗衣單</span><strong>—</strong><small>載入中</small></article>
-        <article><span>目前處理中</span><strong>—</strong><small>載入中</small></article>
-        <article><span>需要主管介入</span><strong>—</strong><small>載入中</small></article>
+        <article className={styles.commandKpiPrimary}><span>未結案(待收、處理中、待取)</span><strong>—</strong><small>載入中</small></article>
+        <article><span>處理中(占用設備中)</span><strong>—</strong><small>載入中</small></article>
+        <article><span>異常需介入(設備異常or暫停中)</span><strong>—</strong><small>載入中</small></article>
         <article><span>待取件</span><strong>—</strong><small>載入中</small></article>
       </div>
     </section>

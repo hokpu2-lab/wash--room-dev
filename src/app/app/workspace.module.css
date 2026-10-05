@@ -3051,11 +3051,11 @@
 .commandSignal strong { color: #d8faed; font-size: .8rem; }
 .commandSignal small { grid-column: 2; color: #86b5a7; font-size: .7rem; }
 
-.commandKpis { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 24px; }
-.commandKpis article { display: grid; gap: 8px; min-height: 132px; padding: 17px; border: 1px solid rgba(211, 249, 236, .13); border-radius: 16px; background: rgba(226, 253, 243, .08); }
-.commandKpis article > span { color: #a9d4c5; font-size: .8rem; font-weight: 850; }
-.commandKpis strong { color: #f5fffb; font-size: 2.45rem; line-height: 1; }
-.commandKpis small { align-self: end; color: #8ebbae; font-size: .74rem; line-height: 1.45; }
+.commandKpis { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 24px; }
+.commandKpis article { display: grid; gap: 10px; min-height: 148px; padding: 18px 20px; border: 1px solid rgba(211, 249, 236, .16); border-radius: 16px; background: rgba(226, 253, 243, .08); }
+.commandKpis article > span { color: #b6e2d4; font-size: 1.05rem; font-weight: 850; line-height: 1.35; letter-spacing: 0.01em; }
+.commandKpis strong { color: #f5fffb; font-size: 2.85rem; line-height: 1; font-weight: 900; }
+.commandKpis small { align-self: end; color: #9bc5b8; font-size: .88rem; line-height: 1.45; }
 .commandKpiPrimary { border-color: rgba(113, 231, 190, .4) !important; background: linear-gradient(145deg, rgba(64, 190, 147, .23), rgba(226, 253, 243, .07)) !important; }
 .commandKpiAlert { border-color: rgba(255, 178, 104, .45) !important; background: linear-gradient(145deg, rgba(207, 115, 50, .22), rgba(226, 253, 243, .07)) !important; }
 .commandKpiGood { border-color: rgba(113, 231, 190, .32) !important; }
