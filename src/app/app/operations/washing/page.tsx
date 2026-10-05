@@ -15,7 +15,7 @@ export default async function StartWashingPage({
   const query = await searchParams;
   const mode = query.mode === "complete" ? "complete" : "start";
   const focusedBatchId = typeof query.batch === "string" ? query.batch : undefined;
-  const { batches, siteId } = await loadSiteBatches(
+  const { batches, siteId, equipmentList } = await loadSiteBatches(
     query,
     mode === "complete" ? ["in_progress"] : ["not_started"],
   );
@@ -39,6 +39,7 @@ export default async function StartWashingPage({
             siteId={siteId}
             mode={mode}
             focusedBatchId={focusedBatchId}
+            availableEquipment={equipmentList}
           />
         </Suspense>
       </section>

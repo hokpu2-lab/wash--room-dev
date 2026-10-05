@@ -8,7 +8,7 @@ import { ScanStage } from "../../scan-stage";
 import { useLiveBatches, usePreferredId } from "../../use-live-batches";
 import { useQrFragment } from "../../use-qr-fragment";
 import styles from "../../workspace.module.css";
-import { formatBatchLabel, type ControlBatch } from "../batch-label";
+import type { ControlBatch, ControlEquipment } from "../load-site-batches";
 
 type Batch = ControlBatch;
 type Result =
@@ -44,6 +44,7 @@ export function StartWashingControl({
   selectedInstitutionName,
   selectedCartNumber,
   selectedOrderNumber,
+  availableEquipment = [],
 }: {
   batches: Batch[];
   siteId?: string;
@@ -52,6 +53,7 @@ export function StartWashingControl({
   selectedInstitutionName?: string;
   selectedCartNumber?: string;
   selectedOrderNumber?: string;
+  availableEquipment?: ControlEquipment[];
 }) {
   const { batches } = useLiveBatches(
     initial,
@@ -71,7 +73,6 @@ export function StartWashingControl({
 
   const activeToken = manualCleared ? null : token;
   const activeEquipmentId = manualCleared ? null : queryEquipmentId;
-  const hasScanned = Boolean(activeToken || activeEquipmentId);
 
   useEffect(() => {
     if (manualCleared || (!activeToken && !activeEquipmentId)) {
@@ -157,21 +158,46 @@ export function StartWashingControl({
   );
 
   const selectedBatch = batches.find((b) => b.id === batchId);
-  const displayEquipment = equipmentInfo?.equipmentName || null;
+
+  const availableWashers = availableEquipment.filter((e) => e.equipment_type === "washer");
+  const matchedWashers = selectedBatch?.operating_site_id
+    ? availableWashers.filter((w) => w.operating_site_id === selectedBatch.operating_site_id)
+    : availableWashers;
+
+  const effectiveEquipmentId =
+    activeToken
+      ? undefined
+      : activeEquipmentId || matchedWashers[0]?.id || availableWashers[0]?.id;
+
+  const effectiveEquipmentObj =
+    availableWashers.find((w) => w.id === effectiveEquipmentId) ||
+    availableWashers.find((w) => w.id === activeEquipmentId);
+
+  const effectiveEquipmentName =
+    equipmentInfo?.equipmentName ||
+    effectiveEquipmentObj?.name ||
+    matchedWashers[0]?.name ||
+    availableWashers[0]?.name ||
+    "本館洗衣-1";
+
+  const displayEquipment = effectiveEquipmentName;
   const displayInstitution = selectedBatch?.institutionName || selectedInstitutionName;
   const displayCart = selectedBatch?.cartNumber || selectedCartNumber;
   const displayOrderNumber = selectedBatch?.orderNumber || selectedOrderNumber;
 
+  const hasScanned = Boolean(activeToken || activeEquipmentId || effectiveEquipmentId);
+
   const isSiteMismatch = Boolean(
     selectedBatch?.operating_site_id &&
-      equipmentInfo?.operatingSiteId &&
-      selectedBatch.operating_site_id !== equipmentInfo.operatingSiteId,
+      (equipmentInfo?.operatingSiteId || effectiveEquipmentObj?.operating_site_id) &&
+      selectedBatch.operating_site_id !==
+        (equipmentInfo?.operatingSiteId || effectiveEquipmentObj?.operating_site_id),
   );
 
   const scanResult = result;
 
   async function submit(path: string) {
-    if (!batchId || (!activeToken && !activeEquipmentId)) {
+    if (!batchId || (!activeToken && !effectiveEquipmentId)) {
       setResult({ kind: "invalid", reasonCode: "invalid_qr" });
       return;
     }
@@ -188,7 +214,7 @@ export function StartWashingControl({
         body: JSON.stringify({
           batch_id: batchId,
           qr_token: activeToken,
-          equipment_id: activeEquipmentId,
+          equipment_id: effectiveEquipmentId,
           change_request_id: crypto.randomUUID(),
         }),
       });
@@ -212,14 +238,14 @@ export function StartWashingControl({
     <div aria-live="polite">
       <ScanStage
         scanned={hasScanned}
-        waitingText="請掃描洗衣機固定 QR。"
+        waitingText="請掃描洗衣機固定 QR 或選擇待清洗批次。"
         readyText={
           mode === "complete"
             ? "已帶入執行中單據，確認後結束清洗。"
-            : "已掃描洗衣機，確認後開始清洗。"
+            : "已準備就緒，確認後開始清洗。"
         }
       >
-        {hasScanned ? (
+        {activeToken || activeEquipmentId ? (
           <div
             style={{
               margin: "0.5rem 0",
@@ -261,76 +287,190 @@ export function StartWashingControl({
           </div>
         ) : null}
 
-        {displayEquipment || displayInstitution || displayCart || displayOrderNumber ? (
+        {/* 上方資訊卡片（字體加大、高對比清晰呈現） */}
+        <div
+          style={{
+            margin: "0.75rem 0 1.25rem 0",
+            padding: "1.25rem 1.5rem",
+            background: "linear-gradient(145deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98))",
+            border: "1px solid rgba(255, 255, 255, 0.2)",
+            borderRadius: "12px",
+            boxShadow: "0 6px 16px rgba(0, 0, 0, 0.3)",
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            gap: "1.25rem",
+          }}
+        >
+          <div>
+            <div style={{ fontSize: "1rem", color: "#94a3b8", marginBottom: "0.35rem", fontWeight: 700 }}>
+              🏢 機構名稱
+            </div>
+            <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "#ffffff", letterSpacing: "0.02em" }}>
+              {displayInstitution || "未指定"}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: "1rem", color: "#94a3b8", marginBottom: "0.35rem", fontWeight: 700 }}>
+              🛒 洗衣車號
+            </div>
+            <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "#38bdf8", letterSpacing: "0.02em" }}>
+              {displayCart || "未指定"}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: "1rem", color: "#94a3b8", marginBottom: "0.35rem", fontWeight: 700 }}>
+              📋 洗衣單號
+            </div>
+            <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#f1f5f9", wordBreak: "break-all" }}>
+              {displayOrderNumber || "—"}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: "1rem", color: "#94a3b8", marginBottom: "0.35rem", fontWeight: 700 }}>
+              🏷️ 洗滌分類
+            </div>
+            <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "#86efac" }}>
+              {selectedBatch?.categoryName || "汙衣"}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: "1rem", color: "#94a3b8", marginBottom: "0.35rem", fontWeight: 700 }}>
+              🖥️ 洗衣設備
+            </div>
+            <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "#fbbf24" }}>
+              {displayEquipment}
+            </div>
+          </div>
+        </div>
+
+        {/* 待清洗批次卡片清單（取消下拉選單） */}
+        <div style={{ margin: "1.25rem 0" }}>
           <div
             style={{
-              margin: "0.5rem 0",
-              padding: "0.5rem 0.75rem",
-              background: "rgba(255, 255, 255, 0.08)",
-              border: "1px solid rgba(255, 255, 255, 0.15)",
-              borderRadius: "6px",
               display: "flex",
+              justifyContent: "space-between",
               alignItems: "center",
-              gap: "0.75rem 1.25rem",
-              flexWrap: "wrap",
-              fontSize: "0.9rem",
+              marginBottom: "0.75rem",
             }}
           >
-            {displayEquipment ? (
-              <span>
-                設備：
-                <strong style={{ color: "#ffffff", fontWeight: 700 }}>
-                  {displayEquipment}
-                </strong>
+            <h3 style={{ fontSize: "1.15rem", fontWeight: 800, color: "#f8fafc", margin: 0 }}>
+              {mode === "complete" ? "執行中單據" : "待清洗批次清單"}
+            </h3>
+            {sortedBatches.length > 0 && (
+              <span style={{ fontSize: "0.95rem", color: "#94a3b8" }}>
+                共 {sortedBatches.length} 筆批次
               </span>
-            ) : null}
-            <span>
-              機構：
-              <strong style={{ color: "#ffffff", fontWeight: 700 }}>
-                {displayInstitution || "未指定"}
-              </strong>
-            </span>
-            <span>
-              車號：
-              <strong style={{ color: "#ffffff", fontWeight: 700 }}>
-                {displayCart || "未指定"}
-              </strong>
-            </span>
-            {displayOrderNumber ? (
-              <span>
-                單號：
-                <strong style={{ color: "#ffffff" }}>
-                  {displayOrderNumber}
-                </strong>
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-
-        <label>
-          {mode === "complete" ? "執行中單據" : "待清洗批次"}
-          <select
-            value={batchId}
-            onChange={(event) => setBatchId(event.target.value)}
-            disabled={mode === "complete" || sortedBatches.length === 0}
-          >
-            {sortedBatches.length === 0 ? (
-              <option value="">
-                {mode === "complete"
-                  ? "目前沒有這台洗衣機的執行中單據"
-                  : equipmentInfo?.operatingSiteName
-                    ? `【${equipmentInfo.operatingSiteName}】目前沒有待清洗批次`
-                    : "目前沒有待清洗批次"}
-              </option>
-            ) : (
-              sortedBatches.map((batch) => (
-                <option key={batch.id} value={batch.id}>
-                  {formatBatchLabel(batch)}
-                </option>
-              ))
             )}
-          </select>
-        </label>
+          </div>
+
+          {sortedBatches.length === 0 ? (
+            <div
+              style={{
+                padding: "2rem",
+                textAlign: "center",
+                background: "rgba(255, 255, 255, 0.04)",
+                borderRadius: "10px",
+                border: "1px dashed rgba(255, 255, 255, 0.2)",
+                color: "#94a3b8",
+                fontSize: "1.1rem",
+              }}
+            >
+              {mode === "complete"
+                ? "目前沒有這台洗衣機的執行中單據"
+                : equipmentInfo?.operatingSiteName
+                  ? `【${equipmentInfo.operatingSiteName}】目前沒有待清洗批次`
+                  : "目前沒有待清洗批次"}
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+              {sortedBatches.map((batch) => {
+                const isSelected = batch.id === batchId;
+                return (
+                  <button
+                    key={batch.id}
+                    type="button"
+                    onClick={() => setBatchId(batch.id)}
+                    style={{
+                      padding: "1.15rem 1.4rem",
+                      textAlign: "left",
+                      background: isSelected
+                        ? "linear-gradient(135deg, rgba(13, 148, 136, 0.25), rgba(15, 118, 110, 0.35))"
+                        : "rgba(255, 255, 255, 0.04)",
+                      border: isSelected
+                        ? "2px solid #2dd4bf"
+                        : "1px solid rgba(255, 255, 255, 0.15)",
+                      borderRadius: "10px",
+                      cursor: "pointer",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "0.65rem",
+                      transition: "all 0.15s ease-in-out",
+                      boxShadow: isSelected ? "0 4px 14px rgba(45, 212, 191, 0.2)" : "none",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: "0.5rem",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "1.25rem",
+                          fontWeight: 800,
+                          color: isSelected ? "#2dd4bf" : "#f8fafc",
+                        }}
+                      >
+                        {batch.institutionName || "未指定機構"} · {batch.cartNumber || "未指定車號"}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "0.9rem",
+                          padding: "0.3rem 0.85rem",
+                          borderRadius: "9999px",
+                          background: isSelected ? "#0d9488" : "rgba(255, 255, 255, 0.12)",
+                          color: "#ffffff",
+                          fontWeight: 800,
+                          border: isSelected ? "1px solid #2dd4bf" : "1px solid transparent",
+                        }}
+                      >
+                        {isSelected ? "✓ 目前選取" : "點擊選取"}
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "1.02rem",
+                        color: "#cbd5e1",
+                        display: "flex",
+                        gap: "1.25rem",
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                      }}
+                    >
+                      <span>
+                        單號：<strong style={{ color: "#ffffff" }}>{batch.orderNumber || "—"}</strong>
+                      </span>
+                      <span>
+                        分類：<strong style={{ color: "#86efac" }}>{batch.categoryName || "汙衣"}</strong>
+                      </span>
+                      <span>
+                        階段：<strong style={{ color: "#fde047" }}>第 {batch.current_stage_order} 階段</strong>
+                      </span>
+                      {batch.operating_site_name ? (
+                        <span>
+                          據點：<strong style={{ color: "#93c5fd" }}>{batch.operating_site_name}</strong>
+                        </span>
+                      ) : null}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {isSiteMismatch ? (
           <p
@@ -338,15 +478,15 @@ export function StartWashingControl({
               color: "#d32f2f",
               fontWeight: 600,
               margin: "0.5rem 0",
-              fontSize: "0.9rem",
+              fontSize: "0.95rem",
               background: "#ffebee",
-              padding: "0.4rem 0.6rem",
-              borderRadius: "4px",
+              padding: "0.5rem 0.75rem",
+              borderRadius: "6px",
             }}
             role="alert"
           >
             ⚠️ 據點不一致警告：選取的批次屬於「{selectedBatch?.operating_site_name || "其他據點"}
-            」，但當前洗衣機屬於「{equipmentInfo?.operatingSiteName}
+            」，但當前洗衣機屬於「{equipmentInfo?.operatingSiteName || effectiveEquipmentObj?.operating_site_name}
             」！跨據點不可清洗。請選擇同據點批次或更換洗衣機。
           </p>
         ) : null}
@@ -355,7 +495,13 @@ export function StartWashingControl({
           <button
             type="button"
             onClick={() => void submit("/api/operations/complete-stage")}
-            disabled={!batchId || !hasScanned || submitting}
+            disabled={!batchId || (!activeToken && !effectiveEquipmentId) || submitting}
+            style={{
+              fontSize: "1.15rem",
+              fontWeight: 800,
+              padding: "0.85rem 1.75rem",
+              borderRadius: "8px",
+            }}
           >
             {submitting ? "處理中…" : "確認清洗完成"}
           </button>
@@ -363,7 +509,13 @@ export function StartWashingControl({
           <button
             type="button"
             onClick={() => void submit("/api/operations/start-washing")}
-            disabled={!batchId || !hasScanned || submitting || isSiteMismatch}
+            disabled={!batchId || (!activeToken && !effectiveEquipmentId) || submitting || isSiteMismatch}
+            style={{
+              fontSize: "1.15rem",
+              fontWeight: 800,
+              padding: "0.85rem 1.75rem",
+              borderRadius: "8px",
+            }}
           >
             {submitting ? "處理中…" : "確認開始清洗"}
           </button>
