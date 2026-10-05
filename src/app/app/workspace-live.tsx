@@ -99,7 +99,7 @@ function SupervisorCommandRoom({
         <article><span>送件數量</span><strong>{orders?.awaiting_receipt ?? 0}</strong><small>送洗人員已送單，等待收件</small></article>
         <article className={styles.commandKpiPrimary}><span>未結案</span><strong>{openOrders}</strong><small>待收件、處理中與待取件</small></article>
         <article><span>處理中(占用設備中)</span><strong>{batches?.in_progress ?? 0}</strong><small>{batches?.in_progress ?? 0} 個批次正在設備上</small></article>
-        <article className={actionCount ? styles.commandKpiAlert : styles.commandKpiGood}><span>異常需介入(設備異常or暫停中)</span><strong>{actionCount}</strong><small>{batches?.paused ?? 0} 暫停 · {equipmentIssues} 設備異常</small></article>
+        <article className={actionCount ? styles.commandKpiAlert : styles.commandKpiGood}><span>狀況異常(暫停中)</span><strong>{actionCount}</strong><small>{batches?.paused ?? 0} 暫停 · {equipmentIssues} 設備異常</small></article>
         <article><span>待取件</span><strong>{orders?.ready_for_pickup ?? "—"}</strong><small>送洗人員掃車 QR 後結案</small></article>
       </div>
 

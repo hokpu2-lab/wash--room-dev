@@ -12,7 +12,7 @@ export function SupervisorKpiFallback() {
         <article><span>送件數量</span><strong>—</strong><small>載入中</small></article>
         <article className={styles.commandKpiPrimary}><span>未結案</span><strong>—</strong><small>載入中</small></article>
         <article><span>處理中(占用設備中)</span><strong>—</strong><small>載入中</small></article>
-        <article><span>異常需介入(設備異常or暫停中)</span><strong>—</strong><small>載入中</small></article>
+        <article><span>狀況異常(暫停中)</span><strong>—</strong><small>載入中</small></article>
         <article><span>待取件</span><strong>—</strong><small>載入中</small></article>
       </div>
     </section>
