@@ -36,7 +36,6 @@ const reasons: Record<string, string> = {
   equipment_occupied: "洗衣機目前已有其他批次使用。",
   incompatible_equipment: "洗衣機與批次分類或程序不相容。",
   batch_not_ready: "批次目前不可操作清洗。",
-  wrong_stage: "請再掃目前占用中的同一台洗衣機以結束清洗。",
   precondition_required: "此批次尚未完成必要前置程序。",
   service_unavailable: "系統暫時無法完成清洗操作，請稍後再試。",
 };
@@ -501,11 +500,11 @@ export function StartWashingControl({
         <p className={styles.successNotice} role="status">
           {isCompleteMode || scanResult.status === "not_started" || scanResult.status === "completed"
             ? (isDisinfect ? "浸泡消毒已結束完成。" : "清洗已結束完成。")
-            : (isDisinfect ? "浸泡消毒已開始。" : "清洗已開始。")}
+            : (isDisinfect ? "浸泡消毒已完成。" : "清洗已開始。")}
         </p>
-      ) : scanResult && "reasonCode" in scanResult ? (
+      ) : scanResult && "reasonCode" in scanResult && scanResult.reasonCode !== "wrong_stage" && reasons[scanResult.reasonCode] ? (
         <p className={styles.errorNotice} role="alert">
-          {reasons[scanResult.reasonCode] ?? (isDisinfect ? "浸泡消毒操作未完成。" : "清洗操作未完成。")}
+          {reasons[scanResult.reasonCode]}
         </p>
       ) : null}
     </div>

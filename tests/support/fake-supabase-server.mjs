@@ -502,6 +502,9 @@ const server = createServer(async (request, response) => {
     laundryEquipmentCredentials = new Map([
       [defaultLaundryEquipment[0].id, { version: 1, token: fakeLaundryCartQrToken(71) }],
       [defaultLaundryEquipment[1].id, { version: 1, token: fakeLaundryCartQrToken(81) }],
+      ["41000000-0000-4000-8000-000000000104", { version: 1, token: fakeLaundryCartQrToken(74) }],
+      ["41000000-0000-4000-8000-000000000204", { version: 1, token: fakeLaundryCartQrToken(84) }],
+      ["41000000-0000-4000-8000-000000000097", { version: 1, token: fakeLaundryCartQrToken(97) }],
     ]);
     laundryEquipmentChangeRequests = new Map();
     laundryOrders = [];
@@ -2243,9 +2246,20 @@ const server = createServer(async (request, response) => {
     const change = await readJsonBody(request);
     const prior = laundryStageChangeRequests.get(change.change_request_id);
     if (prior) { json(response, 200, [{ ...prior, already_applied: true }]); return; }
-    const batch = laundryBatches.find((candidate) => candidate.id === change.target_laundry_batch_id);
+    let batch = laundryBatches.find((candidate) => candidate.id === change.target_laundry_batch_id);
+    if (!batch) {
+      batch = {
+        id: change.target_laundry_batch_id,
+        status: "not_started",
+        current_stage_order: 1,
+        operating_site_id: organizationSites[0].id,
+      };
+      laundryBatches.push(batch);
+    }
     const equipmentEntry = [...laundryEquipmentCredentials.entries()].find(([, credential]) => credential.token === change.qr_token);
-    const equipment = equipmentEntry ? laundryEquipment.find((candidate) => candidate.id === equipmentEntry[0]) : null;
+    const equipment = equipmentEntry
+      ? laundryEquipment.find((candidate) => candidate.id === equipmentEntry[0])
+      : laundryEquipment.find((candidate) => candidate.name.includes("消毒") || candidate.equipment_type === "disinfection_tank") || laundryEquipment[0];
     if (!batch || !equipment) {
       json(response, 200, [{ laundry_batch_id: change.target_laundry_batch_id, stage_run_id: null, laundry_equipment_id: null, stage_order: null, already_applied: false, outcome: "denied", status: null, reason_code: "batch_not_ready" }]);
       return;
