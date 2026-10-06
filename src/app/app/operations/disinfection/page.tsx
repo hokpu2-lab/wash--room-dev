@@ -18,7 +18,7 @@ export default async function DisinfectionPage({
   const selectedCartNumber = typeof query.cart === "string" ? query.cart : undefined;
   const selectedOrderNumber = typeof query.order === "string" ? query.order : undefined;
   const selectedInstitutionName = typeof query.institution === "string" ? query.institution : undefined;
-  const { batches, siteId } = await loadSiteBatches(
+  const { batches, siteId, equipmentList } = await loadSiteBatches(
     query,
     mode === "complete" ? ["in_progress"] : ["not_started"],
   );
@@ -38,6 +38,7 @@ export default async function DisinfectionPage({
             siteId={siteId}
             mode={mode}
             focusedBatchId={focusedBatchId}
+            availableEquipment={equipmentList}
             selectedCartNumber={selectedCartNumber}
             selectedOrderNumber={selectedOrderNumber}
             selectedInstitutionName={selectedInstitutionName}
