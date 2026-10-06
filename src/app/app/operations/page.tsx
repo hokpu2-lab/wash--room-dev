@@ -64,7 +64,7 @@ export default async function OperationsPage({
             <p>依實體流程操作，不以預估進度代替完成確認。</p>
           </div>
           <div className={styles.quickGrid}>
-            <AppLink href="/app/operations/receive"><span>01</span><strong>收單分類與檢查<small>掃洗衣車、核對送洗機構並建立批次</small></strong></AppLink>
+            <AppLink href="/app/operations/receive"><span>01</span><strong>收單分類與檢查清單<small>掃洗衣車、核對送洗機構並建立批次</small></strong></AppLink>
             <AppLink href="/app/operations/disinfection"><span>02</span><strong>消毒浸泡<small>消毒分類在清洗前的必要階段</small></strong></AppLink>
             <AppLink href="/app/operations/washing"><span>03</span><strong>開始清洗<small>掃描相容且可用的洗衣機</small></strong></AppLink>
             <AppLink href="/app/operations/drying"><span>04</span><strong>清洗完成與烘乾<small>原子完成清洗並啟動烘衣機</small></strong></AppLink>

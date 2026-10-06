@@ -29,7 +29,7 @@ const supervisorLinks: WorkspaceLink[] = [
 
 const workerLinks: WorkspaceLink[] = [
   { href: "/app/operations", label: "營運總覽", description: "授權據點與工作入口", group: "workspace", marker: "總" },
-  { href: "/app/operations/receive", label: "收單分類與檢查", description: "掃描洗衣車並建立批次", group: "workspace", marker: "收" },
+  { href: "/app/operations/receive", label: "收單分類與檢查清單", description: "掃描洗衣車並建立批次", group: "workspace", marker: "收" },
   { href: "/app/operations/control-center", label: "洗衣單與批次", description: "批次控制、異常與重排", group: "workspace", marker: "單" },
   { href: "/app/history", label: "歷史查詢紀錄", description: "查詢歷史取件紀錄", group: "workspace", marker: "歷" },
   { href: "/app/operations/washing", label: "開始清洗", description: "掃描相容洗衣機", group: "management", marker: "洗" },
