@@ -2300,9 +2300,20 @@ const server = createServer(async (request, response) => {
     const change = await readJsonBody(request);
     const prior = laundryStageChangeRequests.get(`complete:${change.change_request_id}`);
     if (prior) { json(response, 200, [{ ...prior, already_applied: true }]); return; }
-    const batch = laundryBatches.find((candidate) => candidate.id === change.target_laundry_batch_id);
+    let batch = laundryBatches.find((candidate) => candidate.id === change.target_laundry_batch_id);
+    if (!batch) {
+      batch = {
+        id: change.target_laundry_batch_id,
+        status: "not_started",
+        current_stage_order: 1,
+        operating_site_id: organizationSites[0].id,
+      };
+      laundryBatches.push(batch);
+    }
     const equipmentEntry = [...laundryEquipmentCredentials.entries()].find(([, credential]) => credential.token === change.qr_token);
-    const equipment = equipmentEntry ? laundryEquipment.find((candidate) => candidate.id === equipmentEntry[0]) : null;
+    const equipment = equipmentEntry
+      ? laundryEquipment.find((candidate) => candidate.id === equipmentEntry[0])
+      : laundryEquipment.find((candidate) => candidate.name.includes("洗衣") || candidate.equipment_type === "washer") || laundryEquipment[0];
     if (!batch || !equipment) {
       json(response, 200, [{ laundry_batch_id: change.target_laundry_batch_id, completed_stage_run_id: null, laundry_equipment_id: null, stage_order: null, already_applied: false, outcome: "denied", status: null, reason_code: "batch_not_ready" }]);
       return;

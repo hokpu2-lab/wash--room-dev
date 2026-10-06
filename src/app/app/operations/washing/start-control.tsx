@@ -237,7 +237,19 @@ export function StartWashingControl({
   const displayEquipment = effectiveEquipmentName;
   const isTargetedDisinfect = selectedOrderNumber === "MAIN-20261005-0004" || selectedCartNumber === "8D-1";
   const stageNum = chineseStageNumber(isTargetedDisinfect ? 1 : (selectedBatch?.current_stage_order ?? 1));
-  const displayProgress = isCompleteMode
+
+  const isCompletedSuccess = Boolean(
+    result &&
+      (result.kind === "completed" ||
+        result.kind === "already-completed" ||
+        (result.kind === "applied" && isCompleteMode) ||
+        (result.kind === "started" && (isCompleteMode || result.status === "not_started" || result.status === "completed")) ||
+        (result.kind === "already-started" && (isCompleteMode || result.status === "not_started" || result.status === "completed")))
+  );
+
+  const displayProgress = isCompletedSuccess
+    ? "第二階段(已完成)"
+    : isCompleteMode
     ? `第${stageNum}階段(處理中)`
     : isDisinfect
     ? "第一階段(浸泡消毒)"
@@ -300,7 +312,9 @@ export function StartWashingControl({
       <header className={styles.pageHeader}>
         <div>
           <p className={styles.eyebrow}>
-            {isCompleteMode
+            {isCompletedSuccess
+              ? "STAGE COMPLETED"
+              : isCompleteMode
               ? "LAUNDRY COMPLETE"
               : isDisinfect
               ? "DISINFECTION CONTROL POINT"
@@ -308,7 +322,9 @@ export function StartWashingControl({
           </p>
           <h1 id="washing-title">{displayProgress}</h1>
           <p className={styles.lede}>
-            {isCompleteMode
+            {isCompletedSuccess
+              ? "清洗程序已結束完成。"
+              : isCompleteMode
               ? "確認清洗完成並釋放洗衣設備。"
               : isDisinfect
               ? "確認開始浸泡消毒程序。"
@@ -456,7 +472,7 @@ export function StartWashingControl({
           <button
             type="button"
             onClick={() => void submit("/api/operations/complete-stage")}
-            disabled={(!batchId && !selectedBatch?.id && !matchingBatch?.id) || (!activeToken && !effectiveEquipmentId) || submitting}
+            disabled={(!batchId && !selectedBatch?.id && !matchingBatch?.id) || (!activeToken && !effectiveEquipmentId) || submitting || isCompletedSuccess}
             style={{
               fontSize: "1.15rem",
               fontWeight: 800,
@@ -464,7 +480,7 @@ export function StartWashingControl({
               borderRadius: "8px",
             }}
           >
-            {submitting ? "處理中…" : "確認清洗完成"}
+            {submitting ? "處理中…" : isCompletedSuccess ? "已確認完成" : "確認清洗完成"}
           </button>
         ) : isDisinfect ? (
           <button

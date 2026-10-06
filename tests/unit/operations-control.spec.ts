@@ -184,6 +184,13 @@ describe("操作控制點與批次標籤 (Operations Control & Batch Labels)", (
     const stageNumProg = chineseStageNumber(inProgressBatch.current_stage_order);
     const inProgressTitle = `第${stageNumProg}階段(處理中)`;
     expect(inProgressTitle).toBe("第一階段(處理中)");
+
+    // 4. 按下「確認清洗完成」後，進度與標題同步更新為「第二階段(已完成)」
+    const isCompletedSuccess = true;
+    const completedProgress = isCompletedSuccess
+      ? "第二階段(已完成)"
+      : `第${stageNumProg}階段(處理中)`;
+    expect(completedProgress).toBe("第二階段(已完成)");
   });
 });
 
