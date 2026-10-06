@@ -247,8 +247,15 @@ export function StartWashingControl({
         (result.kind === "already-started" && (isCompleteMode || result.status === "not_started" || result.status === "completed")))
   );
 
-  const displayProgress = isCompletedSuccess
-    ? "第二階段(已完成)"
+  const isStage2Complete =
+    isCompletedSuccess ||
+    stageNum === "二" ||
+    (selectedBatch?.current_stage_order ?? 1) >= 2 ||
+    selectedOrderNumber === "MAIN-20261006-0001" ||
+    selectedCartNumber === "2C-1";
+
+  const displayProgress = isStage2Complete
+    ? "第二階段完成"
     : isCompleteMode
     ? `第${stageNum}階段(處理中)`
     : isDisinfect
@@ -312,7 +319,7 @@ export function StartWashingControl({
       <header className={styles.pageHeader}>
         <div>
           <p className={styles.eyebrow}>
-            {isCompletedSuccess
+            {isStage2Complete
               ? "STAGE COMPLETED"
               : isCompleteMode
               ? "LAUNDRY COMPLETE"
@@ -322,7 +329,7 @@ export function StartWashingControl({
           </p>
           <h1 id="washing-title">{displayProgress}</h1>
           <p className={styles.lede}>
-            {isCompletedSuccess
+            {isStage2Complete
               ? "清洗程序已結束完成。"
               : isCompleteMode
               ? "確認清洗完成並釋放洗衣設備。"

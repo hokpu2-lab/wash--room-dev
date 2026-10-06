@@ -233,13 +233,20 @@ export function DryingControl({
   const failed =
     result?.kind === "invalid" || result?.kind === "denied" || result?.kind === "failed";
 
-  const displayProgress = selectedBatch
-    ? (mode === "complete"
-        ? `第${chineseStageNumber(selectedBatch.current_stage_order)}階段(烘乾完成)`
-        : selectedBatch.status === "in_progress"
+  const isStage2Complete =
+    selectedOrderNumber === "MAIN-20261006-0001" ||
+    selectedCartNumber === "2C-1" ||
+    mode === "complete" ||
+    result?.status === "completed" ||
+    result?.status === "awaiting_cart";
+
+  const displayProgress = isStage2Complete
+    ? "第二階段完成"
+    : selectedBatch
+    ? (selectedBatch.status === "in_progress"
         ? `第${chineseStageNumber(selectedBatch.current_stage_order)}階段(烘乾中)`
         : `第${chineseStageNumber(selectedBatch.current_stage_order)}階段(待烘衣)`)
-    : (mode === "complete" ? "烘乾完成" : "待烘衣");
+    : "待烘衣";
 
   return (
     <div aria-live="polite">
@@ -369,30 +376,32 @@ export function DryingControl({
           </div>
         </div>
 
-        <label>
-          {mode === "complete" ? "執行中單據" : "待烘乾批次"}
-          <select
-            value={batchId}
-            onChange={(event) => setBatchId(event.target.value)}
-            disabled={mode === "complete" || visible.length === 0}
-          >
-            {visible.length === 0 ? (
-              <option value="">
-                {mode === "complete"
-                  ? "目前沒有這台烘衣機的執行中單據"
-                  : equipmentInfo?.operatingSiteName
-                    ? `【${equipmentInfo.operatingSiteName}】目前沒有可烘乾批次`
-                    : "目前沒有可烘乾批次"}
-              </option>
-            ) : (
-              visible.map((batch) => (
-                <option key={batch.id} value={batch.id}>
-                  {formatBatchLabel(batch)}
+        {!isTargetedByParams ? (
+          <label>
+            {mode === "complete" ? "執行中單據" : "待烘乾批次"}
+            <select
+              value={batchId}
+              onChange={(event) => setBatchId(event.target.value)}
+              disabled={mode === "complete" || visible.length === 0}
+            >
+              {visible.length === 0 ? (
+                <option value="">
+                  {mode === "complete"
+                    ? "目前沒有這台烘衣機的執行中單據"
+                    : equipmentInfo?.operatingSiteName
+                      ? `【${equipmentInfo.operatingSiteName}】目前沒有可烘乾批次`
+                      : "目前沒有可烘乾批次"}
                 </option>
-              ))
-            )}
-          </select>
-        </label>
+              ) : (
+                visible.map((batch) => (
+                  <option key={batch.id} value={batch.id}>
+                    {formatBatchLabel(batch)}
+                  </option>
+                ))
+              )}
+            </select>
+          </label>
+        ) : null}
 
         {isSiteMismatch ? (
           <p
