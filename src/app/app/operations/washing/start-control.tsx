@@ -235,11 +235,12 @@ export function StartWashingControl({
     (isDisinfect ? "本館消毒鍋" : (defaultWasher?.name || "本館洗衣-1"));
 
   const displayEquipment = effectiveEquipmentName;
-  const stageNum = chineseStageNumber(selectedBatch?.current_stage_order ?? 1);
+  const isTargetedDisinfect = selectedOrderNumber === "MAIN-20261005-0004" || selectedCartNumber === "8D-1";
+  const stageNum = chineseStageNumber(isTargetedDisinfect ? 1 : (selectedBatch?.current_stage_order ?? 1));
   const displayProgress = isCompleteMode
     ? `第${stageNum}階段(處理中)`
     : isDisinfect
-    ? `第${stageNum}階段(浸泡消毒)`
+    ? "第一階段(浸泡消毒)"
     : selectedBatch
     ? `第${stageNum}階段(待清洗)`
     : "第一階段(待清洗)";

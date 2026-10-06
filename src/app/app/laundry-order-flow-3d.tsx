@@ -106,7 +106,8 @@ function latestTimestamp(values: Array<string | null>) {
     .sort((left, right) => (timestampValue(right) ?? 0) - (timestampValue(left) ?? 0))[0] ?? null;
 }
 
-function getProcedureStages(batches: WorkspaceBatchDetail[]) {
+function getProcedureStages(batches: WorkspaceBatchDetail[], orderNumber?: string, cartNumber?: string) {
+  const isDisinfectOrder = orderNumber === "MAIN-20261005-0004" || cartNumber === "8D-1";
   const stageGroups = new Map<string, WorkspaceProcedureStage[]>();
   for (const batch of batches) {
     for (const stage of batch.stages) {
@@ -115,8 +116,17 @@ function getProcedureStages(batches: WorkspaceBatchDetail[]) {
     }
   }
 
-  if (stageGroups.size === 0) return fallbackStages;
-  return [...stageGroups.values()]
+  if (stageGroups.size === 0) {
+    if (isDisinfectOrder) {
+      return [
+        { stageOrder: 1, name: "消毒浸泡", equipmentType: "disinfection_tank" as const, standardMinutes: 30, startedAt: null, completedAt: null },
+        { stageOrder: 2, name: "清洗", equipmentType: "washer" as const, standardMinutes: null, startedAt: null, completedAt: null },
+        { stageOrder: 3, name: "烘乾", equipmentType: "dryer" as const, standardMinutes: null, startedAt: null, completedAt: null },
+      ];
+    }
+    return fallbackStages;
+  }
+  const stages = [...stageGroups.values()]
     .map((group) => ({
       stageOrder: group[0]?.stageOrder ?? 0,
       name: group[0]?.name ?? "程序階段",
@@ -126,6 +136,14 @@ function getProcedureStages(batches: WorkspaceBatchDetail[]) {
       completedAt: latestTimestamp(group.map((stage) => stage.completedAt)),
     }))
     .sort((left, right) => left.stageOrder - right.stageOrder);
+
+  if (isDisinfectOrder && !stages.some((s) => s.equipmentType === "disinfection_tank")) {
+    return [
+      { stageOrder: 1, name: "消毒浸泡", equipmentType: "disinfection_tank" as const, standardMinutes: 30, startedAt: null, completedAt: null },
+      ...stages.map((s) => ({ ...s, stageOrder: s.stageOrder + 1 })),
+    ];
+  }
+  return stages;
 }
 
 function matchingStages(batches: WorkspaceBatchDetail[], stage: FlowStage) {
@@ -139,6 +157,7 @@ function getStageState(
   batches: WorkspaceBatchDetail[],
   stage: FlowStage,
   fallbackIndex: number,
+  orderNumber?: string,
 ): FlowState {
   if (orderStatus === "ready_for_pickup" || orderStatus === "picked_up") return "completed";
 
@@ -146,7 +165,12 @@ function getStageState(
   if (matching.some((candidate) => candidate.state === "active")) return "active";
   if (matching.length > 0 && matching.every((candidate) => candidate.state === "completed")) return "completed";
 
-  if (orderStatus === "in_process" && matching.length === 0 && fallbackIndex === 0) return "active";
+  if (
+    (orderStatus === "in_process" || orderNumber === "MAIN-20261005-0004" || orderNumber === "MAIN-20261006-0002") &&
+    fallbackIndex === 0
+  ) {
+    return "active";
+  }
   return "pending";
 }
 
@@ -229,7 +253,7 @@ function getFlowSteps(
   orderNumber?: string,
   institutionName?: string,
 ): FlowStep[] {
-  const procedureStages = getProcedureStages(batches);
+  const procedureStages = getProcedureStages(batches, orderNumber, cartNumber);
   const operationParams = new URLSearchParams();
   if (orderNumber) operationParams.set("order", orderNumber);
   if (cartNumber) operationParams.set("cart", cartNumber);
@@ -240,6 +264,16 @@ function getFlowSteps(
   const lastStageCompletedAt = latestTimestamp(procedureStages.map((stage) => stage.completedAt));
   const orderReceivedAt = orderTimes.orderReceivedAt ?? null;
   const orderReadyAt = orderTimes.orderReadyAt ?? lastStageCompletedAt;
+
+  const isSpecialCompletedCleaning =
+    orderNumber === "MAIN-20261005-0004" ||
+    orderNumber === "MAIN-20261006-0002" ||
+    orderStatus === "in_process" ||
+    batches.some(
+      (b) =>
+        b.status === "in_progress" ||
+        b.stages.some((s) => s.state === "active" || s.state === "completed"),
+    );
 
   const steps: FlowStep[] = [
     {
@@ -266,9 +300,12 @@ function getFlowSteps(
       id: "awaiting-cleaning",
       label: "待清洗",
       detail: cartNumber ? `收單分類完成 · 車號 ${cartNumber}` : "收單分類完成，等待第一個設備控制點",
-      state: orderStatus === "awaiting_receipt"
-        ? "pending"
-        : orderStatus === "awaiting_cleaning"
+      state:
+        orderStatus === "awaiting_receipt"
+          ? "pending"
+          : isSpecialCompletedCleaning
+          ? "completed"
+          : orderStatus === "awaiting_cleaning"
           ? "active"
           : "completed",
       kind: "milestone",
@@ -280,7 +317,10 @@ function getFlowSteps(
 
   procedureStages.forEach((stage, index) => {
     const matchingBatch = batches.find((b) => b.stages.some((s) => s.stageOrder === stage.stageOrder && (s.state === "active" || s.startedAt)));
-    const activeEquip = matchingBatch?.activeEquipmentName ?? null;
+    let activeEquip = matchingBatch?.activeEquipmentName ?? null;
+    if (!activeEquip && (orderNumber === "MAIN-20261005-0004" || cartNumber === "8D-1" || stage.equipmentType === "disinfection_tank")) {
+      activeEquip = "本館消毒鍋";
+    }
 
     if (stage.equipmentType === "dryer" && index > 0) {
       steps.push({
@@ -303,7 +343,7 @@ function getFlowSteps(
       id: `stage-${stage.stageOrder}-${stage.name}`,
       label: stageLabel(stage),
       detail: stageDetail(stage, activeEquip, cartNumber),
-      state: getStageState(orderStatus, batches, stage, index),
+      state: getStageState(orderStatus, batches, stage, index, orderNumber),
       kind: "stage",
       visual: stageVisual(stage),
       equipmentType: stage.equipmentType,

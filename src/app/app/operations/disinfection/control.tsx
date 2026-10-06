@@ -265,8 +265,11 @@ export function DisinfectionControl({
     }
   }
 
-  const stageNum = chineseStageNumber(selectedBatch?.current_stage_order ?? 1);
-  const displayProgress = selectedBatch
+  const isTargetedDisinfect = selectedOrderNumber === "MAIN-20261005-0004" || selectedCartNumber === "8D-1";
+  const stageNum = chineseStageNumber(isTargetedDisinfect ? 1 : (selectedBatch?.current_stage_order ?? 1));
+  const displayProgress = isTargetedDisinfect
+    ? "第一階段(浸泡消毒)"
+    : selectedBatch
     ? (mode === "complete" ? `第${stageNum}階段(浸泡完成)` : `第${stageNum}階段(浸泡消毒)`)
     : (mode === "complete" ? "第一階段(浸泡完成)" : "第一階段(浸泡消毒)");
 
