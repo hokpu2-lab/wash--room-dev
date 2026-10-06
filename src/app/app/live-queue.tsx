@@ -585,16 +585,10 @@ export function LiveQueue({
                   </AppLink>
                 ) : selected.status === "awaiting_cleaning" ? (
                   <AppLink
-                    href={
-                      selectedDetail?.batches?.some((b) => b.categoryCode === "DISINFECT" || b.categoryName?.includes("消毒"))
-                        ? hrefWithClientScope(`/app/operations/disinfection?order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`, { siteId: siteId ?? null, institutionId: null })
-                        : hrefWithClientScope(`/app/operations/washing?order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`, { siteId: siteId ?? null, institutionId: null })
-                    }
+                    href={hrefWithClientScope(`/app/operations/washing?order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`, { siteId: siteId ?? null, institutionId: null })}
                     className={styles.primaryActionCta}
                   >
-                    {selectedDetail?.batches?.some((b) => b.categoryCode === "DISINFECT" || b.categoryName?.includes("消毒"))
-                      ? "開始消毒浸泡控制點 →"
-                      : "開始清洗控制點 →"}
+                    開始清洗控制點 →
                   </AppLink>
                 ) : selected.status === "in_process" ? (
                   <AppLink
@@ -644,16 +638,10 @@ export function LiveQueue({
                 </AppLink>
               ) : selected?.status === "awaiting_cleaning" ? (
                 <AppLink
-                  href={
-                    selectedDetail?.batches?.some((b) => b.categoryCode === "DISINFECT" || b.categoryName?.includes("消毒"))
-                      ? hrefWithClientScope(`/app/operations/disinfection?order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`, { siteId: siteId ?? null, institutionId: null })
-                      : hrefWithClientScope(`/app/operations/washing?order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`, { siteId: siteId ?? null, institutionId: null })
-                  }
+                  href={hrefWithClientScope(`/app/operations/washing?order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`, { siteId: siteId ?? null, institutionId: null })}
                   className={styles.orderFlowHeaderAction}
                 >
-                  {selectedDetail?.batches?.some((b) => b.categoryCode === "DISINFECT" || b.categoryName?.includes("消毒"))
-                    ? "開始消毒 ↗"
-                    : "開始清洗 ↗"}
+                  開始清洗 ↗
                 </AppLink>
               ) : selected?.status === "in_process" ? (
                 <AppLink
