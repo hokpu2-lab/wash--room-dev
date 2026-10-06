@@ -134,17 +134,42 @@ export function ReceiveCartControl({
     if (!activeToken || selected.length === 0) { setResult({ kind: "invalid", reasonCode: "invalid_categories" }); return; }
     setSubmitting(true); setResult(null);
     try {
-      const response = await fetch("/api/operations/receive-cart", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ qr_token: activeToken, category_codes: selected, change_request_id: crypto.randomUUID() }) });
+      const response = await fetch("/api/operations/receive-cart", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          qr_token: activeToken,
+          category_codes: selected,
+          change_request_id: crypto.randomUUID(),
+        }),
+      });
       const body = (await response.json()) as Result;
+      if (body.kind === "received" || body.kind === "already-received") {
+        if (activeToken) {
+          setPendingOrders((prev) => prev.filter((o) => o.qrToken !== activeToken));
+        }
+      }
       if (body.kind === "denied" && (body.reasonCode === "order_not_receivable" || body.reasonCode === "invalid_qr")) {
         clearPendingQrToken("cart");
+        if (activeToken) {
+          setPendingOrders((prev) => prev.filter((o) => o.qrToken !== activeToken));
+        }
       }
       setResult(body);
-    } catch { setResult({ kind: "failed", reasonCode: "service_unavailable" }); } finally { setSubmitting(false); }
+    } catch {
+      setResult({ kind: "failed", reasonCode: "service_unavailable" });
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function handleReset() {
     clearPendingQrToken("cart");
+    if (scanResult?.kind === "received" || scanResult?.kind === "already-received") {
+      if (activeToken) {
+        setPendingOrders((prev) => prev.filter((o) => o.qrToken !== activeToken));
+      }
+    }
     setSelectedToken(null);
     setSelectedOrder(null);
     setManualReset(true);
@@ -153,6 +178,17 @@ export function ReceiveCartControl({
     if (typeof window !== "undefined" && window.location.hash) {
       window.history.replaceState(null, "", window.location.pathname + window.location.search);
     }
+    fetch("/api/operations/pending-receipts")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && Array.isArray(data.orders)) {
+          setPendingOrders(data.orders);
+        }
+        if (data && Array.isArray(data.equipment)) {
+          setEquipmentList(data.equipment);
+        }
+      })
+      .catch(() => {});
   }
 
   // 待收單清單先顯示
@@ -425,16 +461,11 @@ export function ReceiveCartControl({
             return (
               <label key={category.code} className={styles.checkboxLabel}>
                 <input
-                  type="checkbox"
+                  type="radio"
+                  name="receiveCategory"
                   value={category.code}
                   checked={selected.includes(category.code)}
-                  onChange={(event) =>
-                    setSelected((current) =>
-                      event.target.checked
-                        ? [...current, category.code]
-                        : current.filter((code) => code !== category.code),
-                    )
-                  }
+                  onChange={() => setSelected([category.code])}
                 />
                 <span>
                   {category.name}（{category.code}）
@@ -456,8 +487,8 @@ export function ReceiveCartControl({
           })}
         </fieldset>
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "1rem" }}>
-          <button type="button" onClick={submit} disabled={!activeToken || submitting}>
-            {submitting ? "收單中…" : selected.length > 0 ? `確認收單並建立批次（${selected.length} 個分類）` : "確認收單並建立批次"}
+          <button type="button" onClick={submit} disabled={!activeToken || submitting || selected.length === 0}>
+            {submitting ? "收單中…" : "確認收單並建立批次"}
           </button>
           <button
             type="button"
