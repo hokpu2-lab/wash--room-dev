@@ -199,10 +199,10 @@
 }
 
 .historyTableBadge {
-  font-size: 0.88rem;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-weight: 700;
+  font-size: 1.15rem;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-weight: 850;
   letter-spacing: 0.02em;
 }
 
