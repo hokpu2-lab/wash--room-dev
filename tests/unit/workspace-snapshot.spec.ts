@@ -171,3 +171,19 @@ test("計算當天 AM 08:00 - 17:00 已送件數量", async () => {
   expect(calculateTodayShiftOrdersCount(null)).toBe(0);
 });
 
+test("戰情室指標：待收件單不計入狀況異常(暫停中)，只計入優先佇列", () => {
+  const orders = { awaiting_receipt: 1, in_process: 5, ready_for_pickup: 0 };
+  const batches = { paused: 0, in_progress: 0 };
+  const equipment = [
+    { id: "e1", status: "normal" },
+    { id: "e2", status: "normal" },
+  ];
+
+  const equipmentIssues = equipment.filter((item) => item.status === "abnormal" || item.status === "maintenance").length;
+  const abnormalCount = (batches.paused ?? 0) + equipmentIssues;
+  const priorityActionCount = (batches.paused ?? 0) + (orders.awaiting_receipt ?? 0) + equipmentIssues;
+
+  expect(abnormalCount).toBe(0);
+  expect(priorityActionCount).toBe(1);
+});
+

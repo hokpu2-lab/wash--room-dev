@@ -78,7 +78,8 @@ function SupervisorCommandRoom({
   const equipment = snapshot?.equipment ?? [];
   const openOrders = (orders?.awaiting_receipt ?? 0) + (orders?.in_process ?? 0) + (orders?.ready_for_pickup ?? 0);
   const equipmentIssues = equipment.filter((item) => item.status === "abnormal" || item.status === "maintenance").length;
-  const actionCount = (batches?.paused ?? 0) + (orders?.awaiting_receipt ?? 0) + equipmentIssues;
+  const abnormalCount = (batches?.paused ?? 0) + equipmentIssues;
+  const priorityActionCount = (batches?.paused ?? 0) + (orders?.awaiting_receipt ?? 0) + equipmentIssues;
   const todayShiftOrderCount = calculateTodayShiftOrdersCount(snapshot, syncedAt);
   const liveLabel = liveMode === "realtime" ? "即時連線" : liveMode === "poll" ? "定時同步" : "伺服器快照";
   const equipmentHref = hrefWithClientScope("/app/admin/laundry-equipment", { siteId: siteId ?? null, institutionId: null });
@@ -100,16 +101,16 @@ function SupervisorCommandRoom({
       </header>
 
       <div className={styles.commandKpis} aria-label="戰情室核心指標">
-        <article><span>當日送件(0800-1700截止)</span><strong>{todayShiftOrderCount}</strong><small>今日 08:00–17:00 已送件之洗衣單</small></article>
+        <article><span>當日送件<br />(0800-1700截止)</span><strong>{todayShiftOrderCount}</strong><small>今日 08:00–17:00 已送件之洗衣單</small></article>
         <article className={styles.commandKpiPrimary}><span>未結案</span><strong>{openOrders}</strong><small>待收件、處理中與待取件</small></article>
         <article><span>處理中(占用設備中)</span><strong>{batches?.in_progress ?? 0}</strong><small>{batches?.in_progress ?? 0} 個批次正在設備上</small></article>
-        <article className={actionCount ? styles.commandKpiAlert : styles.commandKpiGood}><span>狀況異常(暫停中)</span><strong>{actionCount}</strong><small>{batches?.paused ?? 0} 暫停 · {equipmentIssues} 設備異常</small></article>
+        <article className={abnormalCount ? styles.commandKpiAlert : styles.commandKpiGood}><span>狀況異常(暫停中)</span><strong>{abnormalCount}</strong><small>{batches?.paused ?? 0} 暫停 · {equipmentIssues} 設備異常</small></article>
         <article><span>待取件</span><strong>{orders?.ready_for_pickup ?? "—"}</strong><small>送洗人員掃車 QR 後結案</small></article>
       </div>
 
       <div className={styles.commandGrid}>
         <section className={styles.commandPanel} aria-labelledby="command-priority-title">
-          <div className={styles.commandPanelHead}><div><p className={styles.eyebrow}>PRIORITY QUEUE</p><h3 id="command-priority-title">現在要處理</h3></div><span>{actionCount ? `${actionCount} 件` : "CLEAR"}</span></div>
+          <div className={styles.commandPanelHead}><div><p className={styles.eyebrow}>PRIORITY QUEUE</p><h3 id="command-priority-title">現在要處理</h3></div><span>{priorityActionCount ? `${priorityActionCount} 件` : "CLEAR"}</span></div>
           <div className={styles.priorityList}>
             {batches?.paused ? <AppLink href="/app/operations/control-center#tab=incidents" className={`${styles.priorityItem} ${styles.priorityAlert}`}><i aria-hidden="true" /><span><strong>暫停批次</strong><small>檢查設備或異常原因，確認是否恢復</small></span><b>{batches.paused}</b></AppLink> : null}
             {orders?.awaiting_receipt ? (
@@ -137,7 +138,7 @@ function SupervisorCommandRoom({
               </button>
             ) : null}
             {equipmentIssues ? <AppLink href={equipmentHref} className={`${styles.priorityItem} ${styles.priorityAlert}`}><i aria-hidden="true" /><span><strong>設備狀態需確認</strong><small>異常或維修中的設備</small></span><b>{equipmentIssues}</b></AppLink> : null}
-            {!actionCount ? <div className={styles.priorityClear}><span aria-hidden="true">✓</span><strong>目前沒有需要主管介入的項目</strong><small>維持目前作業節奏，持續觀察待取件佇列。</small></div> : null}
+            {!priorityActionCount ? <div className={styles.priorityClear}><span aria-hidden="true">✓</span><strong>目前沒有需要主管介入的項目</strong><small>維持目前作業節奏，持續觀察待取件佇列。</small></div> : null}
           </div>
         </section>
 
