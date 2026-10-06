@@ -20,7 +20,7 @@ export default async function StartWashingPage({
   const selectedInstitutionName = typeof query.institution === "string" ? query.institution : undefined;
   const { batches, siteId, equipmentList } = await loadSiteBatches(
     query,
-    mode === "complete" ? ["in_progress"] : ["not_started"],
+    ["not_started", "in_progress"],
   );
   return (
     <main className={styles.shell}>

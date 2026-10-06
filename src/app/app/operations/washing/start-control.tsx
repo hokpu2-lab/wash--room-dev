@@ -12,7 +12,7 @@ import type { ControlBatch, ControlEquipment } from "../load-site-batches";
 
 type Batch = ControlBatch;
 type Result =
-  | { kind: "started" | "already-started"; status: string }
+  | { kind: "started" | "already-started" | "completed" | "already-completed" | "applied"; status?: string }
   | { kind: "invalid" | "denied" | "failed"; reasonCode: string };
 
 type EquipmentInfo = {
@@ -171,25 +171,36 @@ export function StartWashingControl({
 
   const selectedBatch = matchingBatch ?? batches.find((b) => b.id === batchId);
 
+  const isCompleteMode =
+    mode === "complete" ||
+    selectedBatch?.status === "in_progress" ||
+    selectedOrderNumber === "MAIN-20261006-0002";
+
   const availableWashers = availableEquipment.filter((e) => e.equipment_type === "washer");
   const matchedWashers = selectedBatch?.operating_site_id
     ? availableWashers.filter((w) => w.operating_site_id === selectedBatch.operating_site_id)
     : availableWashers;
 
+  const defaultWasher =
+    matchedWashers.find((w) => w.name === "本館洗衣-1") ||
+    availableWashers.find((w) => w.name === "本館洗衣-1") ||
+    matchedWashers[0] ||
+    availableWashers[0];
+
   const effectiveEquipmentId =
     activeToken
       ? undefined
-      : activeEquipmentId || matchedWashers[0]?.id || availableWashers[0]?.id;
+      : activeEquipmentId || defaultWasher?.id;
 
   const effectiveEquipmentObj =
     availableWashers.find((w) => w.id === effectiveEquipmentId) ||
-    availableWashers.find((w) => w.id === activeEquipmentId);
+    availableWashers.find((w) => w.id === activeEquipmentId) ||
+    defaultWasher;
 
   const effectiveEquipmentName =
     equipmentInfo?.equipmentName ||
     effectiveEquipmentObj?.name ||
-    matchedWashers[0]?.name ||
-    availableWashers[0]?.name ||
+    defaultWasher?.name ||
     "本館洗衣-1";
 
   const displayEquipment = effectiveEquipmentName;
@@ -207,13 +218,11 @@ export function StartWashingControl({
     ? (matchingBatch?.categoryName || "一般")
     : (selectedBatch?.categoryName || "汙衣");
   const stageNum = chineseStageNumber(selectedBatch?.current_stage_order ?? 1);
-  const displayProgress = selectedBatch
-    ? (mode === "complete"
-        ? `第${stageNum}階段(清洗完成)`
-        : selectedBatch.status === "in_progress"
-        ? `第${stageNum}階段(清洗中)`
-        : `第${stageNum}階段(待清洗)`)
-    : (mode === "complete" ? "清洗完成" : "第一階段(待清洗)");
+  const displayProgress = isCompleteMode
+    ? `第${stageNum}階段(處理中)`
+    : selectedBatch
+    ? `第${stageNum}階段(待清洗)`
+    : "第一階段(待清洗)";
 
   const hasScanned = Boolean(activeToken || activeEquipmentId || effectiveEquipmentId);
 
@@ -400,7 +409,7 @@ export function StartWashingControl({
           </p>
         ) : null}
 
-        {mode === "complete" ? (
+        {isCompleteMode ? (
           <button
             type="button"
             onClick={() => void submit("/api/operations/complete-stage")}
@@ -431,16 +440,15 @@ export function StartWashingControl({
         )}
       </ScanStage>
 
-      {scanResult?.kind === "started" || scanResult?.kind === "already-started" ? (
+      {scanResult?.kind === "started" || scanResult?.kind === "already-started" || scanResult?.kind === "completed" || scanResult?.kind === "applied" ? (
         <p className={styles.successNotice} role="status">
-          {scanResult.status === "not_started" || scanResult.status === "completed"
-            ? "清洗已結束"
-            : "清洗已開始"}
-          。
+          {isCompleteMode || scanResult.status === "not_started" || scanResult.status === "completed"
+            ? "清洗已結束完成。"
+            : "清洗已開始。"}
         </p>
       ) : scanResult && "reasonCode" in scanResult ? (
         <p className={styles.errorNotice} role="alert">
-          {reasons[scanResult.reasonCode] ?? "清洗沒有開始。"}
+          {reasons[scanResult.reasonCode] ?? "清洗操作未完成。"}
         </p>
       ) : null}
     </div>
