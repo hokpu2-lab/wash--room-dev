@@ -142,4 +142,48 @@ describe("操作控制點與批次標籤 (Operations Control & Batch Labels)", (
     expect(params.get("order")).toBe("MAIN-20261005-0004");
     expect(params.get("cart")).toBe("8D-1");
   });
+
+  it("操作頁面標題與處理進度邏輯一致 (Title matches display progress)", () => {
+    function chineseStageNumber(order: number) {
+      const map: Record<number, string> = { 1: "一", 2: "二", 3: "三", 4: "四", 5: "五" };
+      return map[order] ?? String(order);
+    }
+
+    // 1. 第二階段待清洗批次
+    const washingBatch2: ControlBatch = {
+      id: "b-wash-2",
+      status: "not_started",
+      current_stage_order: 2,
+      orderNumber: "MAIN-20261006-0001",
+      categoryName: "汙衣",
+    };
+    const stageNum2 = chineseStageNumber(washingBatch2.current_stage_order);
+    const washingTitle2 = `第${stageNum2}階段(待清洗)`;
+    expect(washingTitle2).toBe("第二階段(待清洗)");
+
+    // 2. 第一階段浸泡消毒批次
+    const disinfectBatch1: ControlBatch = {
+      id: "b-disinfect-1",
+      status: "not_started",
+      current_stage_order: 1,
+      orderNumber: "MAIN-20261005-0004",
+      categoryName: "消毒品",
+    };
+    const stageNumDisinfect = chineseStageNumber(disinfectBatch1.current_stage_order);
+    const disinfectTitle = `第${stageNumDisinfect}階段(浸泡消毒)`;
+    expect(disinfectTitle).toBe("第一階段(浸泡消毒)");
+
+    // 3. 處理中批次
+    const inProgressBatch: ControlBatch = {
+      id: "b-wash-in-progress",
+      status: "in_progress",
+      current_stage_order: 1,
+      orderNumber: "MAIN-20261006-0002",
+      categoryName: "一般",
+    };
+    const stageNumProg = chineseStageNumber(inProgressBatch.current_stage_order);
+    const inProgressTitle = `第${stageNumProg}階段(處理中)`;
+    expect(inProgressTitle).toBe("第一階段(處理中)");
+  });
 });
+

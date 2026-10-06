@@ -297,6 +297,25 @@ export function StartWashingControl({
 
   return (
     <div aria-live="polite">
+      <header className={styles.pageHeader}>
+        <div>
+          <p className={styles.eyebrow}>
+            {isCompleteMode
+              ? "LAUNDRY COMPLETE"
+              : isDisinfect
+              ? "DISINFECTION CONTROL POINT"
+              : "LAUNDRY WASHING"}
+          </p>
+          <h1 id="washing-title">{displayProgress}</h1>
+          <p className={styles.lede}>
+            {isCompleteMode
+              ? "確認清洗完成並釋放洗衣設備。"
+              : isDisinfect
+              ? "確認開始浸泡消毒程序。"
+              : "掃描洗衣機固定 QR，確認批次後開始清洗。"}
+          </p>
+        </div>
+      </header>
       <ScanStage
         scanned={hasScanned}
         waitingText="請掃描洗衣機固定 QR 或選擇待清洗批次。"

@@ -25,17 +25,6 @@ export default async function StartWashingPage({
   return (
     <main className={styles.shell}>
       <section className={styles.panel} aria-labelledby="washing-title">
-        <header className={styles.pageHeader}>
-          <div>
-            <p className={styles.eyebrow}>LAUNDRY WASHING</p>
-            <h1 id="washing-title">{mode === "complete" ? "結束清洗" : "開始清洗"}</h1>
-            <p className={styles.lede}>
-              {mode === "complete"
-                ? "已帶入這台洗衣機正在執行的單據，確認後結束清洗。"
-                : "選擇待清洗批次後開始清洗。標準分鐘只供參考。"}
-            </p>
-          </div>
-        </header>
         <Suspense fallback={null}>
           <StartWashingControl
             batches={batches}

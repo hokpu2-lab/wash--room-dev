@@ -25,13 +25,6 @@ export default async function DisinfectionPage({
   return (
     <main className={styles.shell}>
       <section className={styles.panel} aria-labelledby="disinfection-title">
-        <header className={styles.pageHeader}>
-          <div>
-            <p className={styles.eyebrow}>DISINFECTION CONTROL POINT</p>
-            <h1 id="disinfection-title">消毒浸泡</h1>
-            <p className={styles.lede}>消毒分類必須先完成消毒鍋浸泡；達標只顯示待確認，不會由計時器自行宣告完成。</p>
-          </div>
-        </header>
         <Suspense fallback={null}>
           <DisinfectionControl
             batches={batches}

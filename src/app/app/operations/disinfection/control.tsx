@@ -265,8 +265,24 @@ export function DisinfectionControl({
     }
   }
 
+  const stageNum = chineseStageNumber(selectedBatch?.current_stage_order ?? 1);
+  const displayProgress = selectedBatch
+    ? (mode === "complete" ? `第${stageNum}階段(浸泡完成)` : `第${stageNum}階段(浸泡消毒)`)
+    : (mode === "complete" ? "第一階段(浸泡完成)" : "第一階段(浸泡消毒)");
+
   return (
     <div aria-live="polite">
+      <header className={styles.pageHeader}>
+        <div>
+          <p className={styles.eyebrow}>DISINFECTION CONTROL POINT</p>
+          <h1 id="disinfection-title">{displayProgress}</h1>
+          <p className={styles.lede}>
+            {mode === "complete"
+              ? "已帶入這台消毒設備正在執行的單據，確認後結束浸泡。"
+              : "消毒分類必須先完成消毒鍋浸泡；達標只顯示待確認，不會由計時器自行宣告完成。"}
+          </p>
+        </div>
+      </header>
       <ScanStage
         scanned={hasScanned}
         waitingText="請掃描設備固定 QR。"
@@ -377,9 +393,7 @@ export function DisinfectionControl({
               ⏳ 處理進度
             </div>
             <div style={{ fontSize: "1.45rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
-              {selectedBatch
-                ? `第${chineseStageNumber(selectedBatch.current_stage_order)}階段(浸泡消毒)`
-                : "第一階段(浸泡消毒)"}
+              {displayProgress}
             </div>
           </div>
         </div>

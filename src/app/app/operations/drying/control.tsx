@@ -233,8 +233,27 @@ export function DryingControl({
   const failed =
     result?.kind === "invalid" || result?.kind === "denied" || result?.kind === "failed";
 
+  const displayProgress = selectedBatch
+    ? (mode === "complete"
+        ? `第${chineseStageNumber(selectedBatch.current_stage_order)}階段(烘乾完成)`
+        : selectedBatch.status === "in_progress"
+        ? `第${chineseStageNumber(selectedBatch.current_stage_order)}階段(烘乾中)`
+        : `第${chineseStageNumber(selectedBatch.current_stage_order)}階段(待烘衣)`)
+    : (mode === "complete" ? "烘乾完成" : "待烘衣");
+
   return (
     <div aria-live="polite">
+      <header className={styles.pageHeader}>
+        <div>
+          <p className={styles.eyebrow}>LAUNDRY DRYING</p>
+          <h1 id="drying-title">{displayProgress}</h1>
+          <p className={styles.lede}>
+            {mode === "complete"
+              ? "已帶入這台烘衣機正在執行的單據，確認後結束烘乾。"
+              : "選擇待烘乾批次後開始烘乾。標準分鐘只供參考。"}
+          </p>
+        </div>
+      </header>
       <ScanStage
         scanned={hasScanned}
         waitingText="請掃描烘衣機固定 QR。"
@@ -345,13 +364,7 @@ export function DryingControl({
               ⏳ 處理進度
             </div>
             <div style={{ fontSize: "1.45rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
-              {selectedBatch
-                ? (mode === "complete"
-                    ? `第${chineseStageNumber(selectedBatch.current_stage_order)}階段(烘乾完成)`
-                    : selectedBatch.status === "in_progress"
-                    ? `第${chineseStageNumber(selectedBatch.current_stage_order)}階段(烘乾中)`
-                    : `第${chineseStageNumber(selectedBatch.current_stage_order)}階段(待烘衣)`)
-                : (mode === "complete" ? "烘乾完成" : "待烘衣")}
+              {displayProgress}
             </div>
           </div>
         </div>

@@ -26,6 +26,8 @@
 
 ## 2026-10-06 最新接手快照
 
+- **操作控制台標題與處理進度即時同步**：
+  - **標題動態響應**：將清洗（`/app/operations/washing`）、烘乾（`/app/operations/drying`）與消毒（`/app/operations/disinfection`）操作頁面的主標題 `<h1>` 調整為由控制端元件依據選取批次、階段或執行模式即時渲染，確保頁面頂部大標題與卡片內之「⏳ 處理進度」文字（例如「第一階段(浸泡消毒)」、「第一階段(待清洗)」、「第二階段(待清洗)」、「第一階段(處理中)」、「第二階段(待烘衣)」等）完全一致。
 - **收單分類與檢查清單（/app/operations/receive）洗滌分類選項精簡與設備連結**：
   - **選項文字精簡**：移除洗滌分類單選列表中各選項的「設備：...」重複文字，使分類項目保持精簡（如 `消毒品（DISINFECT）`、`其他（OTHER）`）。
   - **同據點空置設備篩選與連結**：上方面板「使用設備名稱 (Equipment)」依據選取單據的作業據點（清福本館 MAIN vs 清福法人 CORP）篩選同據點且目前空置（`occupied === false` 且 `status === 'normal'`）之可用設備名稱，並提供超連結直通設備清單（`/app/admin/laundry-equipment`）。
@@ -34,7 +36,7 @@
   - **消毒設備與目前設備清單狀態串聯**：在操作頁面自動帶入並預設同據點消毒設備（如「本館消毒鍋」）；執行確認後，設備管理（`/app/admin/laundry-equipment`）清單之「本館消毒鍋」即時反映狀態為「使用中」、機構為「清春」、車號為「8D-1」。
   - **Mock 與測試覆核**：在 `tests/support/fake-supabase-server.mjs` 新增 `start_laundry_batch_disinfection_from_equipment_qr` RPC 與 `本館消毒鍋` 設備資料；更新 `tests/unit/operations-control.spec.ts` 驗證浸泡消毒進度格式與按鈕操作。
 - **測試與建置覆核**（2026-10-06）：
-  - `npm test`：34 個測試檔、132 個 tests 全數通過。
+  - `npm test`：34 個測試檔、133 個 tests 全數通過。
   - `npm run typecheck`：0 錯誤通過。
   - `npm run build`：Next.js 16.3.0 正式生產建置成功。
 

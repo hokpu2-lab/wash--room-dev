@@ -25,17 +25,6 @@ export default async function DryingPage({
   return (
     <main className={styles.shell}>
       <section className={styles.panel} aria-labelledby="drying-title">
-        <header className={styles.pageHeader}>
-          <div>
-            <p className={styles.eyebrow}>LAUNDRY DRYING</p>
-            <h1 id="drying-title">{mode === "complete" ? "結束烘乾" : "開始烘乾"}</h1>
-            <p className={styles.lede}>
-              {mode === "complete"
-                ? "已帶入這台烘衣機正在執行的單據，確認後結束烘乾。"
-                : "選擇待烘乾批次後開始烘乾。標準分鐘只供參考。"}
-            </p>
-          </div>
-        </header>
         <Suspense fallback={null}>
           <DryingControl
             batches={batches}
