@@ -11,12 +11,29 @@ import { PendingReceiptModal, type PendingReceiptOrder } from "./pending-receipt
 type Category = { code: string; name: string };
 type Result = { kind: "received" | "already-received"; batchCount: number; status: string } | { kind: "invalid" | "denied" | "failed"; reasonCode: string };
 
+export type AvailableEquipment = {
+  id: string;
+  name: string;
+  equipmentType: "disinfection_tank" | "washer" | "dryer" | string;
+  operatingSiteId?: string;
+  occupied: boolean;
+  status: string;
+};
+
 const categoryEquipmentMap: Record<string, string[]> = {
   DISINFECT: ["消毒鍋", "洗衣機", "烘衣機"],
   BIB: ["洗衣機", "烘衣機"],
   SOILED: ["洗衣機", "烘衣機"],
   CURTAIN: ["洗衣機", "烘衣機"],
   OTHER: ["洗衣機", "烘衣機"],
+};
+
+const categoryEquipmentTypeMap: Record<string, string[]> = {
+  DISINFECT: ["disinfection_tank", "washer", "dryer"],
+  BIB: ["washer", "dryer"],
+  SOILED: ["washer", "dryer"],
+  CURTAIN: ["washer", "dryer"],
+  OTHER: ["washer", "dryer"],
 };
 
 const reasons: Record<string, string> = {
@@ -31,7 +48,13 @@ const reasons: Record<string, string> = {
   service_unavailable: "系統暫時無法收單，請稍後再試。",
 };
 
-export function ReceiveCartControl({ categories }: { categories: Category[] }) {
+export function ReceiveCartControl({
+  categories,
+  initialEquipment = [],
+}: {
+  categories: Category[];
+  initialEquipment?: AvailableEquipment[];
+}) {
   const { token, missing } = useQrFragment("cart");
   const [selected, setSelected] = useState<string[]>([]);
   const [result, setResult] = useState<Result | null>(null);
@@ -40,6 +63,7 @@ export function ReceiveCartControl({ categories }: { categories: Category[] }) {
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<PendingReceiptOrder | null>(null);
   const [pendingOrders, setPendingOrders] = useState<PendingReceiptOrder[]>([]);
+  const [equipmentList, setEquipmentList] = useState<AvailableEquipment[]>(initialEquipment);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const activeToken = manualReset ? null : (selectedToken ?? token);
   const scanResult = result ?? (missing && !selectedToken && !manualReset ? { kind: "invalid" as const, reasonCode: "invalid_qr" } : null);
@@ -53,8 +77,9 @@ export function ReceiveCartControl({ categories }: { categories: Category[] }) {
         return res.json();
       })
       .then((data) => {
-        if (!active || !data || !Array.isArray(data.orders)) return;
-        setPendingOrders(data.orders);
+        if (!active || !data) return;
+        if (Array.isArray(data.orders)) setPendingOrders(data.orders);
+        if (Array.isArray(data.equipment)) setEquipmentList(data.equipment);
       })
       .catch(() => {})
       .finally(() => {
@@ -72,13 +97,31 @@ export function ReceiveCartControl({ categories }: { categories: Category[] }) {
 
   const selectedCategoryObjects = categories.filter((c) => selected.includes(c.code));
   const selectedCategoryNames = selectedCategoryObjects.map((c) => c.name);
-  const neededEquipment = Array.from(
-    new Set(selected.flatMap((code) => categoryEquipmentMap[code] ?? ["洗衣機", "烘衣機"])),
+
+  // 所需設備類型（例如 washer, dryer, disinfection_tank）
+  const neededEquipmentTypes = Array.from(
+    new Set(selected.flatMap((code) => categoryEquipmentTypeMap[code] ?? ["washer", "dryer"])),
   );
+
+  // 閒置中的可用設備（occupied 為 false 且狀態為 normal）
+  const idleEquipment = equipmentList.filter((e) => !e.occupied && e.status === "normal");
+
+  // 匹配當前所選分類所需類型的閒置設備
+  const matchingIdleEquipment = idleEquipment.filter((e) =>
+    neededEquipmentTypes.includes(e.equipmentType),
+  );
+  const idleEquipmentNames = matchingIdleEquipment.map((e) => e.name);
+
+  const fallbackTypeText = Array.from(
+    new Set(selected.flatMap((code) => categoryEquipmentMap[code] ?? ["洗衣機", "烘衣機"])),
+  ).join("、");
+
   const expectedEquipmentText =
-    neededEquipment.length > 0
-      ? neededEquipment.join("、")
-      : "請先勾選洗滌分類";
+    selectedCategoryNames.length === 0
+      ? "請先勾選洗滌分類"
+      : idleEquipmentNames.length > 0
+      ? idleEquipmentNames.join("、")
+      : `${fallbackTypeText}（目前無閒置設備）`;
 
   function handleSelectOrder(order: PendingReceiptOrder) {
     setSelectedToken(order.qrToken);
@@ -371,31 +414,46 @@ export function ReceiveCartControl({ categories }: { categories: Category[] }) {
 
         <fieldset>
           <legend>洗滌分類</legend>
-          {categories.map((category) => (
-            <label key={category.code} className={styles.checkboxLabel}>
-              <input
-                type="checkbox"
-                value={category.code}
-                checked={selected.includes(category.code)}
-                onChange={(event) => setSelected((current) => event.target.checked ? [...current, category.code] : current.filter((code) => code !== category.code))}
-              />
-              <span>
-                {category.name}（{category.code}）
-                <small
-                  style={{
-                    marginLeft: "0.5rem",
-                    fontSize: "0.82rem",
-                    color: "rgba(255, 255, 255, 0.75)",
-                    background: "rgba(0, 0, 0, 0.25)",
-                    padding: "0.15rem 0.45rem",
-                    borderRadius: "4px",
-                  }}
-                >
-                  設備：{(categoryEquipmentMap[category.code] ?? ["洗衣機", "烘衣機"]).join("、")}
-                </small>
-              </span>
-            </label>
-          ))}
+          {categories.map((category) => {
+            const types = categoryEquipmentTypeMap[category.code] ?? ["washer", "dryer"];
+            const categoryIdle = idleEquipment.filter((e) => types.includes(e.equipmentType));
+            const categoryDisplay =
+              categoryIdle.length > 0
+                ? categoryIdle.map((e) => e.name).join("、")
+                : (categoryEquipmentMap[category.code] ?? ["洗衣機", "烘衣機"]).join("、");
+
+            return (
+              <label key={category.code} className={styles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  value={category.code}
+                  checked={selected.includes(category.code)}
+                  onChange={(event) =>
+                    setSelected((current) =>
+                      event.target.checked
+                        ? [...current, category.code]
+                        : current.filter((code) => code !== category.code),
+                    )
+                  }
+                />
+                <span>
+                  {category.name}（{category.code}）
+                  <small
+                    style={{
+                      marginLeft: "0.5rem",
+                      fontSize: "0.82rem",
+                      color: "rgba(255, 255, 255, 0.85)",
+                      background: "rgba(0, 0, 0, 0.3)",
+                      padding: "0.15rem 0.5rem",
+                      borderRadius: "4px",
+                    }}
+                  >
+                    設備：{categoryDisplay}
+                  </small>
+                </span>
+              </label>
+            );
+          })}
         </fieldset>
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "1rem" }}>
           <button type="button" onClick={submit} disabled={!activeToken || submitting}>

@@ -33,29 +33,43 @@ export async function GET(request: Request) {
   const siteId = siteIdParam && z.string().uuid().safeParse(siteIdParam).success ? siteIdParam : null;
 
   const supabase = await createServerSupabaseClient();
-  const { data, error } = await supabase.rpc("list_pending_receipt_orders", {
-    target_site_id: siteId,
-  });
+  const [ordersResult, equipmentResult] = await Promise.all([
+    supabase.rpc("list_pending_receipt_orders", { target_site_id: siteId }),
+    supabase
+      .from("laundry_equipment")
+      .select("id, name, equipment_type, operating_site_id, occupied, status")
+      .eq("status", "normal")
+      .order("name", { ascending: true }),
+  ]);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500, headers: responseHeaders });
+  if (ordersResult.error) {
+    return NextResponse.json({ error: ordersResult.error.message }, { status: 500, headers: responseHeaders });
   }
 
-  const parsed = z.array(pendingOrderRowSchema).safeParse(data);
-  if (!parsed.success) {
-    return NextResponse.json({ orders: [] }, { status: 200, headers: responseHeaders });
-  }
+  const parsed = z.array(pendingOrderRowSchema).safeParse(ordersResult.data);
+  const orders = parsed.success
+    ? parsed.data.map((row) => ({
+        orderId: row.order_id,
+        orderNumber: row.order_number,
+        createdAt: row.created_at,
+        institutionName: row.institution_name,
+        cartId: row.cart_id,
+        cartNumber: row.cart_number,
+        qrToken: row.qr_token,
+        receiveHref: `/app/operations/receive#v1.cart.${row.qr_token}`,
+      }))
+    : [];
 
-  const orders = parsed.data.map((row) => ({
-    orderId: row.order_id,
-    orderNumber: row.order_number,
-    createdAt: row.created_at,
-    institutionName: row.institution_name,
-    cartId: row.cart_id,
-    cartNumber: row.cart_number,
-    qrToken: row.qr_token,
-    receiveHref: `/app/operations/receive#v1.cart.${row.qr_token}`,
-  }));
+  const equipment = !equipmentResult.error && Array.isArray(equipmentResult.data)
+    ? equipmentResult.data.map((row) => ({
+        id: row.id,
+        name: row.name,
+        equipmentType: row.equipment_type,
+        operatingSiteId: row.operating_site_id,
+        occupied: Boolean(row.occupied),
+        status: row.status,
+      }))
+    : [];
 
-  return NextResponse.json({ orders }, { status: 200, headers: responseHeaders });
+  return NextResponse.json({ orders, equipment }, { status: 200, headers: responseHeaders });
 }
