@@ -344,8 +344,8 @@ export function DisinfectionControl({
             </div>
             <div style={{ fontSize: "1.45rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
               {selectedBatch
-                ? `第${chineseStageNumber(selectedBatch.current_stage_order)}階段(消毒浸泡)`
-                : "第一階段(消毒浸泡)"}
+                ? `第${chineseStageNumber(selectedBatch.current_stage_order)}階段(浸泡消毒)`
+                : "第一階段(浸泡消毒)"}
             </div>
           </div>
         </div>
@@ -408,7 +408,7 @@ export function DisinfectionControl({
             onClick={() => void call("/api/operations/start-disinfection")}
             disabled={!batchId || !hasScanned || submitting || isSiteMismatch}
           >
-            {submitting ? "處理中…" : "開始浸泡"}
+            {submitting ? "處理中…" : "確認開始浸泡消毒"}
           </button>
         )}
       </ScanStage>

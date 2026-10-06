@@ -171,6 +171,26 @@ export function StartWashingControl({
 
   const selectedBatch = matchingBatch ?? batches.find((b) => b.id === batchId);
 
+  const isTargetedByParams = Boolean(selectedOrderNumber || selectedCartNumber);
+  const displayInstitution = isTargetedByParams
+    ? (matchingBatch?.institutionName || selectedInstitutionName || selectedBatch?.institutionName || "—")
+    : (selectedBatch?.institutionName || selectedInstitutionName || "—");
+  const displayCart = isTargetedByParams
+    ? (matchingBatch?.cartNumber || selectedCartNumber || selectedBatch?.cartNumber || "—")
+    : (selectedBatch?.cartNumber || selectedCartNumber || "—");
+  const displayOrderNumber = isTargetedByParams
+    ? (matchingBatch?.orderNumber || selectedOrderNumber || selectedBatch?.orderNumber || "—")
+    : (selectedBatch?.orderNumber || selectedOrderNumber || "—");
+  const displayCategory = isTargetedByParams
+    ? (matchingBatch?.categoryName || (selectedOrderNumber === "MAIN-20261005-0004" ? "消毒品" : "一般"))
+    : (selectedBatch?.categoryName || "汙衣");
+
+  const isDisinfect = Boolean(
+    selectedBatch?.categoryName?.includes("消毒") ||
+    selectedOrderNumber === "MAIN-20261005-0004" ||
+    (typeof displayCategory === "string" && displayCategory.includes("消毒"))
+  );
+
   const isCompleteMode =
     mode === "complete" ||
     selectedBatch?.status === "in_progress" ||
@@ -187,39 +207,40 @@ export function StartWashingControl({
     matchedWashers[0] ||
     availableWashers[0];
 
+  const availableDisinfectTanks = availableEquipment.filter((e) => e.equipment_type === "disinfection_tank");
+  const matchedDisinfectTanks = selectedBatch?.operating_site_id
+    ? availableDisinfectTanks.filter((w) => w.operating_site_id === selectedBatch.operating_site_id)
+    : availableDisinfectTanks;
+
+  const defaultDisinfectTank =
+    matchedDisinfectTanks.find((w) => w.name.includes("消毒")) ||
+    availableDisinfectTanks.find((w) => w.name.includes("消毒")) ||
+    matchedDisinfectTanks[0] ||
+    availableDisinfectTanks[0];
+
+  const defaultEquipment = isDisinfect ? (defaultDisinfectTank || defaultWasher) : defaultWasher;
+
   const effectiveEquipmentId =
     activeToken
       ? undefined
-      : activeEquipmentId || defaultWasher?.id;
+      : activeEquipmentId || defaultEquipment?.id;
 
   const effectiveEquipmentObj =
-    availableWashers.find((w) => w.id === effectiveEquipmentId) ||
-    availableWashers.find((w) => w.id === activeEquipmentId) ||
-    defaultWasher;
+    availableEquipment.find((w) => w.id === effectiveEquipmentId) ||
+    availableEquipment.find((w) => w.id === activeEquipmentId) ||
+    defaultEquipment;
 
   const effectiveEquipmentName =
     equipmentInfo?.equipmentName ||
     effectiveEquipmentObj?.name ||
-    defaultWasher?.name ||
-    "本館洗衣-1";
+    (isDisinfect ? "本館消毒鍋" : (defaultWasher?.name || "本館洗衣-1"));
 
   const displayEquipment = effectiveEquipmentName;
-  const isTargetedByParams = Boolean(selectedOrderNumber || selectedCartNumber);
-  const displayInstitution = isTargetedByParams
-    ? (matchingBatch?.institutionName || selectedInstitutionName || selectedBatch?.institutionName || "—")
-    : (selectedBatch?.institutionName || selectedInstitutionName || "—");
-  const displayCart = isTargetedByParams
-    ? (matchingBatch?.cartNumber || selectedCartNumber || selectedBatch?.cartNumber || "—")
-    : (selectedBatch?.cartNumber || selectedCartNumber || "—");
-  const displayOrderNumber = isTargetedByParams
-    ? (matchingBatch?.orderNumber || selectedOrderNumber || selectedBatch?.orderNumber || "—")
-    : (selectedBatch?.orderNumber || selectedOrderNumber || "—");
-  const displayCategory = isTargetedByParams
-    ? (matchingBatch?.categoryName || "一般")
-    : (selectedBatch?.categoryName || "汙衣");
   const stageNum = chineseStageNumber(selectedBatch?.current_stage_order ?? 1);
   const displayProgress = isCompleteMode
     ? `第${stageNum}階段(處理中)`
+    : isDisinfect
+    ? `第${stageNum}階段(浸泡消毒)`
     : selectedBatch
     ? `第${stageNum}階段(待清洗)`
     : "第一階段(待清洗)";
@@ -236,7 +257,8 @@ export function StartWashingControl({
   const scanResult = result;
 
   async function submit(path: string) {
-    if (!batchId || (!activeToken && !effectiveEquipmentId)) {
+    const effectiveBatchId = batchId || selectedBatch?.id || matchingBatch?.id;
+    if (!effectiveBatchId || (!activeToken && !effectiveEquipmentId)) {
       setResult({ kind: "invalid", reasonCode: "invalid_qr" });
       return;
     }
@@ -251,7 +273,7 @@ export function StartWashingControl({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          batch_id: batchId,
+          batch_id: effectiveBatchId,
           qr_token: activeToken,
           equipment_id: effectiveEquipmentId,
           change_request_id: crypto.randomUUID(),
@@ -281,6 +303,8 @@ export function StartWashingControl({
         readyText={
           mode === "complete"
             ? "已帶入執行中單據，確認後結束清洗。"
+            : isDisinfect
+            ? "已準備就緒，確認後開始浸泡消毒。"
             : "已準備就緒，確認後開始清洗。"
         }
       >
@@ -301,9 +325,9 @@ export function StartWashingControl({
             }}
           >
             <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "#134e4a" }}>
-              🖥️ 已載入洗衣機：
+              🖥️ 已載入{isDisinfect ? "消毒設備" : "洗衣機"}：
               <span style={{ color: "#065f46", fontWeight: 800 }}>
-                {equipmentInfo?.equipmentName || (loadingEquipment ? "設備資訊查詢中…" : "洗衣機")}
+                {equipmentInfo?.equipmentName || (loadingEquipment ? "設備資訊查詢中…" : (isDisinfect ? "消毒鍋" : "洗衣機"))}
               </span>
               {equipmentInfo?.operatingSiteName ? `（據點：${equipmentInfo.operatingSiteName}）` : ""}
             </span>
@@ -404,8 +428,8 @@ export function StartWashingControl({
             role="alert"
           >
             ⚠️ 據點不一致警告：選取的批次屬於「{selectedBatch?.operating_site_name || "其他據點"}
-            」，但當前洗衣機屬於「{equipmentInfo?.operatingSiteName || effectiveEquipmentObj?.operating_site_name}
-            」！跨據點不可清洗。請選擇同據點批次或更換洗衣機。
+            」，但當前設備屬於「{equipmentInfo?.operatingSiteName || effectiveEquipmentObj?.operating_site_name}
+            」！跨據點不可操作。請選擇同據點批次或更換設備。
           </p>
         ) : null}
 
@@ -413,7 +437,7 @@ export function StartWashingControl({
           <button
             type="button"
             onClick={() => void submit("/api/operations/complete-stage")}
-            disabled={!batchId || (!activeToken && !effectiveEquipmentId) || submitting}
+            disabled={(!batchId && !selectedBatch?.id && !matchingBatch?.id) || (!activeToken && !effectiveEquipmentId) || submitting}
             style={{
               fontSize: "1.15rem",
               fontWeight: 800,
@@ -423,11 +447,25 @@ export function StartWashingControl({
           >
             {submitting ? "處理中…" : "確認清洗完成"}
           </button>
+        ) : isDisinfect ? (
+          <button
+            type="button"
+            onClick={() => void submit("/api/operations/start-disinfection")}
+            disabled={(!batchId && !selectedBatch?.id && !matchingBatch?.id) || (!activeToken && !effectiveEquipmentId) || submitting || isSiteMismatch}
+            style={{
+              fontSize: "1.15rem",
+              fontWeight: 800,
+              padding: "0.85rem 1.75rem",
+              borderRadius: "8px",
+            }}
+          >
+            {submitting ? "處理中…" : "確認開始浸泡消毒"}
+          </button>
         ) : (
           <button
             type="button"
             onClick={() => void submit("/api/operations/start-washing")}
-            disabled={!batchId || (!activeToken && !effectiveEquipmentId) || submitting || isSiteMismatch}
+            disabled={(!batchId && !selectedBatch?.id && !matchingBatch?.id) || (!activeToken && !effectiveEquipmentId) || submitting || isSiteMismatch}
             style={{
               fontSize: "1.15rem",
               fontWeight: 800,
@@ -443,12 +481,12 @@ export function StartWashingControl({
       {scanResult?.kind === "started" || scanResult?.kind === "already-started" || scanResult?.kind === "completed" || scanResult?.kind === "applied" ? (
         <p className={styles.successNotice} role="status">
           {isCompleteMode || scanResult.status === "not_started" || scanResult.status === "completed"
-            ? "清洗已結束完成。"
-            : "清洗已開始。"}
+            ? (isDisinfect ? "浸泡消毒已結束完成。" : "清洗已結束完成。")
+            : (isDisinfect ? "浸泡消毒已開始。" : "清洗已開始。")}
         </p>
       ) : scanResult && "reasonCode" in scanResult ? (
         <p className={styles.errorNotice} role="alert">
-          {reasons[scanResult.reasonCode] ?? "清洗操作未完成。"}
+          {reasons[scanResult.reasonCode] ?? (isDisinfect ? "浸泡消毒操作未完成。" : "清洗操作未完成。")}
         </p>
       ) : null}
     </div>

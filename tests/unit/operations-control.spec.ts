@@ -88,7 +88,7 @@ describe("操作控制點與批次標籤 (Operations Control & Batch Labels)", (
     expect(idleForDisinfect).toEqual(["本館洗衣-1", "本館烘衣-1", "本館消毒鍋"]);
   });
 
-  it("消毒控制點可正確呈現 第一階段(消毒浸泡) 處理進度格式", () => {
+  it("消毒控制點可正確呈現 第一階段(浸泡消毒) 處理進度格式", () => {
     function chineseStageNumber(order: number) {
       const map: Record<number, string> = { 1: "一", 2: "二", 3: "三", 4: "四", 5: "五" };
       return map[order] ?? String(order);
@@ -104,8 +104,14 @@ describe("操作控制點與批次標籤 (Operations Control & Batch Labels)", (
       institutionName: "清春",
     };
 
-    const displayProgress = `第${chineseStageNumber(batch.current_stage_order)}階段(消毒浸泡)`;
-    expect(displayProgress).toBe("第一階段(消毒浸泡)");
+    const isDisinfect = batch.categoryName?.includes("消毒");
+    const displayProgress = isDisinfect
+      ? `第${chineseStageNumber(batch.current_stage_order)}階段(浸泡消毒)`
+      : `第${chineseStageNumber(batch.current_stage_order)}階段(待清洗)`;
+    expect(displayProgress).toBe("第一階段(浸泡消毒)");
+
+    const buttonText = isDisinfect ? "確認開始浸泡消毒" : "確認開始清洗";
+    expect(buttonText).toBe("確認開始浸泡消毒");
   });
 
   it("消毒單號可正確產生帶有車號與單號之消毒操作 URL 查詢參數", () => {

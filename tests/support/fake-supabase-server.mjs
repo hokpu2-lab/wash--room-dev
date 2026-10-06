@@ -262,6 +262,17 @@ const defaultLaundryEquipment = [
     operating_site_id: organizationSites[0].id,
     operating_sites: { code: "MAIN", name: "本館" },
   },
+  {
+    id: "41000000-0000-4000-8000-000000000097",
+    name: "本館消毒鍋",
+    equipment_type: "disinfection_tank",
+    capacity_kg: 1,
+    status: "normal",
+    occupied: false,
+    current_qr_version: 1,
+    operating_site_id: organizationSites[0].id,
+    operating_sites: { code: "MAIN", name: "本館" },
+  },
 ];
 let laundryEquipment = structuredClone(defaultLaundryEquipment);
 let laundryEquipmentCredentials = new Map([
@@ -269,6 +280,7 @@ let laundryEquipmentCredentials = new Map([
   [defaultLaundryEquipment[1].id, { version: 1, token: fakeLaundryCartQrToken(81) }],
   ["41000000-0000-4000-8000-000000000104", { version: 1, token: fakeLaundryCartQrToken(74) }],
   ["41000000-0000-4000-8000-000000000204", { version: 1, token: fakeLaundryCartQrToken(84) }],
+  ["41000000-0000-4000-8000-000000000097", { version: 1, token: fakeLaundryCartQrToken(97) }],
 ]);
 let laundryEquipmentChangeRequests = new Map();
 let laundryOrders = [];
@@ -2219,6 +2231,28 @@ const server = createServer(async (request, response) => {
     equipment.occupied = true;
     batch.status = "in_progress";
     const result = { laundry_batch_id: batch.id, stage_run_id: randomUUID(), laundry_equipment_id: equipment.id, stage_order: batch.current_stage_order, already_applied: false, outcome: "applied", status: "in_progress", reason_code: "washing_started" };
+    batch.active_stage_run_id = result.stage_run_id;
+    batch.active_equipment_id = equipment.id;
+    laundryStageChangeRequests.set(change.change_request_id, result);
+    json(response, 200, [result]);
+    return;
+  }
+
+  if (request.method === "POST" && requestUrl.pathname === "/rest/v1/rpc/start_laundry_batch_disinfection_from_equipment_qr") {
+    if (!requireSessionBearer(request, response)) return;
+    const change = await readJsonBody(request);
+    const prior = laundryStageChangeRequests.get(change.change_request_id);
+    if (prior) { json(response, 200, [{ ...prior, already_applied: true }]); return; }
+    const batch = laundryBatches.find((candidate) => candidate.id === change.target_laundry_batch_id);
+    const equipmentEntry = [...laundryEquipmentCredentials.entries()].find(([, credential]) => credential.token === change.qr_token);
+    const equipment = equipmentEntry ? laundryEquipment.find((candidate) => candidate.id === equipmentEntry[0]) : null;
+    if (!batch || !equipment) {
+      json(response, 200, [{ laundry_batch_id: change.target_laundry_batch_id, stage_run_id: null, laundry_equipment_id: null, stage_order: null, already_applied: false, outcome: "denied", status: null, reason_code: "batch_not_ready" }]);
+      return;
+    }
+    equipment.occupied = true;
+    batch.status = "in_progress";
+    const result = { laundry_batch_id: batch.id, stage_run_id: randomUUID(), laundry_equipment_id: equipment.id, stage_order: batch.current_stage_order, already_applied: false, outcome: "applied", status: "in_progress", reason_code: "disinfection_started" };
     batch.active_stage_run_id = result.stage_run_id;
     batch.active_equipment_id = equipment.id;
     laundryStageChangeRequests.set(change.change_request_id, result);

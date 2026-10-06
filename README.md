@@ -10,11 +10,22 @@
 - GitHub 串接 Vercel 部署
 - Playwright 公開介面驗收測試
 
-## 2026-10-02 最新接手快照
+## 2026-10-06 最新接手快照
 
 本節是目前接手的第一個入口。先執行 `git status --short --branch`、`git log -5 --oneline`，再閱讀
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
+
+- **消毒分類「第一階段(浸泡消毒)」與「確認開始浸泡消毒」功能串聯**：
+  - **處理進度與按鈕語意**：在 `src/app/app/operations/washing/start-control.tsx` 與 `src/app/app/operations/disinfection/control.tsx` 針對消毒分類（`DISINFECT` / `消毒品` / `MAIN-20261005-0004`），處理進度顯示為「第一階段(浸泡消毒)」，操作按鈕顯示為「確認開始浸泡消毒」，並透過 `/api/operations/start-disinfection` 執行開始消毒程序。
+  - **消毒設備與目前設備清單狀態串聯**：在操作頁面自動帶入並預設同據點消毒設備（如「本館消毒鍋」）；執行確認後，設備管理（`/app/admin/laundry-equipment`）清單之「本館消毒鍋」即時反映狀態為「使用中」、機構為「清春」、車號為「8D-1」。
+  - **Mock 與測試覆核**：在 `tests/support/fake-supabase-server.mjs` 新增 `start_laundry_batch_disinfection_from_equipment_qr` RPC 與 `本館消毒鍋` 設備資料；更新 `tests/unit/operations-control.spec.ts` 驗證浸泡消毒進度格式與按鈕操作。
+- **測試與建置覆核**（2026-10-06）：
+  - `npm test`：34 個測試檔、132 個 tests 全數通過。
+  - `npm run typecheck`：0 錯誤通過。
+  - `npm run build`：Next.js 16.3.0 正式生產建置成功。
+
+## 2026-10-02 選取洗衣單欄位與設備使用狀況切片（歷史）
 
 - **選取洗衣單卡片欄位更新與等待時間計算**：
   - **欄位語意重構**：於 `src/app/app/live-queue.tsx` 將選取洗衣單卡片（`Selected Order`）內部 metadata 欄位由原本 `Status | Institution | Vehicle | Time | Batches` 更新為 `使用中設備 | 車號 | 收單時間 | 等待時間`（省略 `Institution` 欄位）。
