@@ -15,7 +15,7 @@ export default async function ReceiveLaundryOrderPage() {
         <header className={styles.pageHeader}>
           <div>
             <p className={styles.eyebrow}>LAUNDRY RECEIVING</p>
-            <h1 id="receive-title">收單與分類</h1>
+            <h1 id="receive-title">收單分類與檢查</h1>
             <p className={styles.lede}>掃描待收件洗衣車 QR 後，至少選擇一個啟用分類；數量尺度固定為一台洗衣車。</p>
           </div>
         </header>
