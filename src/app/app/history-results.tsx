@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type {
   LaundryOrderHistoryDetail,
@@ -12,6 +12,38 @@ import type { WorkspaceBatchDetail, WorkspaceOrder } from "@/lib/analytics/works
 import { LaundryOrderFlow3D } from "./laundry-order-flow-3d";
 import { batchStatusLabels, equipmentTypeLabels, orderStatusLabels } from "./status-labels";
 import styles from "./workspace.module.css";
+
+export type HistorySortKey = "order_number" | "institution" | "pickup_time";
+export type HistorySortDirection = "asc" | "desc";
+
+export function sortHistoryItems(
+  items: LaundryOrderHistoryItem[],
+  sortKey: HistorySortKey | null,
+  sortDirection: HistorySortDirection,
+): LaundryOrderHistoryItem[] {
+  if (!sortKey) return items;
+  return [...items].sort((a, b) => {
+    if (sortKey === "order_number") {
+      const comp = a.orderNumber.localeCompare(b.orderNumber, "zh-Hant", { numeric: true });
+      return sortDirection === "desc" ? -comp : comp;
+    }
+    if (sortKey === "institution") {
+      const nameA = `${a.institutionName} ${a.cartNumber ?? ""}`.trim();
+      const nameB = `${b.institutionName} ${b.cartNumber ?? ""}`.trim();
+      const comp = nameA.localeCompare(nameB, "zh-Hant", { numeric: true });
+      return sortDirection === "desc" ? -comp : comp;
+    }
+    if (sortKey === "pickup_time") {
+      const timeA = a.closedAt ? new Date(a.closedAt).getTime() : 0;
+      const timeB = b.closedAt ? new Date(b.closedAt).getTime() : 0;
+      if (!timeA && !timeB) return 0;
+      if (!timeA) return 1;
+      if (!timeB) return -1;
+      return sortDirection === "desc" ? timeB - timeA : timeA - timeB;
+    }
+    return 0;
+  });
+}
 
 function orderStatusBadgeClass(status: string, stageName?: string | null) {
   const display = stageName || status;
@@ -287,9 +319,25 @@ export function HistoryResults({ items }: { items: LaundryOrderHistoryItem[] }) 
   const [detail, setDetail] = useState<LaundryOrderHistoryDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<HistorySortKey | null>(null);
+  const [sortDirection, setSortDirection] = useState<HistorySortDirection>("asc");
   const requestController = useRef<AbortController | null>(null);
 
   useEffect(() => () => requestController.current?.abort(), []);
+
+  function toggleSort(key: HistorySortKey) {
+    if (sortKey === key) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDirection(key === "pickup_time" ? "desc" : "asc");
+    }
+  }
+
+  const sortedItems = useMemo(
+    () => sortHistoryItems(items, sortKey, sortDirection),
+    [items, sortKey, sortDirection],
+  );
 
   async function openHistory(item: LaundryOrderHistoryItem) {
     requestController.current?.abort();
@@ -337,16 +385,52 @@ export function HistoryResults({ items }: { items: LaundryOrderHistoryItem[] }) 
           <table>
             <thead>
               <tr>
-                <th scope="col">洗衣單號</th>
-                <th scope="col">送洗機構</th>
+                <th scope="col" aria-sort={sortKey === "order_number" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}>
+                  <button
+                    type="button"
+                    className={`${styles.tableSortButton} ${sortKey === "order_number" ? styles.tableSortActive : ""}`}
+                    onClick={() => toggleSort("order_number")}
+                    title="點擊依洗衣單號排序"
+                  >
+                    <span>洗衣單號</span>
+                    <span className={styles.tableSortIcon} aria-hidden="true">
+                      {sortKey === "order_number" ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
+                    </span>
+                  </button>
+                </th>
+                <th scope="col" aria-sort={sortKey === "institution" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}>
+                  <button
+                    type="button"
+                    className={`${styles.tableSortButton} ${sortKey === "institution" ? styles.tableSortActive : ""}`}
+                    onClick={() => toggleSort("institution")}
+                    title="點擊依送洗機構排序"
+                  >
+                    <span>送洗機構</span>
+                    <span className={styles.tableSortIcon} aria-hidden="true">
+                      {sortKey === "institution" ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
+                    </span>
+                  </button>
+                </th>
                 <th scope="col">送單時間</th>
-                <th scope="col">取件時間</th>
+                <th scope="col" aria-sort={sortKey === "pickup_time" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}>
+                  <button
+                    type="button"
+                    className={`${styles.tableSortButton} ${sortKey === "pickup_time" ? styles.tableSortActive : ""}`}
+                    onClick={() => toggleSort("pickup_time")}
+                    title="點擊依取件時間排序"
+                  >
+                    <span>取件時間</span>
+                    <span className={styles.tableSortIcon} aria-hidden="true">
+                      {sortKey === "pickup_time" ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
+                    </span>
+                  </button>
+                </th>
                 <th scope="col">完成時間</th>
                 <th scope="col">狀態</th>
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
+              {sortedItems.map((item) => (
                 <tr key={item.id}>
                   <th scope="row">
                     <button

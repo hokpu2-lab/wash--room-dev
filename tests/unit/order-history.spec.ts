@@ -170,3 +170,75 @@ test("歷史日期時間格式化為 YYYY/MM/DD 上午/下午HH:mm", async () =>
   expect(formatDateTime("2026-09-30T16:00:00.000Z")).toBe("2026/10/01 上午12:00");
   expect(formatDateTime("2026-09-24T06:21:00.000Z")).toBe("2026/09/24 下午02:21");
 });
+
+test("歷史查詢結果排序功能（洗衣單號、送洗機構、取件時間）", async () => {
+  const { sortHistoryItems } = await import("../../src/app/app/history-results");
+
+  const sampleItems = [
+    {
+      id: "1",
+      orderNumber: "MAIN-20261005-0004",
+      status: "awaiting_cleaning",
+      createdAt: "2026-10-05T05:43:00.000Z",
+      closedAt: null,
+      institutionCode: "SPRING",
+      institutionName: "清春",
+      cartNumber: "8D-1",
+      siteCode: "MAIN",
+      siteName: "本館",
+    },
+    {
+      id: "2",
+      orderNumber: "MAIN-20261005-0002",
+      status: "picked_up",
+      createdAt: "2026-10-05T03:44:00.000Z",
+      closedAt: "2026-10-05T05:42:00.000Z",
+      institutionCode: "HOK",
+      institutionName: "清福",
+      cartNumber: "8C-1",
+      siteCode: "MAIN",
+      siteName: "本館",
+    },
+    {
+      id: "3",
+      orderNumber: "MAIN-20260923-0002",
+      status: "picked_up",
+      createdAt: "2026-09-23T06:10:00.000Z",
+      closedAt: "2026-10-02T06:48:00.000Z",
+      institutionCode: "MOUNTAIN",
+      institutionName: "清山",
+      cartNumber: "8E-1",
+      siteCode: "MAIN",
+      siteName: "本館",
+    },
+  ];
+
+  // 1. 洗衣單號升序與降序
+  const byOrderAsc = sortHistoryItems(sampleItems, "order_number", "asc");
+  expect(byOrderAsc.map((i) => i.orderNumber)).toEqual([
+    "MAIN-20260923-0002",
+    "MAIN-20261005-0002",
+    "MAIN-20261005-0004",
+  ]);
+  const byOrderDesc = sortHistoryItems(sampleItems, "order_number", "desc");
+  expect(byOrderDesc.map((i) => i.orderNumber)).toEqual([
+    "MAIN-20261005-0004",
+    "MAIN-20261005-0002",
+    "MAIN-20260923-0002",
+  ]);
+
+  // 2. 送洗機構升序與降序
+  const byInstAsc = sortHistoryItems(sampleItems, "institution", "asc");
+  expect(byInstAsc.map((i) => i.institutionName)).toEqual(["清山", "清春", "清福"]);
+  const byInstDesc = sortHistoryItems(sampleItems, "institution", "desc");
+  expect(byInstDesc.map((i) => i.institutionName)).toEqual(["清福", "清春", "清山"]);
+
+  // 3. 取件時間升序與降序 (nulls 排在最後)
+  const byPickupAsc = sortHistoryItems(sampleItems, "pickup_time", "asc");
+  expect(byPickupAsc.map((i) => i.id)).toEqual(["3", "2", "1"]);
+  const byPickupDesc = sortHistoryItems(sampleItems, "pickup_time", "desc");
+  expect(byPickupDesc.map((i) => i.id)).toEqual(["2", "3", "1"]);
+
+  // 4. 無排序 key 回傳原陣列
+  expect(sortHistoryItems(sampleItems, null, "asc")).toEqual(sampleItems);
+});

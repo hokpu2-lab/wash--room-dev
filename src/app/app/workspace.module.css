@@ -131,6 +131,47 @@
 .historyEmpty { margin: 0; padding: 32px 18px; border: 1px dashed var(--line); border-radius: 14px; color: var(--muted); text-align: center; }
 .tableSubtle { color: var(--muted); font-size: .8em; }
 
+.tableSortButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: color .15s ease;
+}
+
+.tableSortButton:hover,
+.tableSortButton:focus-visible {
+  color: var(--teal);
+}
+
+.tableSortIcon {
+  display: inline-flex;
+  align-items: center;
+  font-size: .78rem;
+  opacity: .5;
+  transition: opacity .15s ease, transform .15s ease;
+}
+
+.tableSortButton:hover .tableSortIcon,
+.tableSortButton:focus-visible .tableSortIcon,
+.tableSortActive .tableSortIcon {
+  opacity: 1;
+  color: var(--teal);
+}
+
+.tableSortActive {
+  color: var(--teal);
+  font-weight: 850;
+}
+
 .historyOrderButton {
   padding: 0;
   border: 0;
