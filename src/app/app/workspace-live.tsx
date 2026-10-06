@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 
-import type { WorkspaceSnapshot } from "@/lib/analytics/workspace-snapshot";
+import {
+  calculateTodayShiftOrdersCount,
+  type WorkspaceSnapshot,
+} from "@/lib/analytics/workspace-snapshot";
 
 import { AppLink } from "./app-link";
 import { LiveQueue } from "./live-queue";
@@ -76,6 +79,7 @@ function SupervisorCommandRoom({
   const openOrders = (orders?.awaiting_receipt ?? 0) + (orders?.in_process ?? 0) + (orders?.ready_for_pickup ?? 0);
   const equipmentIssues = equipment.filter((item) => item.status === "abnormal" || item.status === "maintenance").length;
   const actionCount = (batches?.paused ?? 0) + (orders?.awaiting_receipt ?? 0) + equipmentIssues;
+  const todayShiftOrderCount = calculateTodayShiftOrdersCount(snapshot, syncedAt);
   const liveLabel = liveMode === "realtime" ? "即時連線" : liveMode === "poll" ? "定時同步" : "伺服器快照";
   const equipmentHref = hrefWithClientScope("/app/admin/laundry-equipment", { siteId: siteId ?? null, institutionId: null });
   const [pendingReceiptModalOpen, setPendingReceiptModalOpen] = useState(false);
@@ -96,7 +100,7 @@ function SupervisorCommandRoom({
       </header>
 
       <div className={styles.commandKpis} aria-label="戰情室核心指標">
-        <article><span>送件數量</span><strong>{orders?.awaiting_receipt ?? 0}</strong><small>送洗人員已送單，等待收件</small></article>
+        <article><span>當日修正數量(0800-1700截止)</span><strong>{todayShiftOrderCount}</strong><small>今日 08:00–17:00 已送件之洗衣單</small></article>
         <article className={styles.commandKpiPrimary}><span>未結案</span><strong>{openOrders}</strong><small>待收件、處理中與待取件</small></article>
         <article><span>處理中(占用設備中)</span><strong>{batches?.in_progress ?? 0}</strong><small>{batches?.in_progress ?? 0} 個批次正在設備上</small></article>
         <article className={actionCount ? styles.commandKpiAlert : styles.commandKpiGood}><span>狀況異常(暫停中)</span><strong>{actionCount}</strong><small>{batches?.paused ?? 0} 暫停 · {equipmentIssues} 設備異常</small></article>

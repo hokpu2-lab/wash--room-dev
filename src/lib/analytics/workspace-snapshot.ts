@@ -347,3 +347,36 @@ export function parseWorkspaceSnapshot(
     generatedAt: parsed.data.generated_at,
   };
 }
+
+export function calculateTodayShiftOrdersCount(
+  snapshot: WorkspaceSnapshot | null,
+  referenceDate?: Date | string | null,
+): number {
+  if (!snapshot) return 0;
+  const now = referenceDate ? new Date(referenceDate) : new Date();
+  if (isNaN(now.getTime())) return 0;
+
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const date = now.getDate();
+  const shiftStart = new Date(year, month, date, 8, 0, 0, 0).getTime();
+  const shiftEnd = new Date(year, month, date, 17, 0, 0, 0).getTime();
+
+  const detailsMap = new Map(
+    (snapshot.orderDetails ?? []).map((d) => [d.orderId, d]),
+  );
+
+  let count = 0;
+  for (const order of snapshot.orders ?? []) {
+    const detail = detailsMap.get(order.id);
+    const timeStr = detail?.orderCreatedAt ?? detail?.orderReceivedAt ?? order.updatedAt;
+    if (timeStr) {
+      const time = new Date(timeStr).getTime();
+      if (!isNaN(time) && time >= shiftStart && time <= shiftEnd) {
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
