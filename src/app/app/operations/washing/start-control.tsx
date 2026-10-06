@@ -247,14 +247,8 @@ export function StartWashingControl({
         (result.kind === "already-started" && (isCompleteMode || result.status === "not_started" || result.status === "completed")))
   );
 
-  const isStage2 =
-    isCompletedSuccess ||
-    stageNum === "二" ||
-    (selectedBatch?.current_stage_order ?? 1) >= 2 ||
-    selectedOrderNumber === "MAIN-20261006-0001";
-
-  const displayProgress = isStage2
-    ? "第二階段(完成)"
+  const displayProgress = isCompletedSuccess
+    ? "第二階段(已完成)"
     : isCompleteMode
     ? `第${stageNum}階段(處理中)`
     : isDisinfect
@@ -318,7 +312,7 @@ export function StartWashingControl({
       <header className={styles.pageHeader}>
         <div>
           <p className={styles.eyebrow}>
-            {isStage2
+            {isCompletedSuccess
               ? "STAGE COMPLETED"
               : isCompleteMode
               ? "LAUNDRY COMPLETE"
@@ -328,8 +322,8 @@ export function StartWashingControl({
           </p>
           <h1 id="washing-title">{displayProgress}</h1>
           <p className={styles.lede}>
-            {isStage2
-              ? "清洗程序已完成。"
+            {isCompletedSuccess
+              ? "清洗程序已結束完成。"
               : isCompleteMode
               ? "確認清洗完成並釋放洗衣設備。"
               : isDisinfect
@@ -474,22 +468,7 @@ export function StartWashingControl({
           </p>
         ) : null}
 
-        {isStage2 ? (
-          <button
-            type="button"
-            disabled={true}
-            style={{
-              fontSize: "1.15rem",
-              fontWeight: 800,
-              padding: "0.85rem 1.75rem",
-              borderRadius: "8px",
-              cursor: "not-allowed",
-              opacity: 0.7,
-            }}
-          >
-            完成
-          </button>
-        ) : isCompleteMode ? (
+        {isCompleteMode ? (
           <button
             type="button"
             onClick={() => void submit("/api/operations/complete-stage")}
@@ -501,7 +480,7 @@ export function StartWashingControl({
               borderRadius: "8px",
             }}
           >
-            {submitting ? "處理中…" : isCompletedSuccess ? "完成" : "確認清洗完成"}
+            {submitting ? "處理中…" : isCompletedSuccess ? "已確認完成" : "確認清洗完成"}
           </button>
         ) : isDisinfect ? (
           <button
