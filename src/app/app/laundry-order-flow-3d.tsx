@@ -66,6 +66,12 @@ const fallbackStages: FlowStage[] = [
   { stageOrder: 2, name: "烘乾", equipmentType: "dryer", standardMinutes: null, startedAt: null, completedAt: null },
 ];
 
+const fallbackDisinfectStages: FlowStage[] = [
+  { stageOrder: 1, name: "消毒浸泡", equipmentType: "disinfection_tank", standardMinutes: 20, startedAt: null, completedAt: null },
+  { stageOrder: 2, name: "清洗", equipmentType: "washer", standardMinutes: 45, startedAt: null, completedAt: null },
+  { stageOrder: 3, name: "烘乾", equipmentType: "dryer", standardMinutes: 45, startedAt: null, completedAt: null },
+];
+
 const stateLabels: Record<FlowState, string> = {
   completed: "已完成",
   active: "即時狀態",
@@ -115,7 +121,10 @@ function getProcedureStages(batches: WorkspaceBatchDetail[]) {
     }
   }
 
-  if (stageGroups.size === 0) return fallbackStages;
+  if (stageGroups.size === 0) {
+    const isDisinfect = batches.some((b) => b.categoryCode === "DISINFECT" || b.categoryName?.includes("消毒"));
+    return isDisinfect ? fallbackDisinfectStages : fallbackStages;
+  }
   return [...stageGroups.values()]
     .map((group) => ({
       stageOrder: group[0]?.stageOrder ?? 0,
@@ -206,14 +215,16 @@ function getEquipmentQrHref(
   stageEquipmentType?: FlowEquipmentType,
   activeEquipmentName?: string | null,
   equipment: WorkspaceEquipment[] = [],
+  opQuery = "",
 ): string {
   if (activeEquipmentName) {
     const matched = equipment.find((e) => e.name === activeEquipmentName);
     if (matched) return `/app/admin/laundry-equipment/${matched.id}/qr`;
   }
   if (stageEquipmentType) {
-    const matched = equipment.find((e) => e.equipmentType === stageEquipmentType);
-    if (matched) return `/app/admin/laundry-equipment/${matched.id}/qr`;
+    if (stageEquipmentType === "disinfection_tank") return `/app/operations/disinfection${opQuery}`;
+    if (stageEquipmentType === "washer") return `/app/operations/washing${opQuery}`;
+    if (stageEquipmentType === "dryer") return `/app/operations/drying${opQuery}`;
   }
   return "/app/admin/laundry-equipment";
 }
@@ -224,12 +235,55 @@ function getFlowSteps(
   orderTimes: Pick<LaundryOrderFlow3DProps, "orderCreatedAt" | "orderReceivedAt" | "orderReadyAt" | "orderClosedAt">,
   cartNumber?: string,
   equipment: WorkspaceEquipment[] = [],
+  orderNumber?: string,
+  institutionName?: string,
 ): FlowStep[] {
   const procedureStages = getProcedureStages(batches);
+  const isDisinfectionFirst =
+    batches.some((b) => b.categoryCode === "DISINFECT" || b.categoryName?.includes("消毒")) ||
+    procedureStages[0]?.equipmentType === "disinfection_tank";
+
+  const operationParams = new URLSearchParams();
+  if (orderNumber) operationParams.set("order", orderNumber);
+  if (cartNumber) operationParams.set("cart", cartNumber);
+  if (institutionName) operationParams.set("institution", institutionName);
+  const opQuery = operationParams.toString() ? `?${operationParams.toString()}` : "";
+
   const firstStageStartedAt = earliestTimestamp(procedureStages.map((stage) => stage.startedAt));
   const lastStageCompletedAt = latestTimestamp(procedureStages.map((stage) => stage.completedAt));
   const orderReceivedAt = orderTimes.orderReceivedAt ?? null;
   const orderReadyAt = orderTimes.orderReadyAt ?? lastStageCompletedAt;
+
+  const step3: FlowStep = isDisinfectionFirst
+    ? {
+        id: "disinfection",
+        label: "消毒浸泡",
+        detail: cartNumber ? `收單分類完成 · 車號 ${cartNumber}` : "收單分類完成，等待消毒鍋浸泡",
+        state: orderStatus === "awaiting_receipt"
+          ? "pending"
+          : orderStatus === "awaiting_cleaning"
+            ? "active"
+            : "completed",
+        kind: "milestone",
+        visual: "disinfection-tank",
+        href: `/app/operations/disinfection${opQuery}`,
+        timing: flowTiming(orderReceivedAt, firstStageStartedAt),
+      }
+    : {
+        id: "awaiting-cleaning",
+        label: "待清洗",
+        detail: cartNumber ? `收單分類完成 · 車號 ${cartNumber}` : "收單分類完成，等待第一個設備控制點",
+        state: orderStatus === "awaiting_receipt"
+          ? "pending"
+          : orderStatus === "awaiting_cleaning"
+            ? "active"
+            : "completed",
+        kind: "milestone",
+        visual: "laundry-cart",
+        href: `/app/operations/washing${opQuery}`,
+        timing: flowTiming(orderReceivedAt, firstStageStartedAt),
+      };
+
   const steps: FlowStep[] = [
     {
       id: "submitted",
@@ -251,27 +305,29 @@ function getFlowSteps(
       href: "/app/operations/receive",
       timing: flowTiming(orderTimes.orderCreatedAt ?? null, orderReceivedAt),
     },
-    {
-      id: "awaiting-cleaning",
-      label: "待清洗",
-      detail: cartNumber ? `收單分類完成 · 車號 ${cartNumber}` : "收單分類完成，等待第一個設備控制點",
-      state: orderStatus === "awaiting_receipt"
-        ? "pending"
-        : orderStatus === "awaiting_cleaning"
-          ? "active"
-          : "completed",
-      kind: "milestone",
-      visual: "laundry-cart",
-      href: "/app/operations/washing",
-      timing: flowTiming(orderReceivedAt, firstStageStartedAt),
-    },
+    step3,
   ];
 
   procedureStages.forEach((stage, index) => {
     const matchingBatch = batches.find((b) => b.stages.some((s) => s.stageOrder === stage.stageOrder && (s.state === "active" || s.startedAt)));
     const activeEquip = matchingBatch?.activeEquipmentName ?? null;
 
-    if (stage.equipmentType === "dryer" && index > 0) {
+    if (stage.equipmentType === "washer" && index > 0) {
+      steps.push({
+        id: `waiting-before-${stage.stageOrder}-${stage.name}`,
+        label: "待清洗",
+        detail: cartNumber ? `消毒完成等待清洗 · 車號 ${cartNumber}` : "消毒完成後掃洗衣機開始下一階段",
+        state: getWaitingStageState(orderStatus, batches, procedureStages, index),
+        kind: "waiting",
+        visual: "laundry-cart",
+        equipmentType: stage.equipmentType,
+        href: `/app/operations/washing${opQuery}`,
+        timing: flowTiming(
+          procedureStages[index - 1]?.completedAt ?? orderReceivedAt,
+          stage.startedAt,
+        ),
+      });
+    } else if (stage.equipmentType === "dryer" && index > 0) {
       steps.push({
         id: `waiting-before-${stage.stageOrder}-${stage.name}`,
         label: "待烘衣",
@@ -280,7 +336,7 @@ function getFlowSteps(
         kind: "waiting",
         visual: "laundry-cart",
         equipmentType: stage.equipmentType,
-        href: getEquipmentQrHref(stage.equipmentType, null, equipment),
+        href: `/app/operations/drying${opQuery}`,
         timing: flowTiming(
           procedureStages[index - 1]?.completedAt ?? orderReceivedAt,
           stage.startedAt,
@@ -297,7 +353,7 @@ function getFlowSteps(
       visual: stageVisual(stage),
       equipmentType: stage.equipmentType,
       activeEquipmentName: activeEquip,
-      href: getEquipmentQrHref(stage.equipmentType, activeEquip, equipment),
+      href: getEquipmentQrHref(stage.equipmentType, activeEquip, equipment, opQuery),
       timing: flowTiming(stage.startedAt, stage.completedAt, stage.standardMinutes),
     });
   });
@@ -819,12 +875,20 @@ export function LaundryOrderFlow3D({
   const [isPlaying, setIsPlaying] = useState(true);
   const [clock, setClock] = useState<number | null>(null);
   const isPlayingRef = useRef(true);
-  const steps = useMemo(() => getFlowSteps(orderStatus, batches, {
-    orderCreatedAt,
-    orderReceivedAt,
-    orderReadyAt,
-    orderClosedAt,
-  }, cartNumber, equipment), [batches, cartNumber, equipment, orderClosedAt, orderCreatedAt, orderReadyAt, orderReceivedAt, orderStatus]);
+  const steps = useMemo(() => getFlowSteps(
+    orderStatus,
+    batches,
+    {
+      orderCreatedAt,
+      orderReceivedAt,
+      orderReadyAt,
+      orderClosedAt,
+    },
+    cartNumber,
+    equipment,
+    orderNumber,
+    institutionName,
+  ), [batches, cartNumber, equipment, institutionName, orderClosedAt, orderCreatedAt, orderNumber, orderReadyAt, orderReceivedAt, orderStatus]);
   const stepsRef = useRef(steps);
   const sceneSignature = steps
     .map((step) => `${step.id}:${step.state}:${step.visual}`)

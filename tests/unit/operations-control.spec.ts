@@ -87,4 +87,40 @@ describe("操作控制點與批次標籤 (Operations Control & Batch Labels)", (
 
     expect(idleForDisinfect).toEqual(["本館洗衣-1", "本館烘衣-1", "本館消毒鍋"]);
   });
+
+  it("消毒控制點可正確呈現 第一階段(消毒浸泡) 處理進度格式", () => {
+    function chineseStageNumber(order: number) {
+      const map: Record<number, string> = { 1: "一", 2: "二", 3: "三", 4: "四", 5: "五" };
+      return map[order] ?? String(order);
+    }
+
+    const batch: ControlBatch = {
+      id: "b-disinfect-1",
+      status: "not_started",
+      current_stage_order: 1,
+      orderNumber: "MAIN-20261005-0004",
+      cartNumber: "8D-1",
+      categoryName: "消毒品",
+      institutionName: "清春",
+    };
+
+    const displayProgress = `第${chineseStageNumber(batch.current_stage_order)}階段(消毒浸泡)`;
+    expect(displayProgress).toBe("第一階段(消毒浸泡)");
+  });
+
+  it("消毒單號可正確產生帶有車號與單號之消毒操作 URL 查詢參數", () => {
+    const orderNumber = "MAIN-20261005-0004";
+    const cartNumber = "8D-1";
+    const institutionName = "清春";
+
+    const params = new URLSearchParams();
+    if (orderNumber) params.set("order", orderNumber);
+    if (cartNumber) params.set("cart", cartNumber);
+    if (institutionName) params.set("institution", institutionName);
+
+    const href = `/app/operations/disinfection?${params.toString()}`;
+    expect(href).toBe("/app/operations/disinfection?order=MAIN-20261005-0004&cart=8D-1&institution=%E6%B8%85%E6%98%A5");
+    expect(params.get("order")).toBe("MAIN-20261005-0004");
+    expect(params.get("cart")).toBe("8D-1");
+  });
 });

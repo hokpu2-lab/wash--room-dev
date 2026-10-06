@@ -20,6 +20,11 @@ type EquipmentInfo = {
   operatingSiteCode?: string;
 };
 
+function chineseStageNumber(order: number) {
+  const map: Record<number, string> = { 1: "一", 2: "二", 3: "三", 4: "四", 5: "五" };
+  return map[order] ?? String(order);
+}
+
 const reasons: Record<string, string> = {
   invalid_qr: "固定烘衣機 QR 無效或已撤銷。",
   worker_scope_denied: "批次不屬於你的授權作業據點。",
@@ -323,11 +328,11 @@ export function DryingControl({
             <div style={{ fontSize: "1.45rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
               {selectedBatch
                 ? (mode === "complete"
-                    ? `第 ${selectedBatch.current_stage_order} 階段 (烘乾中)`
+                    ? `第${chineseStageNumber(selectedBatch.current_stage_order)}階段(烘乾完成)`
                     : selectedBatch.status === "in_progress"
-                    ? `第 ${selectedBatch.current_stage_order} 階段 (處理中)`
-                    : `第 ${selectedBatch.current_stage_order} 階段 (待烘衣)`)
-                : (mode === "complete" ? "烘乾中" : "待烘衣")}
+                    ? `第${chineseStageNumber(selectedBatch.current_stage_order)}階段(烘乾中)`
+                    : `第${chineseStageNumber(selectedBatch.current_stage_order)}階段(待烘衣)`)
+                : (mode === "complete" ? "烘乾完成" : "待烘衣")}
             </div>
           </div>
         </div>

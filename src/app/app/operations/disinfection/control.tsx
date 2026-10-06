@@ -23,6 +23,11 @@ type EquipmentInfo = {
   operatingSiteCode?: string;
 };
 
+function chineseStageNumber(order: number) {
+  const map: Record<number, string> = { 1: "一", 2: "二", 3: "三", 4: "四", 5: "五" };
+  return map[order] ?? String(order);
+}
+
 const labels: Record<string, string> = {
   invalid_qr: "固定設備 QR 無效。",
   worker_scope_denied: "批次不屬於你的授權作業據點。",
@@ -320,12 +325,8 @@ export function DisinfectionControl({
             </div>
             <div style={{ fontSize: "1.45rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
               {selectedBatch
-                ? (mode === "complete"
-                    ? `第 ${selectedBatch.current_stage_order} 階段 (浸泡中)`
-                    : selectedBatch.status === "in_progress"
-                    ? `第 ${selectedBatch.current_stage_order} 階段 (處理中)`
-                    : `第 ${selectedBatch.current_stage_order} 階段 (待消毒)`)
-                : (mode === "complete" ? "浸泡中" : "待消毒")}
+                ? `第${chineseStageNumber(selectedBatch.current_stage_order)}階段(消毒浸泡)`
+                : "第一階段(消毒浸泡)"}
             </div>
           </div>
         </div>

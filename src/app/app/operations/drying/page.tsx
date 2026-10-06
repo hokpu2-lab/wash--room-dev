@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+
 import { requireAnyRole } from "@/lib/auth/principal";
 
 import styles from "../../workspace.module.css";
@@ -13,6 +15,9 @@ export default async function DryingPage({
   const query = await searchParams;
   const mode = query.mode === "complete" ? "complete" : "start";
   const focusedBatchId = typeof query.batch === "string" ? query.batch : undefined;
+  const selectedCartNumber = typeof query.cart === "string" ? query.cart : undefined;
+  const selectedOrderNumber = typeof query.order === "string" ? query.order : undefined;
+  const selectedInstitutionName = typeof query.institution === "string" ? query.institution : undefined;
   const { batches, siteId } = await loadSiteBatches(
     query,
     mode === "complete" ? ["in_progress"] : ["not_started"],
@@ -31,7 +36,17 @@ export default async function DryingPage({
             </p>
           </div>
         </header>
-        <DryingControl batches={batches} siteId={siteId} mode={mode} focusedBatchId={focusedBatchId} />
+        <Suspense fallback={null}>
+          <DryingControl
+            batches={batches}
+            siteId={siteId}
+            mode={mode}
+            focusedBatchId={focusedBatchId}
+            selectedCartNumber={selectedCartNumber}
+            selectedOrderNumber={selectedOrderNumber}
+            selectedInstitutionName={selectedInstitutionName}
+          />
+        </Suspense>
       </section>
     </main>
   );
