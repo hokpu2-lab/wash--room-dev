@@ -154,15 +154,22 @@ export function StartWashingControl({
   const candidateBatches: Batch[] =
     siteMatchedBatches.length > 0 ? siteMatchedBatches : batches;
 
-  const sortedBatches = focusedBatchId
-    ? [...candidateBatches].sort((a, b) => (a.id === focusedBatchId ? -1 : b.id === focusedBatchId ? 1 : 0))
+  const matchingBatch = candidateBatches.find(
+    (b) =>
+      (focusedBatchId && b.id === focusedBatchId) ||
+      (selectedOrderNumber && b.orderNumber === selectedOrderNumber) ||
+      (selectedCartNumber && b.cartNumber === selectedCartNumber),
+  );
+
+  const sortedBatches = matchingBatch
+    ? [matchingBatch, ...candidateBatches.filter((b) => b.id !== matchingBatch.id)]
     : candidateBatches;
 
   const [batchId, setBatchId] = usePreferredId(
     sortedBatches.map((batch: Batch) => batch.id),
   );
 
-  const selectedBatch = batches.find((b) => b.id === batchId);
+  const selectedBatch = matchingBatch ?? batches.find((b) => b.id === batchId);
 
   const availableWashers = availableEquipment.filter((e) => e.equipment_type === "washer");
   const matchedWashers = selectedBatch?.operating_site_id
@@ -186,9 +193,19 @@ export function StartWashingControl({
     "本館洗衣-1";
 
   const displayEquipment = effectiveEquipmentName;
-  const displayInstitution = selectedBatch?.institutionName || selectedInstitutionName;
-  const displayCart = selectedBatch?.cartNumber || selectedCartNumber;
-  const displayOrderNumber = selectedBatch?.orderNumber || selectedOrderNumber;
+  const isTargetedByParams = Boolean(selectedOrderNumber || selectedCartNumber);
+  const displayInstitution = isTargetedByParams
+    ? (matchingBatch?.institutionName || selectedInstitutionName || selectedBatch?.institutionName || "—")
+    : (selectedBatch?.institutionName || selectedInstitutionName || "—");
+  const displayCart = isTargetedByParams
+    ? (matchingBatch?.cartNumber || selectedCartNumber || selectedBatch?.cartNumber || "—")
+    : (selectedBatch?.cartNumber || selectedCartNumber || "—");
+  const displayOrderNumber = isTargetedByParams
+    ? (matchingBatch?.orderNumber || selectedOrderNumber || selectedBatch?.orderNumber || "—")
+    : (selectedBatch?.orderNumber || selectedOrderNumber || "—");
+  const displayCategory = isTargetedByParams
+    ? (matchingBatch?.categoryName || "一般")
+    : (selectedBatch?.categoryName || "汙衣");
   const stageNum = chineseStageNumber(selectedBatch?.current_stage_order ?? 1);
   const displayProgress = selectedBatch
     ? (mode === "complete"
@@ -196,7 +213,7 @@ export function StartWashingControl({
         : selectedBatch.status === "in_progress"
         ? `第${stageNum}階段(清洗中)`
         : `第${stageNum}階段(待清洗)`)
-    : (mode === "complete" ? "清洗完成" : "待清洗");
+    : (mode === "complete" ? "清洗完成" : "第一階段(待清洗)");
 
   const hasScanned = Boolean(activeToken || activeEquipmentId || effectiveEquipmentId);
 
@@ -343,7 +360,7 @@ export function StartWashingControl({
               🏷️ 洗滌分類
             </div>
             <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
-              {selectedBatch?.categoryName || "汙衣"}
+              {displayCategory}
             </div>
           </div>
           <div>

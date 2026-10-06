@@ -119,7 +119,7 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
     supabase.from("laundry_equipment_procedures").select("laundry_equipment_id, procedure_template_id"),
     supabase.from("laundry_batch_stage_runs").select("id, laundry_equipment_id, laundry_batch_id, status").in("operating_site_id", siteIds),
     supabase.from("laundry_batches").select("id, source_laundry_cart_id, laundry_order_id, status, active_stage_run_id").in("operating_site_id", siteIds),
-    supabase.from("laundry_carts").select("id, cart_number"),
+    supabase.from("laundry_carts").select("id, cart_number, institutions(name)"),
     supabase.from("laundry_orders").select("id, laundry_cart_id").in("operating_site_id", siteIds),
     supabase.from("laundry_batch_sources").select("shared_batch_id, source_laundry_cart_id, laundry_order_id").in("operating_site_id", siteIds),
   ]);
@@ -142,9 +142,12 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
   }
 
   const cartMap = new Map<string, string>();
-  for (const cart of (allCartsResult.data ?? []) as Array<{ id?: string; cart_number?: string }>) {
+  const cartToInstMap = new Map<string, string>();
+  for (const cart of (allCartsResult.data ?? []) as Array<{ id?: string; cart_number?: string; institutions?: { name?: string } | Array<{ name?: string }> | null }>) {
     if (cart.id && cart.cart_number) {
       cartMap.set(cart.id, cart.cart_number);
+      const inst = Array.isArray(cart.institutions) ? cart.institutions[0]?.name : cart.institutions?.name;
+      if (inst) cartToInstMap.set(cart.id, inst);
     }
   }
 
@@ -176,7 +179,7 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
     }
   }
 
-  const equipmentUsageMap = new Map<string, { cartNumbers: Set<string>; cartCount: number }>();
+  const equipmentUsageMap = new Map<string, { cartNumbers: Set<string>; institutions: Set<string>; cartCount: number }>();
   for (const run of (activeRunsResult.data ?? []) as Array<{ id?: string; laundry_equipment_id?: string | null; laundry_batch_id?: string | null; status?: string | null }>) {
     const isRunActive = run.status === "in_progress" || run.status === "paused";
     if (!isRunActive) continue;
@@ -186,6 +189,7 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
 
     const current = equipmentUsageMap.get(equipId) ?? {
       cartNumbers: new Set<string>(),
+      institutions: new Set<string>(),
       cartCount: 0,
     };
 
@@ -197,6 +201,8 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
           const cartId = src.source_laundry_cart_id || (src.laundry_order_id ? orderToCartIdMap.get(src.laundry_order_id) : null);
           const cartNum = cartId ? cartMap.get(cartId) : null;
           if (cartNum) current.cartNumbers.add(cartNum);
+          const inst = cartId ? cartToInstMap.get(cartId) : null;
+          if (inst) current.institutions.add(inst);
         }
       } else {
         current.cartCount += 1;
@@ -204,6 +210,8 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
         const cartId = batch?.source_laundry_cart_id || (batch?.laundry_order_id ? orderToCartIdMap.get(batch.laundry_order_id) : null);
         const cartNum = cartId ? cartMap.get(cartId) : null;
         if (cartNum) current.cartNumbers.add(cartNum);
+        const inst = cartId ? cartToInstMap.get(cartId) : null;
+        if (inst) current.institutions.add(inst);
       }
     }
     equipmentUsageMap.set(equipId, current);
@@ -215,11 +223,14 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
       if (runInfo?.equipId) {
         const current = equipmentUsageMap.get(runInfo.equipId) ?? {
           cartNumbers: new Set<string>(),
+          institutions: new Set<string>(),
           cartCount: 0,
         };
         const cartId = batch.source_laundry_cart_id || (batch.laundry_order_id ? orderToCartIdMap.get(batch.laundry_order_id) : null);
         const cartNum = cartId ? cartMap.get(cartId) : null;
         if (cartNum) current.cartNumbers.add(cartNum);
+        const inst = cartId ? cartToInstMap.get(cartId) : null;
+        if (inst) current.institutions.add(inst);
         equipmentUsageMap.set(runInfo.equipId, current);
       }
     }
@@ -229,6 +240,7 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
     if (item.occupied) {
       const current = equipmentUsageMap.get(item.id) ?? {
         cartNumbers: new Set<string>(),
+        institutions: new Set<string>(),
         cartCount: 1,
       };
       if (current.cartNumbers.size === 0) {
@@ -237,6 +249,8 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
             const cartId = batch.source_laundry_cart_id || (batch.laundry_order_id ? orderToCartIdMap.get(batch.laundry_order_id) : null);
             const cartNum = cartId ? cartMap.get(cartId) : null;
             if (cartNum) current.cartNumbers.add(cartNum);
+            const inst = cartId ? cartToInstMap.get(cartId) : null;
+            if (inst) current.institutions.add(inst);
           }
         }
       }
@@ -252,7 +266,7 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
         capacity_kg: 1,
         category_codes: categoryCaps.get(item.id) ?? [],
         procedure_template_ids: procedureCaps.get(item.id) ?? [],
-        active_institutions: [],
+        active_institutions: usage ? Array.from(usage.institutions) : [],
         active_cart_count: usage ? usage.cartCount : (item.occupied ? 1 : 0),
         active_cart_numbers: usage ? Array.from(usage.cartNumbers) : [],
       };

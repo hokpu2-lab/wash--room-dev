@@ -151,7 +151,16 @@ export function DisinfectionControl({
   const candidateBatches =
     siteMatchedBatches.length > 0 ? siteMatchedBatches : batches;
 
-  const visible = focusedBatchId
+  const matchingBatch = candidateBatches.find(
+    (b) =>
+      (focusedBatchId && b.id === focusedBatchId) ||
+      (selectedOrderNumber && b.orderNumber === selectedOrderNumber) ||
+      (selectedCartNumber && b.cartNumber === selectedCartNumber),
+  );
+
+  const visible = matchingBatch
+    ? [matchingBatch, ...candidateBatches.filter((b) => b.id !== matchingBatch.id)]
+    : focusedBatchId
     ? candidateBatches.filter((batch) => batch.id === focusedBatchId)
     : candidateBatches;
 
@@ -159,11 +168,21 @@ export function DisinfectionControl({
     (visible.length > 0 ? visible : candidateBatches).map((batch) => batch.id),
   );
 
-  const selectedBatch = batches.find((b) => b.id === batchId);
+  const selectedBatch = matchingBatch ?? batches.find((b) => b.id === batchId);
   const displayEquipment = equipmentInfo?.equipmentName || null;
-  const displayInstitution = selectedBatch?.institutionName || selectedInstitutionName;
-  const displayCart = selectedBatch?.cartNumber || selectedCartNumber;
-  const displayOrderNumber = selectedBatch?.orderNumber || selectedOrderNumber;
+  const isTargetedByParams = Boolean(selectedOrderNumber || selectedCartNumber);
+  const displayInstitution = isTargetedByParams
+    ? (matchingBatch?.institutionName || selectedInstitutionName || selectedBatch?.institutionName || "—")
+    : (selectedBatch?.institutionName || selectedInstitutionName || "—");
+  const displayCart = isTargetedByParams
+    ? (matchingBatch?.cartNumber || selectedCartNumber || selectedBatch?.cartNumber || "—")
+    : (selectedBatch?.cartNumber || selectedCartNumber || "—");
+  const displayOrderNumber = isTargetedByParams
+    ? (matchingBatch?.orderNumber || selectedOrderNumber || selectedBatch?.orderNumber || "—")
+    : (selectedBatch?.orderNumber || selectedOrderNumber || "—");
+  const displayCategory = isTargetedByParams
+    ? (matchingBatch?.categoryName || "消毒品")
+    : (selectedBatch?.categoryName || "消毒品");
 
   const isSiteMismatch = Boolean(
     selectedBatch?.operating_site_id &&
@@ -308,7 +327,7 @@ export function DisinfectionControl({
               🏷️ 洗滌分類
             </div>
             <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
-              {selectedBatch?.categoryName || "消毒品"}
+              {displayCategory}
             </div>
           </div>
           <div>
