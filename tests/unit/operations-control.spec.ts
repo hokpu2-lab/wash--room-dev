@@ -149,7 +149,7 @@ describe("操作控制點與批次標籤 (Operations Control & Batch Labels)", (
       return map[order] ?? String(order);
     }
 
-    // 1. 第二階段待清洗批次
+    // 1. 第二階段清洗批次（已完成清洗）
     const washingBatch2: ControlBatch = {
       id: "b-wash-2",
       status: "not_started",
@@ -158,8 +158,11 @@ describe("操作控制點與批次標籤 (Operations Control & Batch Labels)", (
       categoryName: "汙衣",
     };
     const stageNum2 = chineseStageNumber(washingBatch2.current_stage_order);
-    const washingTitle2 = `第${stageNum2}階段(待清洗)`;
-    expect(washingTitle2).toBe("第二階段(待清洗)");
+    const isStage2 = stageNum2 === "二" || (washingBatch2.current_stage_order ?? 1) >= 2;
+    const washingTitle2 = isStage2 ? "第二階段(完成)" : `第${stageNum2}階段(待清洗)`;
+    expect(washingTitle2).toBe("第二階段(完成)");
+    const washingButton2 = isStage2 ? "完成" : "確認開始清洗";
+    expect(washingButton2).toBe("完成");
 
     // 2. 第一階段浸泡消毒批次
     const disinfectBatch1: ControlBatch = {
@@ -185,12 +188,14 @@ describe("操作控制點與批次標籤 (Operations Control & Batch Labels)", (
     const inProgressTitle = `第${stageNumProg}階段(處理中)`;
     expect(inProgressTitle).toBe("第一階段(處理中)");
 
-    // 4. 按下「確認清洗完成」後，進度與標題同步更新為「第二階段(已完成)」
+    // 4. 按下「確認清洗完成」後，進度與標題同步更新為「第二階段(完成)」，按鈕文字為「完成」
     const isCompletedSuccess = true;
     const completedProgress = isCompletedSuccess
-      ? "第二階段(已完成)"
+      ? "第二階段(完成)"
       : `第${stageNumProg}階段(處理中)`;
-    expect(completedProgress).toBe("第二階段(已完成)");
+    expect(completedProgress).toBe("第二階段(完成)");
+    const completedButton = isCompletedSuccess ? "完成" : "確認清洗完成";
+    expect(completedButton).toBe("完成");
   });
 });
 
