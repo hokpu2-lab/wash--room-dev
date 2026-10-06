@@ -624,6 +624,7 @@ export function LiveQueue({
             cartNumber={selected?.cartNumber}
             orderStatus={selected?.status ?? "in_process"}
             batches={selectedDetail?.batches ?? []}
+            equipment={equipment}
             orderCreatedAt={selectedDetail?.orderCreatedAt}
             orderReceivedAt={selectedDetail?.orderReceivedAt}
             orderReadyAt={selectedDetail?.orderReadyAt}

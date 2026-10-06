@@ -10,6 +10,7 @@ type AppLinkProps = {
   href: string;
   children: ReactNode;
   className?: string;
+  title?: string;
   "aria-current"?: ComponentProps<typeof Link>["aria-current"];
   "aria-label"?: string;
   onClick?: ComponentProps<typeof Link>["onClick"];

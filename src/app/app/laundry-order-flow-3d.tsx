@@ -5,10 +5,12 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNod
 
 import type {
   WorkspaceBatchDetail,
+  WorkspaceEquipment,
   WorkspaceOrder,
   WorkspaceProcedureStage,
 } from "@/lib/analytics/workspace-snapshot";
 
+import { AppLink } from "./app-link";
 import { equipmentTypeLabels, orderStatusLabels } from "./status-labels";
 import styles from "./workspace.module.css";
 
@@ -39,12 +41,15 @@ type FlowStep = {
   kind: FlowStepKind;
   visual: FlowVisual;
   equipmentType?: FlowEquipmentType;
+  activeEquipmentName?: string | null;
+  href?: string | null;
   timing: FlowTiming;
 };
 
 type LaundryOrderFlow3DProps = {
   orderStatus: WorkspaceOrder["status"];
   batches: WorkspaceBatchDetail[];
+  equipment?: WorkspaceEquipment[];
   orderCreatedAt?: string | null;
   orderReceivedAt?: string | null;
   orderReadyAt?: string | null;
@@ -197,11 +202,28 @@ function flowTiming(
   return { startedAt, completedAt, standardMinutes };
 }
 
+function getEquipmentQrHref(
+  stageEquipmentType?: FlowEquipmentType,
+  activeEquipmentName?: string | null,
+  equipment: WorkspaceEquipment[] = [],
+): string {
+  if (activeEquipmentName) {
+    const matched = equipment.find((e) => e.name === activeEquipmentName);
+    if (matched) return `/app/admin/laundry-equipment/${matched.id}/qr`;
+  }
+  if (stageEquipmentType) {
+    const matched = equipment.find((e) => e.equipmentType === stageEquipmentType);
+    if (matched) return `/app/admin/laundry-equipment/${matched.id}/qr`;
+  }
+  return "/app/admin/laundry-equipment";
+}
+
 function getFlowSteps(
   orderStatus: WorkspaceOrder["status"],
   batches: WorkspaceBatchDetail[],
   orderTimes: Pick<LaundryOrderFlow3DProps, "orderCreatedAt" | "orderReceivedAt" | "orderReadyAt" | "orderClosedAt">,
   cartNumber?: string,
+  equipment: WorkspaceEquipment[] = [],
 ): FlowStep[] {
   const procedureStages = getProcedureStages(batches);
   const firstStageStartedAt = earliestTimestamp(procedureStages.map((stage) => stage.startedAt));
@@ -216,6 +238,7 @@ function getFlowSteps(
       state: "completed",
       kind: "milestone",
       visual: "sending-staff",
+      href: "/scan/cart",
       timing: flowTiming(orderTimes.orderCreatedAt ?? null, orderTimes.orderCreatedAt ?? null),
     },
     {
@@ -225,6 +248,7 @@ function getFlowSteps(
       state: orderStatus === "awaiting_receipt" ? "active" : "completed",
       kind: "milestone",
       visual: "laundry-worker",
+      href: "/app/operations/receive",
       timing: flowTiming(orderTimes.orderCreatedAt ?? null, orderReceivedAt),
     },
     {
@@ -238,6 +262,7 @@ function getFlowSteps(
           : "completed",
       kind: "milestone",
       visual: "laundry-cart",
+      href: "/app/operations/washing",
       timing: flowTiming(orderReceivedAt, firstStageStartedAt),
     },
   ];
@@ -255,6 +280,7 @@ function getFlowSteps(
         kind: "waiting",
         visual: "laundry-cart",
         equipmentType: stage.equipmentType,
+        href: getEquipmentQrHref(stage.equipmentType, null, equipment),
         timing: flowTiming(
           procedureStages[index - 1]?.completedAt ?? orderReceivedAt,
           stage.startedAt,
@@ -270,6 +296,8 @@ function getFlowSteps(
       kind: "stage",
       visual: stageVisual(stage),
       equipmentType: stage.equipmentType,
+      activeEquipmentName: activeEquip,
+      href: getEquipmentQrHref(stage.equipmentType, activeEquip, equipment),
       timing: flowTiming(stage.startedAt, stage.completedAt, stage.standardMinutes),
     });
   });
@@ -286,6 +314,7 @@ function getFlowSteps(
           : "pending",
       kind: "milestone",
       visual: "sending-staff",
+      href: "/scan/pickup",
       timing: flowTiming(orderReadyAt, orderTimes.orderClosedAt ?? null),
     },
     {
@@ -295,6 +324,7 @@ function getFlowSteps(
       state: orderStatus === "picked_up" ? "completed" : "pending",
       kind: "milestone",
       visual: "sending-staff",
+      href: "/app/history",
       timing: flowTiming(orderTimes.orderClosedAt ?? null, orderTimes.orderClosedAt ?? null),
     },
   );
@@ -770,6 +800,7 @@ function placeFlowTooltip(
 export function LaundryOrderFlow3D({
   orderStatus,
   batches,
+  equipment = [],
   orderCreatedAt = null,
   orderReceivedAt = null,
   orderReadyAt = null,
@@ -793,7 +824,7 @@ export function LaundryOrderFlow3D({
     orderReceivedAt,
     orderReadyAt,
     orderClosedAt,
-  }, cartNumber), [batches, cartNumber, orderClosedAt, orderCreatedAt, orderReadyAt, orderReceivedAt, orderStatus]);
+  }, cartNumber, equipment), [batches, cartNumber, equipment, orderClosedAt, orderCreatedAt, orderReadyAt, orderReceivedAt, orderStatus]);
   const stepsRef = useRef(steps);
   const sceneSignature = steps
     .map((step) => `${step.id}:${step.state}:${step.visual}`)
@@ -1541,14 +1572,34 @@ export function LaundryOrderFlow3D({
               data-state={selectedStep.state}
             >
               <span className={styles.flowSelectionVisual} aria-hidden="true">
-                <Image
-                  className={styles.flowSelectionImage}
-                  src={flowVisualSources[selectedStep.visual]}
-                  alt=""
-                  width={160}
-                  height={160}
-                  loading="eager"
-                />
+                {selectedStep.href ? (
+                  <AppLink
+                    href={selectedStep.href}
+                    className={styles.flowImageLink}
+                    title={`點選進入 ${selectedStep.activeEquipmentName || selectedStep.label} 固定 QR / 掃碼`}
+                  >
+                    <Image
+                      className={styles.flowSelectionImage}
+                      src={flowVisualSources[selectedStep.visual]}
+                      alt={selectedStep.label}
+                      width={160}
+                      height={160}
+                      loading="eager"
+                    />
+                    <span className={styles.flowImageScanOverlay}>
+                      <span>📷 點選進入固定 QR / 掃碼</span>
+                    </span>
+                  </AppLink>
+                ) : (
+                  <Image
+                    className={styles.flowSelectionImage}
+                    src={flowVisualSources[selectedStep.visual]}
+                    alt=""
+                    width={160}
+                    height={160}
+                    loading="eager"
+                  />
+                )}
                 {selectedStep.state === "active" ? (
                   <span className={styles.flowActiveBadge}>進行中</span>
                 ) : selectedStep.state === "completed" ? (
@@ -1561,6 +1612,16 @@ export function LaundryOrderFlow3D({
                 <strong>{selectedStep.label}</strong>
                 <span className={styles.flowSelectionDetail}>{selectedStep.detail}</span>
                 <FlowTimingDetails timing={selectedStep.timing} state={selectedStep.state} now={clock} />
+                {selectedStep.href ? (
+                  <AppLink
+                    href={selectedStep.href}
+                    className={styles.flowStepScanLink}
+                    title="進入固定 QR 掃碼功能"
+                  >
+                    <span aria-hidden="true">📷</span>
+                    <span>進入 {selectedStep.activeEquipmentName || selectedStep.label} 固定 QR / 掃碼 →</span>
+                  </AppLink>
+                ) : null}
               </span>
             </div>
           </div>
