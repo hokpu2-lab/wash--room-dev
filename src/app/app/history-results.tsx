@@ -46,17 +46,17 @@ export function sortHistoryItems(
 }
 
 function orderStatusBadgeClass(status: string, stageName?: string | null) {
-  const display = stageName || status;
+  const display = stageName === "清洗中" ? "處理中" : (stageName || status);
   if (display === "取件完成" || display === "已取件" || status === "picked_up") {
     return styles.badgeGreen;
   }
   if (display === "待取件" || status === "ready_for_pickup") {
     return styles.badgeGreen;
   }
-  if (display === "待烘衣" || display === "烘乾中" || status === "in_process") {
+  if (display === "待烘衣" || display === "烘乾中" || display === "處理中" || status === "in_process") {
     return styles.badgeWarm;
   }
-  if (display === "待洗衣" || display === "待清洗" || display === "清洗中" || status === "awaiting_cleaning") {
+  if (display === "待洗衣" || display === "待清洗" || status === "awaiting_cleaning") {
     return styles.badgeBlue;
   }
   if (display === "待收件" || display === "待收單" || status === "awaiting_receipt") {
@@ -65,10 +65,10 @@ function orderStatusBadgeClass(status: string, stageName?: string | null) {
   return styles.badgeWarm;
 }
 
-function renderOrderStatusLabel(status: string, stageName?: string | null) {
-  if (stageName) return stageName;
-  if (status === "picked_up") return "取件完成";
-  return orderStatusLabels[status as keyof typeof orderStatusLabels] ?? status;
+export function renderOrderStatusLabel(status: string, stageName?: string | null) {
+  const display = stageName || (status === "picked_up" ? "取件完成" : orderStatusLabels[status as keyof typeof orderStatusLabels] ?? status);
+  if (display === "清洗中") return "處理中";
+  return display;
 }
 
 const eventLabels: Record<string, string> = {
@@ -243,7 +243,7 @@ function HistoryModal({
               <div><dt>送洗機構</dt><dd>{detail.order.institutionName}（{detail.order.institutionCode}）</dd></div>
               <div><dt>洗衣車</dt><dd>{detail.order.cartNumber}</dd></div>
               <div><dt>作業據點</dt><dd>{detail.order.siteName}（{detail.order.siteCode}）</dd></div>
-              <div><dt>目前狀態</dt><dd><span className={`${styles.badge} ${orderStatusBadgeClass(detail.order.status, detail.order.stageName)}`}>{renderOrderStatusLabel(detail.order.status, detail.order.stageName)}</span></dd></div>
+              <div><dt>目前狀態</dt><dd><span className={`${styles.badge} ${styles.historyTableBadge} ${orderStatusBadgeClass(detail.order.status, detail.order.stageName)}`}>{renderOrderStatusLabel(detail.order.status, detail.order.stageName)}</span></dd></div>
               <div><dt>送單時間</dt><dd>{formatDateTime(detail.order.createdAt)}</dd></div>
               <div><dt>取件時間</dt><dd>{formatDateTime(detail.order.closedAt)}</dd></div>
             </dl>
@@ -448,7 +448,7 @@ export function HistoryResults({ items }: { items: LaundryOrderHistoryItem[] }) 
                   <td>{formatDateTime(item.createdAt)}</td>
                   <td>{formatDateTime(item.closedAt)}</td>
                   <td>{formatCompletionTime(item.createdAt, item.closedAt)}</td>
-                  <td><span className={`${styles.badge} ${orderStatusBadgeClass(item.status, item.stageName)}`}>{renderOrderStatusLabel(item.status, item.stageName)}</span></td>
+                  <td><span className={`${styles.badge} ${styles.historyTableBadge} ${orderStatusBadgeClass(item.status, item.stageName)}`}>{renderOrderStatusLabel(item.status, item.stageName)}</span></td>
                 </tr>
               ))}
             </tbody>

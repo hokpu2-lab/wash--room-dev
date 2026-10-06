@@ -242,3 +242,12 @@ test("歷史查詢結果排序功能（洗衣單號、送洗機構、取件時�
   // 4. 無排序 key 回傳原陣列
   expect(sortHistoryItems(sampleItems, null, "asc")).toEqual(sampleItems);
 });
+
+test("歷史狀態標籤解析與「清洗中」轉為「處理中」", async () => {
+  const { renderOrderStatusLabel } = await import("../../src/app/app/history-results");
+  expect(renderOrderStatusLabel("in_process", "清洗中")).toBe("處理中");
+  expect(renderOrderStatusLabel("in_process", "烘乾中")).toBe("烘乾中");
+  expect(renderOrderStatusLabel("in_process", null)).toBe("處理中");
+  expect(renderOrderStatusLabel("picked_up", null)).toBe("取件完成");
+  expect(renderOrderStatusLabel("awaiting_receipt", null)).toBe("待收件");
+});
