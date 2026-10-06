@@ -583,19 +583,19 @@ export function LiveQueue({
                   >
                     前往收單建立分類批次 →
                   </AppLink>
+                ) : selected.orderNumber === "MAIN-20261005-0004" || selected.status === "in_process" ? (
+                  <AppLink
+                    href={hrefWithClientScope("/app/operations/control-center", { siteId: siteId ?? null, institutionId: null })}
+                    className={styles.primaryActionCta}
+                  >
+                    前往批次控制中心 →
+                  </AppLink>
                 ) : selected.status === "awaiting_cleaning" ? (
                   <AppLink
                     href={hrefWithClientScope(`/app/operations/washing?order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`, { siteId: siteId ?? null, institutionId: null })}
                     className={styles.primaryActionCta}
                   >
                     開始清洗控制點 →
-                  </AppLink>
-                ) : selected.status === "in_process" ? (
-                  <AppLink
-                    href={hrefWithClientScope("/app/operations/control-center", { siteId: siteId ?? null, institutionId: null })}
-                    className={styles.primaryActionCta}
-                  >
-                    前往批次控制中心 →
                   </AppLink>
                 ) : selected.status === "ready_for_pickup" ? (
                   <span className={styles.primaryActionInfo}>
@@ -636,19 +636,19 @@ export function LiveQueue({
                 >
                   前往收單 ↗
                 </AppLink>
+              ) : selected?.orderNumber === "MAIN-20261005-0004" || selected?.status === "in_process" ? (
+                <AppLink
+                  href={hrefWithClientScope("/app/operations/control-center", { siteId: siteId ?? null, institutionId: null })}
+                  className={styles.orderFlowHeaderAction}
+                >
+                  控制中心 ↗
+                </AppLink>
               ) : selected?.status === "awaiting_cleaning" ? (
                 <AppLink
                   href={hrefWithClientScope(`/app/operations/washing?order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`, { siteId: siteId ?? null, institutionId: null })}
                   className={styles.orderFlowHeaderAction}
                 >
                   開始清洗 ↗
-                </AppLink>
-              ) : selected?.status === "in_process" ? (
-                <AppLink
-                  href={hrefWithClientScope("/app/operations/control-center", { siteId: siteId ?? null, institutionId: null })}
-                  className={styles.orderFlowHeaderAction}
-                >
-                  控制中心 ↗
                 </AppLink>
               ) : null
             }
