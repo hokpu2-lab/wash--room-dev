@@ -260,51 +260,75 @@ export function DisinfectionControl({
           </div>
         ) : null}
 
-        {displayEquipment || displayInstitution || displayCart || displayOrderNumber ? (
-          <div
-            style={{
-              margin: "0.5rem 0",
-              padding: "0.5rem 0.75rem",
-              background: "rgba(255, 255, 255, 0.08)",
-              border: "1px solid rgba(255, 255, 255, 0.15)",
-              borderRadius: "6px",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.75rem 1.25rem",
-              flexWrap: "wrap",
-              fontSize: "0.9rem",
-            }}
-          >
-            {displayEquipment ? (
-              <span>
-                設備：
-                <strong style={{ color: "#ffffff", fontWeight: 700 }}>
-                  {displayEquipment}
-                </strong>
-              </span>
-            ) : null}
-            <span>
-              機構：
-              <strong style={{ color: "#ffffff", fontWeight: 700 }}>
-                {displayInstitution || "未指定"}
-              </strong>
-            </span>
-            <span>
-              車號：
-              <strong style={{ color: "#ffffff", fontWeight: 700 }}>
-                {displayCart || "未指定"}
-              </strong>
-            </span>
-            {displayOrderNumber ? (
-              <span>
-                單號：
-                <strong style={{ color: "#ffffff" }}>
-                  {displayOrderNumber}
-                </strong>
-              </span>
-            ) : null}
+        {/* 上方資訊卡片（黑底、字體加大、標題統一顏色、資訊統一顏色） */}
+        <div
+          style={{
+            margin: "0.75rem 0 1.5rem 0",
+            padding: "1.5rem 1.75rem",
+            background: "linear-gradient(145deg, #0b1329, #050b14)",
+            border: "1px solid rgba(255, 255, 255, 0.22)",
+            borderRadius: "14px",
+            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.4)",
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+            gap: "1.5rem 1.75rem",
+          }}
+        >
+          <div>
+            <div style={{ fontSize: "1.15rem", color: "#7dd3fc", marginBottom: "0.45rem", fontWeight: 800, letterSpacing: "0.02em" }}>
+              🏢 機構名稱
+            </div>
+            <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
+              {displayInstitution || "—"}
+            </div>
           </div>
-        ) : null}
+          <div>
+            <div style={{ fontSize: "1.15rem", color: "#7dd3fc", marginBottom: "0.45rem", fontWeight: 800, letterSpacing: "0.02em" }}>
+              🛒 洗衣車號
+            </div>
+            <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
+              {displayCart || "—"}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: "1.15rem", color: "#7dd3fc", marginBottom: "0.45rem", fontWeight: 800, letterSpacing: "0.02em" }}>
+              📋 洗衣單號
+            </div>
+            <div style={{ fontSize: "1.45rem", fontWeight: 900, color: "#ffffff", whiteSpace: "nowrap" }}>
+              {displayOrderNumber || "—"}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: "1.15rem", color: "#7dd3fc", marginBottom: "0.45rem", fontWeight: 800, letterSpacing: "0.02em" }}>
+              🏷️ 洗滌分類
+            </div>
+            <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
+              {selectedBatch?.categoryName || "消毒品"}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: "1.15rem", color: "#7dd3fc", marginBottom: "0.45rem", fontWeight: 800, letterSpacing: "0.02em" }}>
+              🖥️ 消毒設備
+            </div>
+            <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
+              {displayEquipment || "消毒鍋"}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: "1.15rem", color: "#7dd3fc", marginBottom: "0.45rem", fontWeight: 800, letterSpacing: "0.02em" }}>
+              ⏳ 處理進度
+            </div>
+            <div style={{ fontSize: "1.45rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
+              {selectedBatch
+                ? (mode === "complete"
+                    ? `第 ${selectedBatch.current_stage_order} 階段 (浸泡中)`
+                    : selectedBatch.status === "in_progress"
+                    ? `第 ${selectedBatch.current_stage_order} 階段 (處理中)`
+                    : `第 ${selectedBatch.current_stage_order} 階段 (待消毒)`)
+                : (mode === "complete" ? "浸泡中" : "待消毒")}
+            </div>
+          </div>
+        </div>
 
         <label>
           {mode === "complete" ? "執行中單據" : "待浸泡批次"}

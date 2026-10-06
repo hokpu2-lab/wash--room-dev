@@ -184,6 +184,13 @@ export function StartWashingControl({
   const displayInstitution = selectedBatch?.institutionName || selectedInstitutionName;
   const displayCart = selectedBatch?.cartNumber || selectedCartNumber;
   const displayOrderNumber = selectedBatch?.orderNumber || selectedOrderNumber;
+  const displayProgress = selectedBatch
+    ? (mode === "complete"
+        ? `第 ${selectedBatch.current_stage_order} 階段 (清洗中)`
+        : selectedBatch.status === "in_progress"
+        ? `第 ${selectedBatch.current_stage_order} 階段 (處理中)`
+        : `第 ${selectedBatch.current_stage_order} 階段 (待清洗)`)
+    : (mode === "complete" ? "清洗中" : "待清洗");
 
   const hasScanned = Boolean(activeToken || activeEquipmentId || effectiveEquipmentId);
 
@@ -309,16 +316,14 @@ export function StartWashingControl({
               {displayInstitution || "—"}
             </div>
           </div>
-          {displayCart ? (
-            <div>
-              <div style={{ fontSize: "1.15rem", color: "#7dd3fc", marginBottom: "0.45rem", fontWeight: 800, letterSpacing: "0.02em" }}>
-                🛒 洗衣車號
-              </div>
-              <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
-                {displayCart}
-              </div>
+          <div>
+            <div style={{ fontSize: "1.15rem", color: "#7dd3fc", marginBottom: "0.45rem", fontWeight: 800, letterSpacing: "0.02em" }}>
+              🛒 洗衣車號
             </div>
-          ) : null}
+            <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
+              {displayCart || "—"}
+            </div>
+          </div>
           <div>
             <div style={{ fontSize: "1.15rem", color: "#7dd3fc", marginBottom: "0.45rem", fontWeight: 800, letterSpacing: "0.02em" }}>
               📋 洗衣單號
@@ -341,6 +346,14 @@ export function StartWashingControl({
             </div>
             <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
               {displayEquipment}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: "1.15rem", color: "#7dd3fc", marginBottom: "0.45rem", fontWeight: 800, letterSpacing: "0.02em" }}>
+              ⏳ 處理進度
+            </div>
+            <div style={{ fontSize: "1.45rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
+              {displayProgress}
             </div>
           </div>
         </div>
