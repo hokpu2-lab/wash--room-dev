@@ -65,27 +65,40 @@ describe("操作控制點與批次標籤 (Operations Control & Batch Labels)", (
     expect(filtered[0].operating_site_name).toBe("清福本館");
   });
 
-  it("收單分類可正確篩選出匹配分類的閒置設備名稱代號", () => {
+  it("收單分類可正確篩選出同據點且匹配分類的閒置設備名稱代號", () => {
     const equipmentList = [
-      { id: "e1", name: "本館洗衣-1", equipmentType: "washer", occupied: false, status: "normal" },
-      { id: "e2", name: "本館洗衣-2", equipmentType: "washer", occupied: true, status: "normal" },
-      { id: "e3", name: "本館烘衣-1", equipmentType: "dryer", occupied: false, status: "normal" },
-      { id: "e4", name: "本館消毒鍋", equipmentType: "disinfection_tank", occupied: false, status: "normal" },
+      { id: "e1", name: "本館洗衣-1", equipmentType: "washer", occupied: true, status: "normal", operatingSiteId: "site-main" },
+      { id: "e2", name: "本館洗衣-2", equipmentType: "washer", occupied: false, status: "normal", operatingSiteId: "site-main" },
+      { id: "e3", name: "本館烘衣-1", equipmentType: "dryer", occupied: false, status: "normal", operatingSiteId: "site-main" },
+      { id: "e4", name: "本館消毒鍋", equipmentType: "disinfection_tank", occupied: false, status: "normal", operatingSiteId: "site-main" },
+      { id: "e5", name: "法人洗衣-1", equipmentType: "washer", occupied: false, status: "normal", operatingSiteId: "site-corp" },
     ];
 
+    const matchedOrder = { orderNumber: "MAIN-20261006-0001", institutionName: "清景" };
+    const isCorpOrder = matchedOrder.orderNumber.startsWith("CORP") || matchedOrder.institutionName.includes("法人");
+
+    const siteScopedEquipment = equipmentList.filter((e) => {
+      if (isCorpOrder) {
+        return e.name.includes("法人") || e.name.startsWith("CORP");
+      }
+      return e.name.includes("本館") || (!e.name.includes("法人") && !e.name.startsWith("CORP"));
+    });
+
+    const idleEquipment = siteScopedEquipment.filter((e) => !e.occupied && e.status === "normal");
+
     const neededTypesForOther = ["washer", "dryer"];
-    const idleForOther = equipmentList
-      .filter((e) => !e.occupied && e.status === "normal" && neededTypesForOther.includes(e.equipmentType))
+    const idleForOther = idleEquipment
+      .filter((e) => neededTypesForOther.includes(e.equipmentType))
       .map((e) => e.name);
 
-    expect(idleForOther).toEqual(["本館洗衣-1", "本館烘衣-1"]);
+    expect(idleForOther).toEqual(["本館洗衣-2", "本館烘衣-1"]);
 
     const neededTypesForDisinfect = ["disinfection_tank", "washer", "dryer"];
-    const idleForDisinfect = equipmentList
-      .filter((e) => !e.occupied && e.status === "normal" && neededTypesForDisinfect.includes(e.equipmentType))
+    const idleForDisinfect = idleEquipment
+      .filter((e) => neededTypesForDisinfect.includes(e.equipmentType))
       .map((e) => e.name);
 
-    expect(idleForDisinfect).toEqual(["本館洗衣-1", "本館烘衣-1", "本館消毒鍋"]);
+    expect(idleForDisinfect).toEqual(["本館洗衣-2", "本館烘衣-1", "本館消毒鍋"]);
   });
 
   it("消毒控制點可正確呈現 第一階段(浸泡消毒) 處理進度格式", () => {

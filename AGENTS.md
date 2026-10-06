@@ -26,6 +26,9 @@
 
 ## 2026-10-06 最新接手快照
 
+- **收單分類與檢查清單（/app/operations/receive）洗滌分類選項精簡與設備連結**：
+  - **選項文字精簡**：移除洗滌分類單選列表中各選項的「設備：...」重複文字，使分類項目保持精簡（如 `消毒品（DISINFECT）`、`其他（OTHER）`）。
+  - **同據點空置設備篩選與連結**：上方面板「使用設備名稱 (Equipment)」依據選取單據的作業據點（清福本館 MAIN vs 清福法人 CORP）篩選同據點且目前空置（`occupied === false` 且 `status === 'normal'`）之可用設備名稱，並提供超連結直通設備清單（`/app/admin/laundry-equipment`）。
 - **消毒分類「第一階段(浸泡消毒)」與「確認開始浸泡消毒」功能串聯**：
   - **處理進度與按鈕語意**：在 `src/app/app/operations/washing/start-control.tsx` 與 `src/app/app/operations/disinfection/control.tsx` 針對消毒分類（`DISINFECT` / `消毒品` / `MAIN-20261005-0004`），處理進度顯示為「第一階段(浸泡消毒)」，操作按鈕顯示為「確認開始浸泡消毒」，並透過 `/api/operations/start-disinfection` 執行開始消毒程序。
   - **消毒設備與目前設備清單狀態串聯**：在操作頁面自動帶入並預設同據點消毒設備（如「本館消毒鍋」）；執行確認後，設備管理（`/app/admin/laundry-equipment`）清單之「本館消毒鍋」即時反映狀態為「使用中」、機構為「清春」、車號為「8D-1」。

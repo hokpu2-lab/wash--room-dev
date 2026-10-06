@@ -103,8 +103,29 @@ export function ReceiveCartControl({
     new Set(selected.flatMap((code) => categoryEquipmentTypeMap[code] ?? ["washer", "dryer"])),
   );
 
+  // 依待收單據據點（若有）過濾同據點設備，避免跨據點設備混入
+  const isCorpOrder =
+    matchedOrder?.orderNumber?.startsWith("CORP") ||
+    matchedOrder?.institutionName?.includes("法人");
+
+  const siteScopedEquipment = equipmentList.filter((e) => {
+    if (isCorpOrder) {
+      return (
+        e.name.includes("法人") ||
+        e.name.startsWith("CORP") ||
+        (e.operatingSiteId && e.operatingSiteId.includes("CORP"))
+      );
+    }
+    // 預設為本館或非法人設備
+    return (
+      e.name.includes("本館") ||
+      e.name.startsWith("MAIN") ||
+      (!e.name.includes("法人") && !e.name.startsWith("CORP"))
+    );
+  });
+
   // 閒置中的可用設備（occupied 為 false 且狀態為 normal）
-  const idleEquipment = equipmentList.filter((e) => !e.occupied && e.status === "normal");
+  const idleEquipment = siteScopedEquipment.filter((e) => !e.occupied && e.status === "normal");
 
   // 匹配當前所選分類所需類型的閒置設備
   const matchingIdleEquipment = idleEquipment.filter((e) =>
@@ -440,51 +461,47 @@ export function ReceiveCartControl({
           </div>
           <div>
             <span style={{ opacity: 0.8, fontSize: "0.82rem", display: "block", marginBottom: "0.2rem" }}>
-              使用設備名稱 (Equipment)
+              <a
+                href="/app/admin/laundry-equipment"
+                style={{ color: "#7dd3fc", textDecoration: "underline", fontWeight: 700 }}
+                title="前往目前設備清單檢視狀態與固定 QR"
+              >
+                使用設備名稱 (Equipment) ↗
+              </a>
             </span>
-            <strong style={{ color: selectedCategoryNames.length > 0 ? "#86efac" : "#cbd5e1", fontSize: "1.05rem" }}>
+            <a
+              href="/app/admin/laundry-equipment"
+              style={{
+                color: selectedCategoryNames.length > 0 ? "#86efac" : "#cbd5e1",
+                fontSize: "1.05rem",
+                fontWeight: 700,
+                textDecoration: "none",
+                display: "block",
+                lineHeight: 1.4,
+              }}
+              title="點擊前往設備清單"
+            >
               {expectedEquipmentText}
-            </strong>
+            </a>
           </div>
         </div>
 
         <fieldset>
           <legend>洗滌分類</legend>
-          {categories.map((category) => {
-            const types = categoryEquipmentTypeMap[category.code] ?? ["washer", "dryer"];
-            const categoryIdle = idleEquipment.filter((e) => types.includes(e.equipmentType));
-            const categoryDisplay =
-              categoryIdle.length > 0
-                ? categoryIdle.map((e) => e.name).join("、")
-                : (categoryEquipmentMap[category.code] ?? ["洗衣機", "烘衣機"]).join("、");
-
-            return (
-              <label key={category.code} className={styles.checkboxLabel}>
-                <input
-                  type="radio"
-                  name="receiveCategory"
-                  value={category.code}
-                  checked={selected.includes(category.code)}
-                  onChange={() => setSelected([category.code])}
-                />
-                <span>
-                  {category.name}（{category.code}）
-                  <small
-                    style={{
-                      marginLeft: "0.5rem",
-                      fontSize: "0.82rem",
-                      color: "rgba(255, 255, 255, 0.85)",
-                      background: "rgba(0, 0, 0, 0.3)",
-                      padding: "0.15rem 0.5rem",
-                      borderRadius: "4px",
-                    }}
-                  >
-                    設備：{categoryDisplay}
-                  </small>
-                </span>
-              </label>
-            );
-          })}
+          {categories.map((category) => (
+            <label key={category.code} className={styles.checkboxLabel}>
+              <input
+                type="radio"
+                name="receiveCategory"
+                value={category.code}
+                checked={selected.includes(category.code)}
+                onChange={() => setSelected([category.code])}
+              />
+              <span>
+                {category.name}（{category.code}）
+              </span>
+            </label>
+          ))}
         </fieldset>
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "1rem" }}>
           <button type="button" onClick={submit} disabled={!activeToken || submitting || selected.length === 0}>
