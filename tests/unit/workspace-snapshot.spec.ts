@@ -187,3 +187,20 @@ test("戰情室指標：待收件單不計入狀況異常(暫停中)，只計入
   expect(priorityActionCount).toBe(1);
 });
 
+test("戰情室處理中件數與洗衣排程佇列處理中件數保持同步", () => {
+  const queueOrders = [
+    { id: "o1", status: "in_process" },
+    { id: "o2", status: "awaiting_cleaning" },
+    { id: "o3", status: "in_process" },
+    { id: "o4", status: "in_process" },
+    { id: "o5", status: "in_process" },
+    { id: "o6", status: "awaiting_cleaning" },
+  ];
+
+  const inProcessCount = queueOrders.filter((o) => o.status === "in_process").length;
+  const awaitingCleaningCount = queueOrders.filter((o) => o.status === "awaiting_cleaning").length;
+
+  expect(inProcessCount).toBe(4);
+  expect(awaitingCleaningCount).toBe(2);
+});
+

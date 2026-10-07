@@ -51,12 +51,26 @@ function InstitutionKpis({ snapshot, guest = false }: { snapshot: WorkspaceSnaps
 }
 
 function SupervisorQueueKpis({ snapshot }: { snapshot: WorkspaceSnapshot | null }) {
+  const queueOrders = snapshot?.orders ?? [];
+  const inProcessCount = queueOrders.length > 0
+    ? queueOrders.filter((o) => o.status === "in_process").length
+    : (snapshot?.dashboard.batches.in_progress ?? 0);
+  const awaitingCleaningCount = queueOrders.length > 0
+    ? queueOrders.filter((o) => o.status === "awaiting_cleaning").length
+    : (snapshot?.dashboard.batches.not_started ?? 0);
+  const awaitingReceiptCount = queueOrders.length > 0
+    ? queueOrders.filter((o) => o.status === "awaiting_receipt").length
+    : (snapshot?.dashboard.orders.awaiting_receipt ?? 0);
+  const readyForPickupCount = queueOrders.length > 0
+    ? queueOrders.filter((o) => o.status === "ready_for_pickup").length
+    : (snapshot?.dashboard.orders.ready_for_pickup ?? 0);
+
   return (
     <section className={styles.kpiGrid} aria-label="洗衣單與批次摘要">
-      <article className={styles.metricSand}><span>待收件</span><strong>{snapshot?.dashboard.orders.awaiting_receipt ?? 0}</strong><small>送洗人員已送單，等待洗衣員收單</small></article>
-      <article className={styles.metricSky}><span>待清洗</span><strong>{snapshot?.dashboard.batches.not_started ?? 0}</strong><small>已建立批次等待設備</small></article>
-      <article className={styles.metricMint}><span>處理中</span><strong>{snapshot?.dashboard.batches.in_progress ?? 0}</strong><small>目前正在設備上執行</small></article>
-      <article className={styles.metricCoral}><span>待取件</span><strong>{snapshot?.dashboard.orders.ready_for_pickup ?? 0}</strong><small>所有必要批次已完成</small></article>
+      <article className={styles.metricSand}><span>待收件</span><strong>{awaitingReceiptCount}</strong><small>送洗人員已送單，等待洗衣員收單</small></article>
+      <article className={styles.metricSky}><span>待清洗</span><strong>{awaitingCleaningCount}</strong><small>已建立批次等待設備</small></article>
+      <article className={styles.metricMint}><span>處理中</span><strong>{inProcessCount}</strong><small>目前正在設備上執行</small></article>
+      <article className={styles.metricCoral}><span>待取件</span><strong>{readyForPickupCount}</strong><small>所有必要批次已完成</small></article>
     </section>
   );
 }
@@ -75,11 +89,29 @@ function SupervisorCommandRoom({
   const dashboard = snapshot?.dashboard;
   const orders = dashboard?.orders;
   const batches = dashboard?.batches;
+  const queueOrders = snapshot?.orders ?? [];
   const equipment = snapshot?.equipment ?? [];
-  const openOrders = (orders?.awaiting_receipt ?? 0) + (orders?.in_process ?? 0) + (orders?.ready_for_pickup ?? 0);
+
+  const inProcessCount = queueOrders.length > 0
+    ? queueOrders.filter((o) => o.status === "in_process").length
+    : (batches?.in_progress ?? orders?.in_process ?? 0);
+  const awaitingReceiptCount = queueOrders.length > 0
+    ? queueOrders.filter((o) => o.status === "awaiting_receipt").length
+    : (orders?.awaiting_receipt ?? 0);
+  const awaitingCleaningCount = queueOrders.length > 0
+    ? queueOrders.filter((o) => o.status === "awaiting_cleaning").length
+    : (batches?.not_started ?? 0);
+  const readyForPickupCount = queueOrders.length > 0
+    ? queueOrders.filter((o) => o.status === "ready_for_pickup").length
+    : (orders?.ready_for_pickup ?? 0);
+
+  const openOrders = (orders?.awaiting_receipt ?? awaitingReceiptCount) +
+    (orders?.in_process ?? (inProcessCount + awaitingCleaningCount)) +
+    (orders?.ready_for_pickup ?? readyForPickupCount);
+
   const equipmentIssues = equipment.filter((item) => item.status === "abnormal" || item.status === "maintenance").length;
   const abnormalCount = (batches?.paused ?? 0) + equipmentIssues;
-  const priorityActionCount = (batches?.paused ?? 0) + (orders?.awaiting_receipt ?? 0) + equipmentIssues;
+  const priorityActionCount = (batches?.paused ?? 0) + (orders?.awaiting_receipt ?? awaitingReceiptCount) + equipmentIssues;
   const todayShiftOrderCount = calculateTodayShiftOrdersCount(snapshot, syncedAt);
   const liveLabel = liveMode === "realtime" ? "即時連線" : liveMode === "poll" ? "定時同步" : "伺服器快照";
   const equipmentHref = hrefWithClientScope("/app/admin/laundry-equipment", { siteId: siteId ?? null, institutionId: null });
@@ -103,9 +135,9 @@ function SupervisorCommandRoom({
       <div className={styles.commandKpis} aria-label="戰情室核心指標">
         <article><span>當日送件<br />(0800-1700截止)</span><strong>{todayShiftOrderCount}</strong><small>今日 08:00–17:00 已送件之洗衣單</small></article>
         <article className={styles.commandKpiPrimary}><span>未結案</span><strong>{openOrders}</strong><small>待收件、處理中與待取件</small></article>
-        <article><span>處理中(占用設備中)</span><strong>{batches?.in_progress ?? 0}</strong><small>{batches?.in_progress ?? 0} 個批次正在設備上</small></article>
+        <article><span>處理中(占用設備中)</span><strong>{inProcessCount}</strong><small>{inProcessCount} 個批次正在設備上</small></article>
         <article className={abnormalCount ? styles.commandKpiAlert : styles.commandKpiGood}><span>狀況異常(暫停中)</span><strong>{abnormalCount}</strong><small>{batches?.paused ?? 0} 暫停 · {equipmentIssues} 設備異常</small></article>
-        <article><span>待取件</span><strong>{orders?.ready_for_pickup ?? "—"}</strong><small>送洗人員掃車 QR 後結案</small></article>
+        <article><span>待取件</span><strong>{orders?.ready_for_pickup ?? readyForPickupCount ?? "—"}</strong><small>送洗人員掃車 QR 後結案</small></article>
       </div>
 
       <div className={styles.commandGrid}>
@@ -113,7 +145,7 @@ function SupervisorCommandRoom({
           <div className={styles.commandPanelHead}><div><p className={styles.eyebrow}>PRIORITY QUEUE</p><h3 id="command-priority-title">現在要處理</h3></div><span>{priorityActionCount ? `${priorityActionCount} 件` : "CLEAR"}</span></div>
           <div className={styles.priorityList}>
             {batches?.paused ? <AppLink href="/app/operations/control-center#tab=incidents" className={`${styles.priorityItem} ${styles.priorityAlert}`}><i aria-hidden="true" /><span><strong>暫停批次</strong><small>檢查設備或異常原因，確認是否恢復</small></span><b>{batches.paused}</b></AppLink> : null}
-            {orders?.awaiting_receipt ? (
+            {orders?.awaiting_receipt || awaitingReceiptCount ? (
               <button
                 type="button"
                 onClick={() => setPendingReceiptModalOpen(true)}
@@ -134,7 +166,7 @@ function SupervisorCommandRoom({
                   <strong>待洗衣員收單</strong>
                   <small>點擊查看待收單據並載入資料</small>
                 </span>
-                <b>{orders.awaiting_receipt}</b>
+                <b>{orders?.awaiting_receipt ?? awaitingReceiptCount}</b>
               </button>
             ) : null}
             {equipmentIssues ? <AppLink href={equipmentHref} className={`${styles.priorityItem} ${styles.priorityAlert}`}><i aria-hidden="true" /><span><strong>設備狀態需確認</strong><small>異常或維修中的設備</small></span><b>{equipmentIssues}</b></AppLink> : null}
@@ -145,9 +177,9 @@ function SupervisorCommandRoom({
         <section className={styles.commandPanel} aria-labelledby="command-pipeline-title">
           <div className={styles.commandPanelHead}><div><p className={styles.eyebrow}>FLOW RADAR</p><h3 id="command-pipeline-title">流程雷達</h3></div><span>ORDERS</span></div>
           <div className={styles.pipelineList}>
-            <PipelineRow label="待收件" value={orders?.awaiting_receipt ?? 0} total={Math.max(openOrders, 1)} tone="sand" />
-            <PipelineRow label="處理中" value={orders?.in_process ?? 0} total={Math.max(openOrders, 1)} tone="sky" />
-            <PipelineRow label="待取件" value={orders?.ready_for_pickup ?? 0} total={Math.max(openOrders, 1)} tone="mint" />
+            <PipelineRow label="待收件" value={orders?.awaiting_receipt ?? awaitingReceiptCount} total={Math.max(openOrders, 1)} tone="sand" />
+            <PipelineRow label="處理中" value={inProcessCount} total={Math.max(openOrders, 1)} tone="sky" />
+            <PipelineRow label="待取件" value={orders?.ready_for_pickup ?? readyForPickupCount} total={Math.max(openOrders, 1)} tone="mint" />
             <PipelineRow label="已取件" value={orders?.picked_up ?? 0} total={Math.max(orders?.picked_up ?? 0, 1)} tone="slate" />
           </div>
         </section>
