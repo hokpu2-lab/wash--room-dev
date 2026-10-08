@@ -245,16 +245,6 @@ export function LiveQueueFallback({ title = "洗衣排程" }: { title?: string }
             <span className={styles.skeletonLine} />
           </div>
         </div>
-        <div className={styles.selectedOrderCardContainer}>
-          <div className={styles.selectedOrderCardHeader}>
-            <h2 className={styles.selectedOrderCardTitle}>選取的洗衣單</h2>
-          </div>
-          <div className={styles.skeletonStack} aria-hidden="true">
-            <span className={styles.skeletonLine} />
-            <span className={styles.skeletonLine} />
-            <span className={styles.skeletonLine} />
-          </div>
-        </div>
       </div>
     </section>
   );
@@ -580,118 +570,8 @@ export function LiveQueue({
             </nav>
           ) : null}
         </div>
-
-        {/* Right Card: 選取的洗衣單 */}
-        <div className={styles.selectedOrderCardContainer} aria-label="選取洗衣單詳情">
-          <div className={styles.selectedOrderCardHeader}>
-            <h2 className={styles.selectedOrderCardTitle}>
-              選取的洗衣單
-            </h2>
-          </div>
-
-          {selected ? (
-            <div className={styles.selectedOrderCardContent}>
-              <div className={styles.selectedOrderNumRow}>
-                <span className={styles.selectedOrderNumberDisplay}>
-                  {selected.orderNumber}
-                </span>
-                <button
-                  type="button"
-                  className={styles.copyPillBtn}
-                  onClick={() => handleCopyOrderNumber(selected.orderNumber)}
-                  aria-label="複製洗衣單號"
-                >
-                  {copied ? "已複製 ✓" : "複製單號"}
-                </button>
-              </div>
-
-              <div className={styles.orderMetaGridCard}>
-                <div className={styles.orderMetaCol}>
-                  <span className={styles.orderMetaColLabel}>使用中設備</span>
-                  <strong className={styles.orderMetaColVal}>
-                    {getEquipmentNameDisplay(selected, selectedDetail, equipment)}
-                  </strong>
-                </div>
-                <div className={styles.orderMetaCol}>
-                  <span className={styles.orderMetaColLabel}>進度</span>
-                  <strong className={styles.orderMetaColVal}>
-                    {getOrderStageProgressDisplay(selected, selectedDetail)}
-                  </strong>
-                </div>
-                <div className={styles.orderMetaCol}>
-                  <span className={styles.orderMetaColLabel}>車號</span>
-                  <strong className={styles.orderMetaColVal}>{selected.cartNumber}</strong>
-                </div>
-                <div className={styles.orderMetaCol}>
-                  <span className={styles.orderMetaColLabel}>收單時間</span>
-                  <strong className={styles.orderMetaColVal}>
-                    {formatOrderTime(selectedDetail?.orderReceivedAt ?? selectedDetail?.orderCreatedAt)}
-                  </strong>
-                </div>
-                <div className={styles.orderMetaCol}>
-                  <span className={styles.orderMetaColLabel}>等待時間</span>
-                  <strong className={styles.orderMetaColVal}>
-                    {calculateWaitingTime(selected, selectedDetail)}
-                  </strong>
-                </div>
-              </div>
-
-              <div className={styles.selectedOrderMainActionRow}>
-                {selected.status === "ready_for_pickup" ? (
-                  <AppLink
-                    href={hrefWithClientScope(`/scan/pickup?cart=${selected.cartNumber}`, { siteId: siteId ?? null, institutionId: null })}
-                    className={styles.primaryActionCta}
-                  >
-                    前往取件掃碼結案 →
-                  </AppLink>
-                ) : selected.status === "picked_up" ? (
-                  <span className={styles.primaryActionInfo}>✓ 此單已完成取件結案。</span>
-                ) : isOrderAtDisinfection ? (
-                  <AppLink
-                    href={hrefWithClientScope(
-                      isSelectedStageRunning
-                        ? `/app/operations/disinfection?mode=complete&order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`
-                        : `/app/operations/disinfection?order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`,
-                      { siteId: siteId ?? null, institutionId: null },
-                    )}
-                    className={styles.primaryActionCta}
-                  >
-                    {isSelectedStageRunning ? "前往消毒控制點 →" : "開始浸泡消毒控制點 →"}
-                  </AppLink>
-                ) : isOrderAtDrying ? (
-                  <AppLink
-                    href={hrefWithClientScope(
-                      isSelectedStageRunning
-                        ? `/app/operations/drying?mode=complete&order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`
-                        : `/app/operations/drying?order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`,
-                      { siteId: siteId ?? null, institutionId: null },
-                    )}
-                    className={styles.primaryActionCta}
-                  >
-                    {isSelectedStageRunning ? "前往烘乾控制點 →" : "開始烘乾控制點 →"}
-                  </AppLink>
-                ) : isOrderAtWashing ? (
-                  <AppLink
-                    href={hrefWithClientScope(
-                      isSelectedStageRunning
-                        ? `/app/operations/washing?mode=complete&order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`
-                        : `/app/operations/washing?order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`,
-                      { siteId: siteId ?? null, institutionId: null },
-                    )}
-                    className={styles.primaryActionCta}
-                  >
-                    {isSelectedStageRunning ? "進入清洗控制點 →" : "開始清洗控制點 →"}
-                  </AppLink>
-                ) : null}
-              </div>
-            </div>
-          ) : (
-            <div className={styles.noOrderSelected}>
-              <p>選取一張洗衣單後，這裡會顯示目前允許的控制點與流程進度。</p>
-            </div>
-          )}
-        </div>
       </div>
+
 
       {/* Laundry Order Flow & Batches Section below */}
       <div className={styles.flowAndDetailsSection}>

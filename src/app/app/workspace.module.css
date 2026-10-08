@@ -1317,16 +1317,10 @@
 
 .topCardsGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr);
+  grid-template-columns: 1fr;
   gap: 20px;
   align-items: stretch;
   margin-bottom: 24px;
-}
-
-@media (max-width: 960px) {
-  .topCardsGrid {
-    grid-template-columns: 1fr;
-  }
 }
 
 .queueCard,

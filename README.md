@@ -16,6 +16,11 @@
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
 
+- **移除「洗衣單與批次」中「選取的洗衣單」區塊（/app/dashboard）**：
+  - **版面精簡與全寬呈現**：於 `src/app/app/live-queue.tsx` 移除 `selectedOrderCardContainer`（含複製單號、使用中設備、進度、車號、收單時間、等待時間與對應操作按鈕列）及 `LiveQueueFallback` 內的對應骨架。
+  - **樣式調整**：於 `src/app/app/workspace.module.css` 將 `.topCardsGrid` 調整為單欄滿寬（`grid-template-columns: 1fr;`），使「洗衣排程（排序隊列）」卡片優雅滿版展示，與下方「洗衣排程流程圖（`LaundryOrderFlow3D`）」及批次詳情無縫呼應。
+  - **單元測試與相容性覆核**：35 個測試檔、146 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
 - **修復本館消毒鍋無作業時仍錯誤顯示「使用中」與機構車號問題（/app/admin/laundry-equipment）**：
   - **根本原因排除**：先前為了串聯 2C-6 車單號 `MAIN-20261008-0001` 的消毒單據，於 `src/lib/laundry-equipment/administration.ts` 的 `getLaundryEquipmentWorkspace` 中強制將 `本館消毒鍋` 寫死判定為 `occupied: true` 並強制塞入 `active_cart_numbers: ["2C-6"]` 與 `active_institutions: ["護家"]`；導致現場消毒單據已推進或無執行批次時，消毒鍋仍持續鎖死在「使用中」狀態。此外，流程圖 `src/app/app/laundry-order-flow-3d.tsx` 先前在所有階段（含洗衣、烘衣）均將未指派設備回退為「本館消毒鍋」，已一併修正為僅在 `stage.equipmentType === "disinfection_tank"` 時推導。
   - **動態設備使用狀態推導**：
