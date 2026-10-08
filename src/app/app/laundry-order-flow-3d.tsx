@@ -60,8 +60,8 @@ type LaundryOrderFlow3DProps = {
 };
 
 const fallbackStages: FlowStage[] = [
-  { stageOrder: 1, name: "清洗", equipmentType: "washer", standardMinutes: null, startedAt: null, completedAt: null },
-  { stageOrder: 2, name: "烘乾", equipmentType: "dryer", standardMinutes: null, startedAt: null, completedAt: null },
+  { stageOrder: 1, name: "洗衣", equipmentType: "washer", standardMinutes: null, startedAt: null, completedAt: null },
+  { stageOrder: 2, name: "烘衣", equipmentType: "dryer", standardMinutes: null, startedAt: null, completedAt: null },
 ];
 
 const stateLabels: Record<FlowState, string> = {
@@ -122,8 +122,8 @@ function getProcedureStages(batches: WorkspaceBatchDetail[], orderNumber?: strin
     if (isDisinfectOrder) {
       return [
         { stageOrder: 1, name: "消毒浸泡", equipmentType: "disinfection_tank" as const, standardMinutes: 30, startedAt: null, completedAt: null },
-        { stageOrder: 2, name: "清洗", equipmentType: "washer" as const, standardMinutes: null, startedAt: null, completedAt: null },
-        { stageOrder: 3, name: "烘乾", equipmentType: "dryer" as const, standardMinutes: null, startedAt: null, completedAt: null },
+        { stageOrder: 2, name: "洗衣", equipmentType: "washer" as const, standardMinutes: null, startedAt: null, completedAt: null },
+        { stageOrder: 3, name: "烘衣", equipmentType: "dryer" as const, standardMinutes: null, startedAt: null, completedAt: null },
       ];
     }
     return fallbackStages;
@@ -200,13 +200,19 @@ function getWaitingStageState(
 
 function stageLabel(stage: FlowStage) {
   if (stage.equipmentType === "disinfection_tank") return "消毒浸泡";
-  if (stage.equipmentType === "washer") return "清洗中";
-  if (stage.equipmentType === "dryer") return "烘乾中";
+  if (stage.equipmentType === "washer") return "洗衣";
+  if (stage.equipmentType === "dryer") return "烘衣";
   return stage.name;
 }
 
 function stageDetail(stage: FlowStage, activeEquipmentName?: string | null, cartNumber?: string) {
-  const equip = activeEquipmentName || equipmentLabel(stage.equipmentType);
+  let equip = activeEquipmentName;
+  if (!equip) {
+    if (stage.equipmentType === "disinfection_tank") equip = "本館消毒鍋";
+    else if (stage.equipmentType === "washer") equip = "洗衣機";
+    else if (stage.equipmentType === "dryer") equip = "烘衣機";
+    else equip = equipmentLabel(stage.equipmentType);
+  }
   const stageNameWithOrder = stage.stageOrder ? `${stage.name}${stage.stageOrder}` : stage.name;
   const parts = [equip, stageNameWithOrder];
   if (cartNumber) {
@@ -263,7 +269,7 @@ function getFlowSteps(
   const steps: FlowStep[] = [
     {
       id: "submitted",
-      label: "送單",
+      label: "送件",
       detail: cartNumber ? `洗衣單已建立 · 車號 ${cartNumber}` : "洗衣單已建立",
       state: "completed",
       kind: "milestone",
@@ -272,7 +278,7 @@ function getFlowSteps(
     },
     {
       id: "awaiting-receipt",
-      label: "待收件",
+      label: "收件",
       detail: cartNumber ? `等待洗衣員掃車 · 車號 ${cartNumber}` : "等待洗衣員掃洗衣車固定 QR",
       state: orderStatus === "awaiting_receipt" ? "active" : "completed",
       kind: "milestone",
@@ -281,8 +287,8 @@ function getFlowSteps(
     },
     {
       id: "awaiting-cleaning",
-      label: "待清洗",
-      detail: cartNumber ? `收單分類完成 · 車號 ${cartNumber}` : "收單分類完成，等待第一個設備控制點",
+      label: "分類",
+      detail: cartNumber ? `收單分類完成 · 車號 ${cartNumber}` : "收單分類完成，等待設備控制點",
       state:
         orderStatus === "awaiting_receipt"
           ? "pending"
@@ -311,11 +317,27 @@ function getFlowSteps(
       activeEquip = "本館消毒鍋";
     }
 
+    if (stage.equipmentType === "washer" && index > 0 && procedureStages[index - 1]?.equipmentType === "disinfection_tank") {
+      steps.push({
+        id: `waiting-before-${stage.stageOrder}-${stage.name}`,
+        label: "消毒浸泡-洗衣",
+        detail: cartNumber ? `消毒浸泡完成等待洗衣 · 車號 ${cartNumber}` : "消毒浸泡完成後掃洗衣機開始清洗",
+        state: getWaitingStageState(orderStatus, batches, procedureStages, index),
+        kind: "waiting",
+        visual: "laundry-cart",
+        equipmentType: stage.equipmentType,
+        timing: flowTiming(
+          procedureStages[index - 1]?.completedAt ?? orderReceivedAt,
+          stage.startedAt,
+        ),
+      });
+    }
+
     if (stage.equipmentType === "dryer" && index > 0) {
       steps.push({
         id: `waiting-before-${stage.stageOrder}-${stage.name}`,
-        label: "待烘衣",
-        detail: cartNumber ? `清洗完成等待烘衣 · 車號 ${cartNumber}` : "清洗完成後掃烘衣機開始下一階段",
+        label: "烘衣",
+        detail: cartNumber ? `清洗完成等待烘衣 · 車號 ${cartNumber}` : "清洗完成後掃烘衣機開始烘衣",
         state: getWaitingStageState(orderStatus, batches, procedureStages, index),
         kind: "waiting",
         visual: "laundry-cart",
@@ -343,7 +365,7 @@ function getFlowSteps(
   steps.push(
     {
       id: "ready",
-      label: "待取件",
+      label: "取件",
       detail: cartNumber ? `等待送洗人員掃車領回 · 車號 ${cartNumber}` : "等待送洗人員掃車領回",
       state: orderStatus === "ready_for_pickup"
         ? "active"

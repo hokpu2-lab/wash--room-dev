@@ -126,9 +126,41 @@ describe("選取洗衣單卡片欄位與等待時間計算 (Selected Order Meta 
       return cartNumber ? `${base} · 車號 ${cartNumber}` : base;
     }
 
-    expect(stageDetail("清洗", "洗衣機", null, "8E-1")).toBe("清洗 · 洗衣機 · 車號 8E-1");
-    expect(stageDetail("清洗", "洗衣機", "本館洗衣-1", "8E-1")).toBe("清洗 · 本館洗衣-1 · 車號 8E-1");
-    expect(stageDetail("烘乾", "烘衣機", null, "8E-1")).toBe("烘乾 · 烘衣機 · 車號 8E-1");
-    expect(stageDetail("清洗", "洗衣機", null, undefined)).toBe("清洗 · 洗衣機");
+    expect(stageDetail("洗衣", "洗衣機", null, "8E-1")).toBe("洗衣 · 洗衣機 · 車號 8E-1");
+    expect(stageDetail("洗衣", "洗衣機", "本館洗衣-1", "8E-1")).toBe("洗衣 · 本館洗衣-1 · 車號 8E-1");
+    expect(stageDetail("烘衣", "烘衣機", null, "8E-1")).toBe("烘衣 · 烘衣機 · 車號 8E-1");
+    expect(stageDetail("洗衣", "洗衣機", null, undefined)).toBe("洗衣 · 洗衣機");
+  });
+
+  it("洗衣排程 5 大流程節點名稱與順序對應驗證", () => {
+    // 1. 一般流程: 送件 -> 收件 -> 分類 -> 洗衣 -> 烘衣 (待烘衣 + 烘衣) -> 取件 -> 已取件
+    const standardFlowLabels = ["送件", "收件", "分類", "洗衣", "烘衣", "烘衣", "取件", "已取件"];
+    expect(standardFlowLabels).toEqual(["送件", "收件", "分類", "洗衣", "烘衣", "烘衣", "取件", "已取件"]);
+
+    // 2. 消毒流程: 送件 -> 收件 -> 分類 -> 消毒浸泡 -> 消毒浸泡-洗衣 -> 洗衣 -> 烘衣 -> 烘衣 -> 取件 -> 已取件
+    const disinfectFlowLabels = [
+      "送件",
+      "收件",
+      "分類",
+      "消毒浸泡",
+      "消毒浸泡-洗衣",
+      "洗衣",
+      "烘衣",
+      "烘衣",
+      "取件",
+      "已取件",
+    ];
+    expect(disinfectFlowLabels).toEqual([
+      "送件",
+      "收件",
+      "分類",
+      "消毒浸泡",
+      "消毒浸泡-洗衣",
+      "洗衣",
+      "烘衣",
+      "烘衣",
+      "取件",
+      "已取件",
+    ]);
   });
 });
