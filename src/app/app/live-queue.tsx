@@ -503,19 +503,20 @@ export function LiveQueue({
                 const active = selected?.id === order.id;
                 const orderDetail = orderDetails.find((d) => d.orderId === order.id);
                 const timeValue = orderDetail?.orderReceivedAt ?? orderDetail?.orderCreatedAt ?? order.updatedAt;
+                const equipmentDisplay = getEquipmentNameDisplay(order, orderDetail ?? null, equipment);
                 return (
                   <button
                     key={order.id}
                     type="button"
                     className={active ? `${styles.orderListItem} ${styles.orderListItemActive}` : styles.orderListItem}
                     aria-pressed={active}
-                    aria-label={`選取 ${order.orderNumber}，${orderStatusLabel(order.status)}`}
+                    aria-label={`選取 ${order.orderNumber}，${orderStatusLabel(order.status)}（使用設備：${equipmentDisplay}）`}
                     onClick={() => handleSelectOrder(order)}
                   >
                     <span className={`${styles.statusPill} ${statusPillClass[order.status]}`}>
                       {orderStatusLabel(order.status)}
                     </span>
-                    <span className={styles.orderItemInstitution} title={order.institutionName}>
+                    <span className={styles.orderItemInstitution} title={`${order.institutionName} · 設備：${equipmentDisplay}`}>
                       {order.institutionName}
                     </span>
                     <span className={styles.orderItemCart} title={order.cartNumber}>
