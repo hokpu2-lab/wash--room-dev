@@ -109,6 +109,27 @@ export async function startLaundryBatchWashing(input: unknown): Promise<LaundryW
   if (error || !result.success || result.data.length !== 1) return { kind: "failed", reasonCode: "service_unavailable" };
   const change = result.data[0];
   if (change.outcome === "denied" || !change.stage_run_id || !change.laundry_equipment_id || !change.status || change.stage_order === null) {
+    if (change.reason_code === "wrong_stage") {
+      const { data: disData, error: disErr } = await supabase.rpc("start_laundry_batch_disinfection_from_equipment_qr", {
+        qr_token: qrToken,
+        target_laundry_batch_id: parsed.data.batchId,
+        change_request_id: parsed.data.requestId,
+      });
+      const disResult = resultSchema.safeParse(disData);
+      if (!disErr && disResult.success && disResult.data.length === 1 && disResult.data[0].outcome === "applied") {
+        const disChange = disResult.data[0];
+        if (disChange.stage_run_id && disChange.laundry_equipment_id && disChange.status && disChange.stage_order !== null) {
+          return {
+            kind: disChange.already_applied ? "already-started" : "started",
+            batchId: disChange.laundry_batch_id,
+            stageRunId: disChange.stage_run_id,
+            equipmentId: disChange.laundry_equipment_id,
+            stageOrder: disChange.stage_order,
+            status: disChange.status,
+          };
+        }
+      }
+    }
     return { kind: "denied", reasonCode: change.reason_code };
   }
   return {
