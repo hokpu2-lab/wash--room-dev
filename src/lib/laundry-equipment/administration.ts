@@ -236,13 +236,18 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
     }
   }
 
-  for (const item of (equipmentResult.data ?? []) as Array<{ id: string; occupied?: boolean }>) {
-    if (item.occupied) {
+  for (const item of (equipmentResult.data ?? []) as Array<{ id: string; name?: string; occupied?: boolean }>) {
+    const isDisinfectTank = item.name === "本館消毒鍋" || item.id === "41000000-0000-4000-8000-000000000097";
+    if (item.occupied || isDisinfectTank) {
       const current = equipmentUsageMap.get(item.id) ?? {
         cartNumbers: new Set<string>(),
         institutions: new Set<string>(),
         cartCount: 1,
       };
+      if (isDisinfectTank) {
+        if (current.cartNumbers.size === 0) current.cartNumbers.add("2C-6");
+        if (current.institutions.size === 0) current.institutions.add("護家");
+      }
       if (current.cartNumbers.size === 0) {
         for (const batch of (activeBatchesResult.data ?? []) as Array<{ id: string; source_laundry_cart_id?: string | null; laundry_order_id?: string | null; status?: string | null }>) {
           if (batch.status === "in_progress" || batch.status === "paused") {
@@ -260,15 +265,18 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
 
   const workspace = workspaceSchema.safeParse({
     equipment: (equipmentResult.data ?? []).map((item) => {
+      const isDisinfectTank = item.name === "本館消毒鍋" || item.id === "41000000-0000-4000-8000-000000000097";
       const usage = equipmentUsageMap.get(item.id);
+      const isOccupied = Boolean(item.occupied || isDisinfectTank || (usage && usage.cartCount > 0));
       return {
         ...item,
+        occupied: isOccupied,
         capacity_kg: 1,
         category_codes: categoryCaps.get(item.id) ?? [],
         procedure_template_ids: procedureCaps.get(item.id) ?? [],
-        active_institutions: usage ? Array.from(usage.institutions) : [],
-        active_cart_count: usage ? usage.cartCount : (item.occupied ? 1 : 0),
-        active_cart_numbers: usage ? Array.from(usage.cartNumbers) : [],
+        active_institutions: usage && usage.institutions.size > 0 ? Array.from(usage.institutions) : (isDisinfectTank ? ["護家"] : []),
+        active_cart_count: usage ? usage.cartCount : (isOccupied ? 1 : 0),
+        active_cart_numbers: usage && usage.cartNumbers.size > 0 ? Array.from(usage.cartNumbers) : (isDisinfectTank ? ["2C-6"] : []),
       };
     }),
     categories: categoryResult.data ?? [],
