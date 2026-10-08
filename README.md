@@ -16,6 +16,9 @@
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
 
+- **修復隊列單據操作動作按鈕與烘乾控制點免掃碼直通推進（/app/dashboard, /app/operations/drying）**：
+  - **診斷並打通 3 筆待清洗單據推進通道**：排查發現消毒單據（`MAIN-20261008-0001`、`MAIN-20261005-0004`）原先被錯誤導向至無操作按鈕之批次控制中心，已修正為精準導向「開始浸泡消毒控制點（`/app/operations/disinfection`）」；一般清洗單（`MAIN-20261006-0004`）導向「開始清洗控制點（`/app/operations/washing`）」；待取件單直通「前往取件掃碼結案（`/scan/pickup`）」。
+  - **烘乾控制台設備自動關聯**：於 `drying/page.tsx` 注入 `availableEquipment`，並在 `drying/control.tsx` 實作 `effectiveEquipmentId` 動態推導，讓現場操作人員由儀表板或清單進入烘乾控制台時無須重新掃描設備 QR 即可直接點選「確認開始烘乾」與「確認烘乾完成」，徹底解決單據卡在待烘乾階段的問題。
 - **操作控制點還原送洗機構／批次選取功能（/app/operations/drying, washing, disinfection）**：
   - **機構批次動態選取與資訊卡片即時連動**：於烘乾（`drying/control.tsx`）、清洗（`washing/start-control.tsx`）與消毒（`disinfection/control.tsx`）控制台還原「選擇要處理的送洗機構／待處理批次」下拉選單，讓現場操作人員可自由選取不同送洗機構之批次。切換選取時，上方資訊卡片（機構名稱、洗衣車號、洗衣單號、洗滌分類、處理進度）即時連動更新為該機構之單據詳情，確認送出時精確處理所選機構批次。
 - **洗衣車與固定 QR 之「目前洗衣車」依送洗機構標籤式分類選取（/app/admin/laundry-carts）**：

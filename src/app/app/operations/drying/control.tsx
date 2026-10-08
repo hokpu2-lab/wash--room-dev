@@ -9,6 +9,7 @@ import { useLiveBatches, usePreferredId } from "../../use-live-batches";
 import { useQrFragment } from "../../use-qr-fragment";
 import styles from "../../workspace.module.css";
 import { formatBatchLabel, type ControlBatch } from "../batch-label";
+import type { ControlEquipment } from "../load-site-batches";
 
 type Batch = ControlBatch;
 
@@ -46,6 +47,7 @@ export function DryingControl({
   selectedInstitutionName,
   selectedCartNumber,
   selectedOrderNumber,
+  availableEquipment = [],
 }: {
   batches: Batch[];
   siteId?: string;
@@ -54,6 +56,7 @@ export function DryingControl({
   selectedInstitutionName?: string;
   selectedCartNumber?: string;
   selectedOrderNumber?: string;
+  availableEquipment?: ControlEquipment[];
 }) {
   const { batches } = useLiveBatches(
     initial,
@@ -77,7 +80,6 @@ export function DryingControl({
 
   const activeToken = manualCleared ? null : token;
   const activeEquipmentId = manualCleared ? null : queryEquipmentId;
-  const hasScanned = Boolean(activeToken || activeEquipmentId);
 
   useEffect(() => {
     if (manualCleared || (!activeToken && !activeEquipmentId)) {
@@ -171,20 +173,50 @@ export function DryingControl({
   );
 
   const selectedBatch = batches.find((b) => b.id === batchId) ?? matchingBatch;
-  const displayEquipment = equipmentInfo?.equipmentName || null;
+
+  const availableDryers = availableEquipment.filter((e) => e.equipment_type === "dryer");
+  const matchedDryers = selectedBatch?.operating_site_id
+    ? availableDryers.filter((w) => w.operating_site_id === selectedBatch.operating_site_id)
+    : availableDryers;
+
+  const defaultDryer =
+    matchedDryers.find((w) => w.name === "本館烘衣-1") ||
+    availableDryers.find((w) => w.name === "本館烘衣-1") ||
+    matchedDryers[0] ||
+    availableDryers[0];
+
+  const effectiveEquipmentId =
+    activeToken
+      ? undefined
+      : activeEquipmentId || defaultDryer?.id;
+
+  const effectiveEquipmentObj =
+    availableEquipment.find((w) => w.id === effectiveEquipmentId) ||
+    availableEquipment.find((w) => w.id === activeEquipmentId) ||
+    defaultDryer;
+
+  const effectiveEquipmentName =
+    equipmentInfo?.equipmentName ||
+    effectiveEquipmentObj?.name ||
+    (defaultDryer?.name || "本館烘衣-1");
+
+  const displayEquipment = effectiveEquipmentName;
   const displayInstitution = selectedBatch?.institutionName || selectedInstitutionName || matchingBatch?.institutionName || "—";
   const displayCart = selectedBatch?.cartNumber || selectedCartNumber || matchingBatch?.cartNumber || "—";
   const displayOrderNumber = selectedBatch?.orderNumber || selectedOrderNumber || matchingBatch?.orderNumber || "—";
   const displayCategory = selectedBatch?.categoryName || matchingBatch?.categoryName || "一般";
 
+  const hasScanned = Boolean(activeToken || activeEquipmentId || effectiveEquipmentId);
+
   const isSiteMismatch = Boolean(
     selectedBatch?.operating_site_id &&
-      equipmentInfo?.operatingSiteId &&
-      selectedBatch.operating_site_id !== equipmentInfo.operatingSiteId,
+      (equipmentInfo?.operatingSiteId || effectiveEquipmentObj?.operating_site_id) &&
+      selectedBatch.operating_site_id !== (equipmentInfo?.operatingSiteId || effectiveEquipmentObj?.operating_site_id),
   );
 
   async function submit(path: string) {
-    if (!batchId || (!activeToken && !activeEquipmentId)) {
+    const effectiveBatchId = batchId || selectedBatch?.id || matchingBatch?.id;
+    if (!effectiveBatchId || (!activeToken && !effectiveEquipmentId)) {
       setResult({ kind: "denied", reasonCode: "invalid_qr" });
       return;
     }
@@ -199,9 +231,9 @@ export function DryingControl({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          batch_id: batchId,
+          batch_id: effectiveBatchId,
           qr_token: activeToken,
-          equipment_id: activeEquipmentId,
+          equipment_id: effectiveEquipmentId,
           change_request_id: crypto.randomUUID(),
         }),
       });
@@ -422,7 +454,13 @@ export function DryingControl({
           <button
             type="button"
             onClick={() => void submit("/api/operations/complete-stage")}
-            disabled={!batchId || !hasScanned || submitting}
+            disabled={(!batchId && !selectedBatch?.id && !matchingBatch?.id) || (!activeToken && !effectiveEquipmentId) || submitting}
+            style={{
+              fontSize: "1.15rem",
+              fontWeight: 800,
+              padding: "0.85rem 1.75rem",
+              borderRadius: "8px",
+            }}
           >
             {submitting ? "處理中…" : "確認烘乾完成"}
           </button>
@@ -430,7 +468,13 @@ export function DryingControl({
           <button
             type="button"
             onClick={() => void submit("/api/operations/start-drying")}
-            disabled={!batchId || !hasScanned || submitting || isSiteMismatch}
+            disabled={(!batchId && !selectedBatch?.id && !matchingBatch?.id) || (!activeToken && !effectiveEquipmentId) || submitting || isSiteMismatch}
+            style={{
+              fontSize: "1.15rem",
+              fontWeight: 800,
+              padding: "0.85rem 1.75rem",
+              borderRadius: "8px",
+            }}
           >
             {submitting ? "處理中…" : "確認開始烘乾"}
           </button>
