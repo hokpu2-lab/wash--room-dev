@@ -16,6 +16,9 @@
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
 
+- **操作控制台設備名稱與批次下拉選單移除精簡（/app/operations/drying, washing, disinfection, receive）**：
+  - **烘乾控制台精簡**：於 `src/app/app/operations/drying/control.tsx` 移除上方資訊卡片內之「🖥️ 烘乾設備」欄位，並完全移除下方多餘的「待烘乾批次」下拉選單（`<label>...<select>`），讓卡片維持「機構名稱、洗衣車號、洗衣單號、洗滌分類、處理進度」之簡潔平衡版面。
+  - **各操作點同步一致**：於清洗（`washing/start-control.tsx`）與消毒（`disinfection/control.tsx`）控制台資訊卡片同步移除「🖥️ 洗衣設備」與「🖥️ 消毒設備」欄位；於收單控制台（`receive/receive-control.tsx`）頂部摘要列移除「使用設備名稱 (Equipment)」。
 - **移除流程圖節點與卡片「進入固定 QR / 掃碼」按鈕與浮層**：
   - **精簡節點焦點卡片**：於 `src/app/app/laundry-order-flow-3d.tsx` 移除 `flowSelectionCopy` 底部之「📷 進入 [設備名稱/階段名稱] 固定 QR / 掃碼 →」按鈕連結（`flowStepScanLink`），以及 `flowSelectionVisual` 圖示圖片上的點選掃碼浮層（`flowImageScanOverlay`）。
   - **清理資料模型與輔助函式**：移除 `FlowStep` 中的 `href` 屬性，刪除不再需要的 `getEquipmentQrHref` 函式與 `AppLink` 引用，使流程步驟純粹呈現時間線、狀態與說明。

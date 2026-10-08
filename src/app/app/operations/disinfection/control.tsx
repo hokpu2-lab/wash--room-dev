@@ -385,14 +385,6 @@ export function DisinfectionControl({
           </div>
           <div>
             <div style={{ fontSize: "1.15rem", color: "#7dd3fc", marginBottom: "0.45rem", fontWeight: 800, letterSpacing: "0.02em" }}>
-              🖥️ 消毒設備
-            </div>
-            <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
-              {displayEquipment || "消毒鍋"}
-            </div>
-          </div>
-          <div>
-            <div style={{ fontSize: "1.15rem", color: "#7dd3fc", marginBottom: "0.45rem", fontWeight: 800, letterSpacing: "0.02em" }}>
               ⏳ 處理進度
             </div>
             <div style={{ fontSize: "1.45rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>

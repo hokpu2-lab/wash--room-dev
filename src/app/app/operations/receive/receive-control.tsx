@@ -459,31 +459,6 @@ export function ReceiveCartControl({
               {selectedCategoryNames.length > 0 ? selectedCategoryNames.join("、") : "未選取分類"}
             </strong>
           </div>
-          <div>
-            <span style={{ opacity: 0.8, fontSize: "0.82rem", display: "block", marginBottom: "0.2rem" }}>
-              <a
-                href="/app/admin/laundry-equipment"
-                style={{ color: "#7dd3fc", textDecoration: "underline", fontWeight: 700 }}
-                title="前往目前設備清單檢視狀態與固定 QR"
-              >
-                使用設備名稱 (Equipment) ↗
-              </a>
-            </span>
-            <a
-              href="/app/admin/laundry-equipment"
-              style={{
-                color: selectedCategoryNames.length > 0 ? "#86efac" : "#cbd5e1",
-                fontSize: "1.05rem",
-                fontWeight: 700,
-                textDecoration: "none",
-                display: "block",
-                lineHeight: 1.4,
-              }}
-              title="點擊前往設備清單"
-            >
-              {expectedEquipmentText}
-            </a>
-          </div>
         </div>
 
         <fieldset>

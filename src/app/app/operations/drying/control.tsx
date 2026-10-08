@@ -360,14 +360,6 @@ export function DryingControl({
           </div>
           <div>
             <div style={{ fontSize: "1.15rem", color: "#7dd3fc", marginBottom: "0.45rem", fontWeight: 800, letterSpacing: "0.02em" }}>
-              🖥️ 烘乾設備
-            </div>
-            <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
-              {displayEquipment || "烘衣機"}
-            </div>
-          </div>
-          <div>
-            <div style={{ fontSize: "1.15rem", color: "#7dd3fc", marginBottom: "0.45rem", fontWeight: 800, letterSpacing: "0.02em" }}>
               ⏳ 處理進度
             </div>
             <div style={{ fontSize: "1.45rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
@@ -375,33 +367,6 @@ export function DryingControl({
             </div>
           </div>
         </div>
-
-        {!isTargetedByParams ? (
-          <label>
-            {mode === "complete" ? "執行中單據" : "待烘乾批次"}
-            <select
-              value={batchId}
-              onChange={(event) => setBatchId(event.target.value)}
-              disabled={mode === "complete" || visible.length === 0}
-            >
-              {visible.length === 0 ? (
-                <option value="">
-                  {mode === "complete"
-                    ? "目前沒有這台烘衣機的執行中單據"
-                    : equipmentInfo?.operatingSiteName
-                      ? `【${equipmentInfo.operatingSiteName}】目前沒有可烘乾批次`
-                      : "目前沒有可烘乾批次"}
-                </option>
-              ) : (
-                visible.map((batch) => (
-                  <option key={batch.id} value={batch.id}>
-                    {formatBatchLabel(batch)}
-                  </option>
-                ))
-              )}
-            </select>
-          </label>
-        ) : null}
 
         {isSiteMismatch ? (
           <p
