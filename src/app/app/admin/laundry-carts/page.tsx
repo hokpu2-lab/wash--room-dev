@@ -4,7 +4,8 @@ import { getLaundryCartWorkspace } from "@/lib/laundry-cart/administration";
 
 import { ModuleTabs } from "../../module-tabs";
 import styles from "../../workspace.module.css";
-import { changeLaundryCartActive, createLaundryCart } from "./actions";
+import { createLaundryCart } from "./actions";
+import { CartListClient } from "./cart-list-client";
 
 type LaundryCartsPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -93,78 +94,10 @@ export default async function LaundryCartsPage({
 
         <section aria-labelledby="cart-list-title">
           <h2 id="cart-list-title">目前洗衣車</h2>
-          {workspace.carts.length === 0 ? (
-            <p>目前管理範圍內尚無洗衣車。</p>
-          ) : (
-            <div className={styles.tableScroller}>
-              <table>
-                <thead>
-                  <tr>
-                    <th scope="col">洗衣車編號</th>
-                    <th scope="col">送洗機構</th>
-                    <th scope="col">作業據點</th>
-                    <th scope="col">狀態</th>
-                    <th scope="col">待取件車號</th>
-                    <th scope="col">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {workspace.carts.map((cart) => (
-                    <tr key={cart.id}>
-                      <td>{cart.cart_number}</td>
-                      <td>
-                        {cart.institutions.code} · {cart.institutions.name}
-                      </td>
-                      <td>{cart.institutions.operating_sites.name}</td>
-                      <td>{cart.active ? "啟用" : "停用"}</td>
-                      <td>{cart.has_ready_pickup ? cart.cart_number : "—"}</td>
-                      <td>
-                        <form
-                          action={changeLaundryCartActive}
-                          className={styles.compactForm}
-                        >
-                          <input
-                            name="laundry_cart_id"
-                            type="hidden"
-                            value={cart.id}
-                          />
-                          <input
-                            name="cart_number"
-                            type="hidden"
-                            value={cart.cart_number}
-                          />
-                          <input
-                            name="target_active"
-                            type="hidden"
-                            value={cart.active ? "false" : "true"}
-                          />
-                          <input
-                            name="change_request_id"
-                            type="hidden"
-                            value={randomUUID()}
-                          />
-                          <input
-                            aria-label={`${cart.cart_number} 啟停理由`}
-                            name="change_reason"
-                            maxLength={500}
-                            required
-                          />
-                          <button type="submit">
-                            {cart.active ? "停用" : "啟用"} {cart.cart_number}
-                          </button>
-                        </form>
-                        <a
-                          href={`/app/admin/laundry-carts/${cart.id}/qr`}
-                        >
-                          查看 {cart.cart_number} 固定 QR
-                        </a>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <CartListClient
+            carts={workspace.carts}
+            institutions={workspace.institutions}
+          />
         </section>
         </ModuleTabs>
       </section>

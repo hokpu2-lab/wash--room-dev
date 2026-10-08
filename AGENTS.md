@@ -26,6 +26,9 @@
 
 ## 2026-10-08 最新接手快照
 
+- **洗衣車與固定 QR 之「目前洗衣車」依送洗機構標籤式分類選取（/app/admin/laundry-carts）**：
+  - **送洗機構標籤選取元件**：新增 [`src/app/app/admin/laundry-carts/cart-list-client.tsx`](file:///c:/Users/user/Desktop/PU2/src/app/app/admin/laundry-carts/cart-list-client.tsx)，提供「全部 (總數)」與各個送洗機構標籤（如 `護理之家 (6)`、`養護中心 (8)`），點選標籤即時篩選並只顯示該機構所屬之洗衣車。
+  - **空狀態防呆與完整表單操作**：未選擇特定機構時預設顯示全部，選擇無車輛機構時呈現機構友善空狀態提示；各列保留啟用／停用表單與固定 QR 查看連結。
 - **選取洗衣單之「使用中設備」抓取對應「洗衣設備與固定 QR」設備（/app/dashboard）**：
   - **精準設備名稱解析**：於 `src/app/app/live-queue.tsx` 更新 `getEquipmentNameDisplay`，接收 `equipment` 清單，優先解析活躍批次與設備類型對應之實際設備名稱（如 `本館洗衣-1`、`WASHER MAIN 01`、`本館消毒鍋`），取代原本通用的抽象字串「洗衣機」。
   - **快照資料傳遞修復**：於 `src/app/app/workspace-live.tsx` 確保所有角色（含 `supervisor`）的 `LiveQueue` 皆接收 `snapshot.equipment`，使選取洗衣單卡片能無縫關聯設備清單。
