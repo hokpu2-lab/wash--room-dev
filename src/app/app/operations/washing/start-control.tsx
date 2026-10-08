@@ -405,57 +405,45 @@ export function StartWashingControl({
           </div>
         ) : null}
 
-        {/* 上方資訊卡片（黑底、字體加大、標題統一顏色、資訊統一顏色） */}
-        <div
-          style={{
-            margin: "0.75rem 0 1.5rem 0",
-            padding: "1.5rem 1.75rem",
-            background: "linear-gradient(145deg, #0b1329, #050b14)",
-            border: "1px solid rgba(255, 255, 255, 0.22)",
-            borderRadius: "14px",
-            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.4)",
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-            gap: "1.5rem 1.75rem",
-          }}
-        >
-          <div>
-            <div style={{ fontSize: "1.15rem", color: "#7dd3fc", marginBottom: "0.45rem", fontWeight: 800, letterSpacing: "0.02em" }}>
+        {/* 上方資訊卡片（黑底、字體加大、標題統一顏色、資訊統一顏色，手機版響應式並列） */}
+        <div className={styles.operationsInfoCard}>
+          <div className={styles.operationsInfoCol}>
+            <div className={styles.operationsInfoLabel}>
               🏢 機構名稱
             </div>
-            <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
+            <div className={styles.operationsInfoValue}>
               {displayInstitution || "—"}
             </div>
           </div>
-          <div>
-            <div style={{ fontSize: "1.15rem", color: "#7dd3fc", marginBottom: "0.45rem", fontWeight: 800, letterSpacing: "0.02em" }}>
+          <div className={styles.operationsInfoCol}>
+            <div className={styles.operationsInfoLabel}>
               🛒 洗衣車號
             </div>
-            <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
+            <div className={styles.operationsInfoValue}>
               {displayCart || "—"}
             </div>
           </div>
-          <div>
-            <div style={{ fontSize: "1.15rem", color: "#7dd3fc", marginBottom: "0.45rem", fontWeight: 800, letterSpacing: "0.02em" }}>
+          <div className={styles.operationsInfoCol}>
+            <div className={styles.operationsInfoLabel}>
               📋 洗衣單號
             </div>
-            <div style={{ fontSize: "1.45rem", fontWeight: 900, color: "#ffffff", whiteSpace: "nowrap" }}>
+            <div className={styles.operationsInfoValueCode}>
               {displayOrderNumber || "—"}
             </div>
           </div>
-          <div>
-            <div style={{ fontSize: "1.15rem", color: "#7dd3fc", marginBottom: "0.45rem", fontWeight: 800, letterSpacing: "0.02em" }}>
+          <div className={styles.operationsInfoCol}>
+            <div className={styles.operationsInfoLabel}>
               🏷️ 洗滌分類
             </div>
-            <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
+            <div className={styles.operationsInfoValue}>
               {displayCategory}
             </div>
           </div>
-          <div>
-            <div style={{ fontSize: "1.15rem", color: "#7dd3fc", marginBottom: "0.45rem", fontWeight: 800, letterSpacing: "0.02em" }}>
+          <div className={`${styles.operationsInfoCol} ${styles.operationsInfoColFull}`}>
+            <div className={styles.operationsInfoLabel}>
               ⏳ 處理進度
             </div>
-            <div style={{ fontSize: "1.45rem", fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
+            <div className={styles.operationsInfoValue}>
               {displayProgress}
             </div>
           </div>

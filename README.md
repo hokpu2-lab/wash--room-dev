@@ -16,6 +16,18 @@
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
 
+- **操作控制台手機版資訊卡片響應式排版優化與洗衣車號清晰展示（/app/operations/disinfection, /app/operations/washing, /app/operations/drying）**：
+  - **根本原因排除**：先前操作控制台上方資訊卡片使用內嵌網格樣式 `minmax(210px, 1fr)` 且間距與內距過大（`padding: 1.5rem 1.75rem`、`gap: 1.5rem 1.75rem`），在手機直向螢幕（寬度 360px ~ 430px）下無法容納兩欄，導致所有項目被強制退化為單欄垂直堆疊 5 大區塊，資訊卡片高度被撐至超過一個手機螢幕，造成「🛒 洗衣車號」等關鍵欄位被推擠至可視區域下方或排版截斷。
+  - **響應式類別架構重構（`workspace.module.css`）**：
+    - 抽取並新增 `.operationsInfoCard`、`.operationsInfoCol`、`.operationsInfoLabel`、`.operationsInfoValue`、`.operationsInfoValueCode` 與 `.operationsInfoColFull`。
+    - 針對手機螢幕（`@media (max-width: 640px)`）優化為雙欄精緻網格（`grid-template-columns: repeat(2, 1fr);`），內距縮減至 `1rem 1.15rem`、間距縮減至 `0.85rem 0.75rem`。
+    - 標題字級適度縮放（`0.88rem`）、數值字級精緻優化（`1.25rem`），單號具備 `word-break: break-all;`，處理進度橫跨滿幅（`grid-column: 1 / -1;`），確保手機打開第一眼即可完整掌握「機構名稱、洗衣車號、洗衣單號、洗滌分類、處理進度」。
+  - **同步套用各操作控制台**：
+    - 消毒控制點（`disinfection/control.tsx`）
+    - 清洗控制點（`washing/start-control.tsx`）
+    - 烘乾控制點（`drying/control.tsx`）
+  - **測試與建置覆核**：35 個測試檔、146 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
 - **移除「洗衣單與批次」中「選取的洗衣單」區塊（/app/dashboard）**：
   - **版面精簡與全寬呈現**：於 `src/app/app/live-queue.tsx` 移除 `selectedOrderCardContainer`（含複製單號、使用中設備、進度、車號、收單時間、等待時間與對應操作按鈕列）及 `LiveQueueFallback` 內的對應骨架。
   - **樣式調整**：於 `src/app/app/workspace.module.css` 將 `.topCardsGrid` 調整為單欄滿寬（`grid-template-columns: 1fr;`），使「洗衣排程（排序隊列）」卡片優雅滿版展示，與下方「洗衣排程流程圖（`LaundryOrderFlow3D`）」及批次詳情無縫呼應。
