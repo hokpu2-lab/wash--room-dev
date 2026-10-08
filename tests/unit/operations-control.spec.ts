@@ -143,6 +143,24 @@ describe("操作控制點與批次標籤 (Operations Control & Batch Labels)", (
 
     const buttonText2 = isDisinfect2 ? "確認開始浸泡消毒" : "確認開始清洗";
     expect(buttonText2).toBe("確認開始浸泡消毒");
+
+    // 消毒批次進入第二階段 (清洗階段)
+    const disinfectBatchStage2: ControlBatch = {
+      id: "b-disinfect-stage2",
+      status: "not_started",
+      current_stage_order: 2,
+      orderNumber: "MAIN-20261008-0001",
+      cartNumber: "2C-6",
+      categoryName: "消毒品",
+      institutionName: "護家",
+    };
+    const isStage1 = (disinfectBatchStage2.current_stage_order ?? 1) === 1;
+    const washingProgressForDisinfect2 = isStage1
+      ? "第一階段(浸泡消毒)"
+      : `第${chineseStageNumber(disinfectBatchStage2.current_stage_order)}階段(待清洗)`;
+    expect(washingProgressForDisinfect2).toBe("第二階段(待清洗)");
+    const washingButtonForDisinfect2 = isStage1 ? "確認開始浸泡消毒" : "確認開始清洗";
+    expect(washingButtonForDisinfect2).toBe("確認開始清洗");
   });
 
   it("消毒單號可正確產生帶有車號與單號之消毒操作 URL 查詢參數", () => {

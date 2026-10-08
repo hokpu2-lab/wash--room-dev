@@ -219,7 +219,11 @@ export function StartWashingControl({
     matchedDisinfectTanks[0] ||
     availableDisinfectTanks[0];
 
-  const defaultEquipment = isDisinfect ? (defaultDisinfectTank || defaultWasher) : defaultWasher;
+  const isStage1Disinfect = Boolean(
+    isDisinfect && (selectedBatch?.current_stage_order ?? 1) === 1 && !isCompleteMode
+  );
+
+  const defaultEquipment = isStage1Disinfect ? (defaultDisinfectTank || defaultWasher) : defaultWasher;
 
   const effectiveEquipmentId =
     activeToken
@@ -234,10 +238,11 @@ export function StartWashingControl({
   const effectiveEquipmentName =
     equipmentInfo?.equipmentName ||
     effectiveEquipmentObj?.name ||
-    (isDisinfect ? "本館消毒鍋" : (defaultWasher?.name || "本館洗衣-1"));
+    (isStage1Disinfect ? "本館消毒鍋" : (defaultWasher?.name || "本館洗衣-1"));
 
   const displayEquipment = effectiveEquipmentName;
-  const stageNum = chineseStageNumber(isTargetedDisinfect ? 1 : (selectedBatch?.current_stage_order ?? 1));
+  const currentStageOrder = selectedBatch?.current_stage_order ?? (isDisinfect ? 2 : 1);
+  const stageNum = chineseStageNumber(currentStageOrder);
 
   const isCompletedSuccess = Boolean(
     result &&
@@ -250,16 +255,14 @@ export function StartWashingControl({
 
   const isStage2Complete =
     isCompletedSuccess ||
-    stageNum === "二" ||
-    (selectedBatch?.current_stage_order ?? 1) >= 2 ||
     selectedOrderNumber === "MAIN-20261006-0001" ||
     selectedCartNumber === "2C-1";
 
   const displayProgress = isStage2Complete
-    ? "第二階段完成"
+    ? (stageNum === "一" ? "第一階段完成" : "第二階段完成")
     : isCompleteMode
     ? `第${stageNum}階段(處理中)`
-    : isDisinfect
+    : isStage1Disinfect
     ? "第一階段(浸泡消毒)"
     : selectedBatch
     ? `第${stageNum}階段(待清洗)`
@@ -324,7 +327,7 @@ export function StartWashingControl({
               ? "STAGE COMPLETED"
               : isCompleteMode
               ? "LAUNDRY COMPLETE"
-              : isDisinfect
+              : isStage1Disinfect
               ? "DISINFECTION CONTROL POINT"
               : "LAUNDRY WASHING"}
           </p>
@@ -334,7 +337,7 @@ export function StartWashingControl({
               ? "清洗程序已結束完成。"
               : isCompleteMode
               ? "確認清洗完成並釋放洗衣設備。"
-              : isDisinfect
+              : isStage1Disinfect
               ? "確認開始浸泡消毒程序。"
               : "掃描洗衣機固定 QR，確認批次後開始清洗。"}
           </p>
@@ -519,7 +522,7 @@ export function StartWashingControl({
           >
             {submitting ? "處理中…" : isCompletedSuccess ? "已確認完成" : "確認清洗完成"}
           </button>
-        ) : isDisinfect ? (
+        ) : isStage1Disinfect ? (
           <button
             type="button"
             onClick={() => void submit("/api/operations/start-disinfection")}

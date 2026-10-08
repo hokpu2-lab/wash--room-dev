@@ -16,6 +16,17 @@
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
 
+- **徹底修復消毒單據階段跳轉與「批次目前不在消毒浸泡階段」死循環（/app/dashboard, /app/operations/disinfection, /app/operations/washing）**：
+  - **根本原因排除**：單據 `MAIN-20261008-0001`（車號 2C-6，護家）之批次已完成第一階段消毒浸泡，資料庫狀態為 `current_stage_order = 2`（待清洗）。但先前儀表板將所有消毒單據寫死導向消毒控制點（`/app/operations/disinfection`），且消毒控制點寫死進度標題為「第一階段(浸泡消毒)」，當現場點選「確認開始浸泡消毒」時觸發後端 RPC 階段檢核 `stage_type <> 'disinfection_tank'` 回傳 `wrong_stage`（「批次目前不在消毒浸泡階段。」），導致操作人員受困於兩端階段不一致與無法推進的卡住問題。
+  - **儀表板動態階段導向與設備名稱精準更新（`src/app/app/live-queue.tsx`）**：
+    - 依選取單據的當前階段順序（`currentStageOrder`）與階段設備（`equipmentType`）動態推導操作控制點：處於第 1 階段消毒浸泡時導向「開始浸泡消毒控制點（`/app/operations/disinfection`）」；進入第 2 階段清洗時精準導向「開始清洗控制點（`/app/operations/washing`）」；進入第 3 階段烘乾時導向「開始烘乾控制點（`/app/operations/drying`）」；待取件時直通「前往取件掃碼結案（`/scan/pickup`）」。
+    - 在 `getEquipmentNameDisplay` 中優先檢查批次目前階段設備，當單據進入第 2 階段時精準顯示洗衣機名稱（如「本館洗衣-1」），不再寫死覆蓋為「本館消毒鍋」。
+  - **消毒控制點防呆與清洗直通導引（`src/app/app/operations/disinfection/control.tsx`）**：
+    - 移除寫死第一階段進度顯示，依批次實際階段呈現標題與處理進度（如「第二階段(待清洗)」）。
+    - 增設階段銜接防呆提示：若選取之批次已完成第 1 階段浸泡（`current_stage_order > 1`），介面顯示溫馨提示並提供「前往開始清洗控制點 →」直通按鈕，隱藏會觸發 `wrong_stage` 的開始浸泡按鈕，防止誤操作。
+  - **清洗控制點設備與送出通道修復（`src/app/app/operations/washing/start-control.tsx`）**：
+    - 修正清洗控制台預設設備：即使批次為消毒品，在清洗階段仍正確綁定洗衣機（`defaultWasher`，如「本館洗衣-1」）而非消毒鍋，避免向洗衣 API 傳入消毒設備造成拒絕。
+    - 修正送出按鈕：第 2 階段清洗時點選「確認開始清洗」正確呼叫 `/api/operations/start-washing`，完成後可順暢銜接「確認清洗完成」並推進至烘乾階段。
 - **修復隊列單據操作動作按鈕與烘乾控制點免掃碼直通推進（/app/dashboard, /app/operations/drying）**：
   - **診斷並打通 3 筆待清洗單據推進通道**：排查發現消毒單據（`MAIN-20261008-0001`、`MAIN-20261005-0004`）原先被錯誤導向至無操作按鈕之批次控制中心，已修正為精準導向「開始浸泡消毒控制點（`/app/operations/disinfection`）」；一般清洗單（`MAIN-20261006-0004`）導向「開始清洗控制點（`/app/operations/washing`）」；待取件單直通「前往取件掃碼結案（`/scan/pickup`）」。
   - **烘乾控制台設備自動關聯**：於 `drying/page.tsx` 注入 `availableEquipment`，並在 `drying/control.tsx` 實作 `effectiveEquipmentId` 動態推導，讓現場操作人員由儀表板或清單進入烘乾控制台時無須重新掃描設備 QR 即可直接點選「確認開始烘乾」與「確認烘乾完成」，徹底解決單據卡在待烘乾階段的問題。

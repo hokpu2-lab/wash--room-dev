@@ -100,15 +100,6 @@ function getEquipmentNameDisplay(
   if (order.status === "awaiting_receipt") return "待收單";
   if (order.status === "ready_for_pickup" || order.status === "picked_up") return "已完成";
 
-  if (
-    order.orderNumber === "MAIN-20261005-0004" ||
-    order.orderNumber === "MAIN-20261008-0001" ||
-    order.cartNumber?.toUpperCase() === "8D-1" ||
-    order.cartNumber?.toUpperCase() === "2C-6"
-  ) {
-    return "本館消毒鍋";
-  }
-
   if (detail?.batches && detail.batches.length > 0) {
     const equipmentNames = detail.batches.map((batch) => {
       if (batch.activeEquipmentName) return batch.activeEquipmentName;
@@ -131,6 +122,15 @@ function getEquipmentNameDisplay(
     const result = Array.from(new Set(equipmentNames)).join("、");
     if (result === "待取件" || result === "已取件") return "已完成";
     return result;
+  }
+
+  if (
+    order.orderNumber === "MAIN-20261005-0004" ||
+    order.orderNumber === "MAIN-20261008-0001" ||
+    order.cartNumber?.toUpperCase() === "8D-1" ||
+    order.cartNumber?.toUpperCase() === "2C-6"
+  ) {
+    return "本館消毒鍋";
   }
 
   if (order.status === "awaiting_cleaning" || order.status === "in_process") {
@@ -397,6 +397,39 @@ export function LiveQueue({
     selectedDetail?.batches?.some((b) => b.categoryName?.includes("消毒"))
   );
 
+  const selectedActiveBatch = selectedDetail?.batches?.[0];
+  const selectedActiveStage = selectedActiveBatch?.stages.find((s) => s.state === "active");
+  const selectedCurrentStage =
+    selectedActiveStage ??
+    selectedActiveBatch?.stages.find((s) => s.stageOrder === selectedActiveBatch?.currentStageOrder) ??
+    selectedActiveBatch?.stages[0];
+  const selectedCurrentStageOrder = selectedCurrentStage?.stageOrder ?? selectedActiveBatch?.currentStageOrder ?? 1;
+  const selectedCurrentEquipmentType = selectedCurrentStage?.equipmentType;
+  const isSelectedStageRunning = Boolean(
+    selectedActiveStage || (selected?.status === "in_process" && selectedActiveBatch?.status === "in_progress")
+  );
+
+  const isOrderAtDisinfection = Boolean(
+    (selectedCurrentEquipmentType === "disinfection_tank" || (isDisinfectOrder && selectedCurrentStageOrder === 1)) &&
+    selected?.status !== "ready_for_pickup" &&
+    selected?.status !== "picked_up"
+  );
+
+  const isOrderAtDrying = Boolean(
+    (selectedCurrentEquipmentType === "dryer" ||
+      (isDisinfectOrder ? selectedCurrentStageOrder >= 3 : selectedCurrentStageOrder >= 2)) &&
+    selected?.status !== "ready_for_pickup" &&
+    selected?.status !== "picked_up"
+  );
+
+  const isOrderAtWashing = Boolean(
+    !isOrderAtDisinfection &&
+    !isOrderAtDrying &&
+    selected?.status !== "ready_for_pickup" &&
+    selected?.status !== "picked_up" &&
+    selected?.status !== "awaiting_receipt"
+  );
+
   return (
     <section className={styles.liveQueueSection} aria-labelledby="live-queue-title">
       {/* Top Cards Row: Left + Right */}
@@ -604,28 +637,7 @@ export function LiveQueue({
               </div>
 
               <div className={styles.selectedOrderMainActionRow}>
-                {isDisinfectOrder && (selected.status === "awaiting_cleaning" || selected.status === "in_process") ? (
-                  <AppLink
-                    href={hrefWithClientScope(`/app/operations/disinfection?order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`, { siteId: siteId ?? null, institutionId: null })}
-                    className={styles.primaryActionCta}
-                  >
-                    {selected.status === "in_process" ? "前往消毒控制點 →" : "開始浸泡消毒控制點 →"}
-                  </AppLink>
-                ) : selected.status === "awaiting_cleaning" ? (
-                  <AppLink
-                    href={hrefWithClientScope(`/app/operations/washing?order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`, { siteId: siteId ?? null, institutionId: null })}
-                    className={styles.primaryActionCta}
-                  >
-                    開始清洗控制點 →
-                  </AppLink>
-                ) : selected.status === "in_process" ? (
-                  <AppLink
-                    href={hrefWithClientScope(`/app/operations/washing?mode=complete&order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`, { siteId: siteId ?? null, institutionId: null })}
-                    className={styles.primaryActionCta}
-                  >
-                    進入清洗控制點 →
-                  </AppLink>
-                ) : selected.status === "ready_for_pickup" ? (
+                {selected.status === "ready_for_pickup" ? (
                   <AppLink
                     href={hrefWithClientScope(`/scan/pickup?cart=${selected.cartNumber}`, { siteId: siteId ?? null, institutionId: null })}
                     className={styles.primaryActionCta}
@@ -634,6 +646,42 @@ export function LiveQueue({
                   </AppLink>
                 ) : selected.status === "picked_up" ? (
                   <span className={styles.primaryActionInfo}>✓ 此單已完成取件結案。</span>
+                ) : isOrderAtDisinfection ? (
+                  <AppLink
+                    href={hrefWithClientScope(
+                      isSelectedStageRunning
+                        ? `/app/operations/disinfection?mode=complete&order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`
+                        : `/app/operations/disinfection?order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`,
+                      { siteId: siteId ?? null, institutionId: null },
+                    )}
+                    className={styles.primaryActionCta}
+                  >
+                    {isSelectedStageRunning ? "前往消毒控制點 →" : "開始浸泡消毒控制點 →"}
+                  </AppLink>
+                ) : isOrderAtDrying ? (
+                  <AppLink
+                    href={hrefWithClientScope(
+                      isSelectedStageRunning
+                        ? `/app/operations/drying?mode=complete&order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`
+                        : `/app/operations/drying?order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`,
+                      { siteId: siteId ?? null, institutionId: null },
+                    )}
+                    className={styles.primaryActionCta}
+                  >
+                    {isSelectedStageRunning ? "前往烘乾控制點 →" : "開始烘乾控制點 →"}
+                  </AppLink>
+                ) : isOrderAtWashing ? (
+                  <AppLink
+                    href={hrefWithClientScope(
+                      isSelectedStageRunning
+                        ? `/app/operations/washing?mode=complete&order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`
+                        : `/app/operations/washing?order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`,
+                      { siteId: siteId ?? null, institutionId: null },
+                    )}
+                    className={styles.primaryActionCta}
+                  >
+                    {isSelectedStageRunning ? "進入清洗控制點 →" : "開始清洗控制點 →"}
+                  </AppLink>
                 ) : null}
               </div>
             </div>
@@ -660,34 +708,51 @@ export function LiveQueue({
             orderReadyAt={selectedDetail?.orderReadyAt}
             orderClosedAt={selectedDetail?.orderClosedAt}
             headerAction={
-              isDisinfectOrder && (selected?.status === "awaiting_cleaning" || selected?.status === "in_process") ? (
-                <AppLink
-                  href={hrefWithClientScope(`/app/operations/disinfection?order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`, { siteId: siteId ?? null, institutionId: null })}
-                  className={styles.orderFlowHeaderAction}
-                >
-                  開始消毒 ↗
-                </AppLink>
-              ) : selected?.status === "awaiting_cleaning" ? (
-                <AppLink
-                  href={hrefWithClientScope(`/app/operations/washing?order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`, { siteId: siteId ?? null, institutionId: null })}
-                  className={styles.orderFlowHeaderAction}
-                >
-                  開始清洗 ↗
-                </AppLink>
-              ) : selected?.status === "in_process" ? (
-                <AppLink
-                  href={hrefWithClientScope(`/app/operations/washing?mode=complete&order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`, { siteId: siteId ?? null, institutionId: null })}
-                  className={styles.orderFlowHeaderAction}
-                >
-                  清洗控制 ↗
-                </AppLink>
-              ) : selected?.status === "ready_for_pickup" ? (
-                <AppLink
-                  href={hrefWithClientScope(`/scan/pickup?cart=${selected.cartNumber}`, { siteId: siteId ?? null, institutionId: null })}
-                  className={styles.orderFlowHeaderAction}
-                >
-                  取件結案 ↗
-                </AppLink>
+              selected ? (
+                selected.status === "ready_for_pickup" ? (
+                  <AppLink
+                    href={hrefWithClientScope(`/scan/pickup?cart=${selected.cartNumber}`, { siteId: siteId ?? null, institutionId: null })}
+                    className={styles.orderFlowHeaderAction}
+                  >
+                    取件結案 ↗
+                  </AppLink>
+                ) : isOrderAtDisinfection ? (
+                  <AppLink
+                    href={hrefWithClientScope(
+                      isSelectedStageRunning
+                        ? `/app/operations/disinfection?mode=complete&order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`
+                        : `/app/operations/disinfection?order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`,
+                      { siteId: siteId ?? null, institutionId: null },
+                    )}
+                    className={styles.orderFlowHeaderAction}
+                  >
+                    {isSelectedStageRunning ? "消毒控制 ↗" : "開始消毒 ↗"}
+                  </AppLink>
+                ) : isOrderAtDrying ? (
+                  <AppLink
+                    href={hrefWithClientScope(
+                      isSelectedStageRunning
+                        ? `/app/operations/drying?mode=complete&order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`
+                        : `/app/operations/drying?order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`,
+                      { siteId: siteId ?? null, institutionId: null },
+                    )}
+                    className={styles.orderFlowHeaderAction}
+                  >
+                    {isSelectedStageRunning ? "烘衣控制 ↗" : "開始烘衣 ↗"}
+                  </AppLink>
+                ) : isOrderAtWashing ? (
+                  <AppLink
+                    href={hrefWithClientScope(
+                      isSelectedStageRunning
+                        ? `/app/operations/washing?mode=complete&order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`
+                        : `/app/operations/washing?order=${selected.orderNumber}&cart=${selected.cartNumber}&institution=${encodeURIComponent(selected.institutionName)}`,
+                      { siteId: siteId ?? null, institutionId: null },
+                    )}
+                    className={styles.orderFlowHeaderAction}
+                  >
+                    {isSelectedStageRunning ? "清洗控制 ↗" : "開始清洗 ↗"}
+                  </AppLink>
+                ) : null
               ) : null
             }
           />

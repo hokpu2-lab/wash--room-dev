@@ -4,9 +4,11 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { clearPendingQrToken } from "../../../scan/pending-qr-token";
+import { AppLink } from "../../app-link";
 import { ScanStage } from "../../scan-stage";
 import { useLiveBatches, usePreferredId } from "../../use-live-batches";
 import { useQrFragment } from "../../use-qr-fragment";
+import { hrefWithClientScope } from "../../workspace-scope-client";
 import styles from "../../workspace.module.css";
 import { formatBatchLabel, type ControlBatch } from "../batch-label";
 import type { ControlEquipment } from "../load-site-batches";
@@ -256,16 +258,12 @@ export function DisinfectionControl({
     }
   }
 
-  const isTargetedDisinfect =
-    selectedOrderNumber === "MAIN-20261005-0004" ||
-    selectedOrderNumber === "MAIN-20261008-0001" ||
-    selectedCartNumber?.toUpperCase() === "8D-1" ||
-    selectedCartNumber?.toUpperCase() === "2C-6";
-  const stageNum = chineseStageNumber(isTargetedDisinfect ? 1 : (selectedBatch?.current_stage_order ?? 1));
-  const displayProgress = isTargetedDisinfect
-    ? "第一階段(浸泡消毒)"
-    : selectedBatch
-    ? (mode === "complete" ? `第${stageNum}階段(浸泡完成)` : `第${stageNum}階段(浸泡消毒)`)
+  const currentStageOrder = selectedBatch?.current_stage_order ?? 1;
+  const stageNum = chineseStageNumber(currentStageOrder);
+  const displayProgress = selectedBatch
+    ? (currentStageOrder === 1
+        ? (mode === "complete" ? "第一階段(浸泡完成)" : "第一階段(浸泡消毒)")
+        : `第${stageNum}階段(待清洗)`)
     : (mode === "complete" ? "第一階段(浸泡完成)" : "第一階段(浸泡消毒)");
 
   return (
@@ -440,7 +438,43 @@ export function DisinfectionControl({
           </p>
         ) : null}
 
-        {mode === "complete" ? (
+        {selectedBatch && selectedBatch.current_stage_order > 1 ? (
+          <div
+            style={{
+              margin: "1rem 0",
+              padding: "1rem",
+              background: "#eff6ff",
+              border: "1px solid #bfdbfe",
+              borderRadius: "8px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.75rem",
+            }}
+          >
+            <p style={{ color: "#1e3a8a", fontWeight: 700, margin: 0, fontSize: "1rem" }}>
+              ℹ️ 此批次已完成第一階段消毒浸泡，目前處於第 {selectedBatch.current_stage_order} 階段（待清洗）。請前往清洗控制點進行清洗。
+            </p>
+            <a
+              href={hrefWithClientScope(
+                `/app/operations/washing?order=${selectedBatch.orderNumber || ""}&cart=${selectedBatch.cartNumber || ""}&institution=${encodeURIComponent(selectedBatch.institutionName || "")}`,
+                { siteId: siteId ?? null, institutionId: null },
+              )}
+              style={{
+                display: "inline-block",
+                background: "#2563eb",
+                color: "#ffffff",
+                padding: "0.75rem 1.25rem",
+                borderRadius: "6px",
+                fontWeight: 800,
+                textAlign: "center",
+                textDecoration: "none",
+                width: "fit-content",
+              }}
+            >
+              前往開始清洗控制點 →
+            </a>
+          </div>
+        ) : mode === "complete" ? (
           <button
             type="button"
             onClick={() => void call("/api/operations/complete-disinfection")}
