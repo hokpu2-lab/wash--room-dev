@@ -24,18 +24,17 @@
 - 頂級角色與權限防護：`system_administrator`（系統管理員）具備最高優先權，預設導向 `/app/admin`；`src/lib/auth/principal.ts` 之
   `principalSatisfiesRole` 確保系統管理員完全滿足 `laundry_supervisor` 之檢查，徹底杜絕無窮重定向死循環。
 
-## 2026-10-07 最新接手快照
+## 2026-10-08 最新接手快照
 
-- **營運戰情室與洗衣排程佇列「處理中」件數精確同步（/app/admin vs /app/dashboard）**：
-  - **件數計算標準化**：營運戰情室（`/app/admin`）之「處理中(占用設備中)」KPI 卡片與流程雷達（Flow Radar）「處理中」項目，統一依據授權範圍內洗衣單清單中狀態為 `in_process` 的單據數量計算（`queueOrders.filter((o) => o.status === "in_process").length`），與洗衣排程佇列（`/app/dashboard`）之「處理中 (4)」件數保持完全同步與一致。
-  - **各佇列件數推導優化**：在 `SupervisorCommandRoom` 與 `SupervisorQueueKpis` 中統一自 `orders` 推導 `inProcessCount`、`awaitingCleaningCount`、`awaitingReceiptCount` 與 `readyForPickupCount`，杜絕不同元件間因批次與單據統計口徑差異造成的數字落差。
-  - **單元測試補充**：於 `tests/unit/workspace-snapshot.spec.ts` 新增「戰情室處理中件數與洗衣排程佇列處理中件數保持同步」單元測試。
-- **測試與建置覆核**（2026-10-07）：
+- **移除流程圖節點與卡片「進入固定 QR / 掃碼」按鈕與浮層**：
+  - **精簡節點焦點卡片**：於 `src/app/app/laundry-order-flow-3d.tsx` 移除 `flowSelectionCopy` 底部之「📷 進入 [設備名稱/階段名稱] 固定 QR / 掃碼 →」按鈕連結（`flowStepScanLink`），以及 `flowSelectionVisual` 圖示圖片上的點選掃碼浮層（`flowImageScanOverlay`）。
+  - **清理資料模型與輔助函式**：移除 `FlowStep` 中的 `href` 屬性，刪除不再需要的 `getEquipmentQrHref` 函式與 `AppLink` 引用，使流程步驟純粹呈現時間線、狀態與說明。
+- **測試與建置覆核**（2026-10-08）：
   - `npm test`：34 個測試檔、136 個 tests 全數通過。
   - `npm run typecheck`：0 錯誤通過。
   - `npm run build`：Next.js 16.3.0 正式生產建置成功。
 
-## 2026-10-06 歷史交付切片（以最新快照為準）
+## 2026-10-07 歷史交付切片（以最新快照為準）
 
 ## 2026-10-02 選取洗衣單欄位與設備使用狀況切片（歷史）
 

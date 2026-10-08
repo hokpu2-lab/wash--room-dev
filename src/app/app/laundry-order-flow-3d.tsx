@@ -10,7 +10,6 @@ import type {
   WorkspaceProcedureStage,
 } from "@/lib/analytics/workspace-snapshot";
 
-import { AppLink } from "./app-link";
 import { equipmentTypeLabels, orderStatusLabels } from "./status-labels";
 import styles from "./workspace.module.css";
 
@@ -42,7 +41,6 @@ type FlowStep = {
   visual: FlowVisual;
   equipmentType?: FlowEquipmentType;
   activeEquipmentName?: string | null;
-  href?: string | null;
   timing: FlowTiming;
 };
 
@@ -226,24 +224,6 @@ function flowTiming(
   return { startedAt, completedAt, standardMinutes };
 }
 
-function getEquipmentQrHref(
-  stageEquipmentType?: FlowEquipmentType,
-  activeEquipmentName?: string | null,
-  equipment: WorkspaceEquipment[] = [],
-  opQuery = "",
-): string {
-  if (activeEquipmentName) {
-    const matched = equipment.find((e) => e.name === activeEquipmentName);
-    if (matched) return `/app/admin/laundry-equipment/${matched.id}/qr`;
-  }
-  if (stageEquipmentType) {
-    if (stageEquipmentType === "disinfection_tank") return `/app/operations/disinfection${opQuery}`;
-    if (stageEquipmentType === "washer") return `/app/operations/washing${opQuery}`;
-    if (stageEquipmentType === "dryer") return `/app/operations/drying${opQuery}`;
-  }
-  return "/app/admin/laundry-equipment";
-}
-
 function getFlowSteps(
   orderStatus: WorkspaceOrder["status"],
   batches: WorkspaceBatchDetail[],
@@ -254,11 +234,6 @@ function getFlowSteps(
   institutionName?: string,
 ): FlowStep[] {
   const procedureStages = getProcedureStages(batches, orderNumber, cartNumber);
-  const operationParams = new URLSearchParams();
-  if (orderNumber) operationParams.set("order", orderNumber);
-  if (cartNumber) operationParams.set("cart", cartNumber);
-  if (institutionName) operationParams.set("institution", institutionName);
-  const opQuery = operationParams.toString() ? `?${operationParams.toString()}` : "";
 
   const firstStageStartedAt = earliestTimestamp(procedureStages.map((stage) => stage.startedAt));
   const lastStageCompletedAt = latestTimestamp(procedureStages.map((stage) => stage.completedAt));
@@ -283,7 +258,6 @@ function getFlowSteps(
       state: "completed",
       kind: "milestone",
       visual: "sending-staff",
-      href: "/scan/cart",
       timing: flowTiming(orderTimes.orderCreatedAt ?? null, orderTimes.orderCreatedAt ?? null),
     },
     {
@@ -293,7 +267,6 @@ function getFlowSteps(
       state: orderStatus === "awaiting_receipt" ? "active" : "completed",
       kind: "milestone",
       visual: "laundry-worker",
-      href: "/app/operations/receive",
       timing: flowTiming(orderTimes.orderCreatedAt ?? null, orderReceivedAt),
     },
     {
@@ -310,7 +283,6 @@ function getFlowSteps(
           : "completed",
       kind: "milestone",
       visual: "laundry-cart",
-      href: `/app/operations/washing${opQuery}`,
       timing: flowTiming(orderReceivedAt, firstStageStartedAt),
     },
   ];
@@ -331,7 +303,6 @@ function getFlowSteps(
         kind: "waiting",
         visual: "laundry-cart",
         equipmentType: stage.equipmentType,
-        href: `/app/operations/drying${opQuery}`,
         timing: flowTiming(
           procedureStages[index - 1]?.completedAt ?? orderReceivedAt,
           stage.startedAt,
@@ -348,7 +319,6 @@ function getFlowSteps(
       visual: stageVisual(stage),
       equipmentType: stage.equipmentType,
       activeEquipmentName: activeEquip,
-      href: getEquipmentQrHref(stage.equipmentType, activeEquip, equipment, opQuery),
       timing: flowTiming(stage.startedAt, stage.completedAt, stage.standardMinutes),
     });
   });
@@ -365,7 +335,6 @@ function getFlowSteps(
           : "pending",
       kind: "milestone",
       visual: "sending-staff",
-      href: "/scan/pickup",
       timing: flowTiming(orderReadyAt, orderTimes.orderClosedAt ?? null),
     },
     {
@@ -375,7 +344,6 @@ function getFlowSteps(
       state: orderStatus === "picked_up" ? "completed" : "pending",
       kind: "milestone",
       visual: "sending-staff",
-      href: "/app/history",
       timing: flowTiming(orderTimes.orderClosedAt ?? null, orderTimes.orderClosedAt ?? null),
     },
   );
@@ -1631,34 +1599,14 @@ export function LaundryOrderFlow3D({
               data-state={selectedStep.state}
             >
               <span className={styles.flowSelectionVisual} aria-hidden="true">
-                {selectedStep.href ? (
-                  <AppLink
-                    href={selectedStep.href}
-                    className={styles.flowImageLink}
-                    title={`點選進入 ${selectedStep.activeEquipmentName || selectedStep.label} 固定 QR / 掃碼`}
-                  >
-                    <Image
-                      className={styles.flowSelectionImage}
-                      src={flowVisualSources[selectedStep.visual]}
-                      alt={selectedStep.label}
-                      width={160}
-                      height={160}
-                      loading="eager"
-                    />
-                    <span className={styles.flowImageScanOverlay}>
-                      <span>📷 點選進入固定 QR / 掃碼</span>
-                    </span>
-                  </AppLink>
-                ) : (
-                  <Image
-                    className={styles.flowSelectionImage}
-                    src={flowVisualSources[selectedStep.visual]}
-                    alt=""
-                    width={160}
-                    height={160}
-                    loading="eager"
-                  />
-                )}
+                <Image
+                  className={styles.flowSelectionImage}
+                  src={flowVisualSources[selectedStep.visual]}
+                  alt=""
+                  width={160}
+                  height={160}
+                  loading="eager"
+                />
                 {selectedStep.state === "active" ? (
                   <span className={styles.flowActiveBadge}>進行中</span>
                 ) : selectedStep.state === "completed" ? (
@@ -1671,16 +1619,6 @@ export function LaundryOrderFlow3D({
                 <strong>{selectedStep.label}</strong>
                 <span className={styles.flowSelectionDetail}>{selectedStep.detail}</span>
                 <FlowTimingDetails timing={selectedStep.timing} state={selectedStep.state} now={clock} />
-                {selectedStep.href ? (
-                  <AppLink
-                    href={selectedStep.href}
-                    className={styles.flowStepScanLink}
-                    title="進入固定 QR 掃碼功能"
-                  >
-                    <span aria-hidden="true">📷</span>
-                    <span>進入 {selectedStep.activeEquipmentName || selectedStep.label} 固定 QR / 掃碼 →</span>
-                  </AppLink>
-                ) : null}
               </span>
             </div>
           </div>
