@@ -125,12 +125,30 @@ describe("操作控制點與批次標籤 (Operations Control & Batch Labels)", (
 
     const buttonText = isDisinfect ? "確認開始浸泡消毒" : "確認開始清洗";
     expect(buttonText).toBe("確認開始浸泡消毒");
+    const batch2: ControlBatch = {
+      id: "b-disinfect-2",
+      status: "not_started",
+      current_stage_order: 1,
+      orderNumber: "MAIN-20261008-0001",
+      cartNumber: "2C-6",
+      categoryName: "消毒品",
+      institutionName: "護家",
+    };
+
+    const isDisinfect2 = batch2.categoryName?.includes("消毒");
+    const displayProgress2 = isDisinfect2
+      ? `第${chineseStageNumber(batch2.current_stage_order)}階段(浸泡消毒)`
+      : `第${chineseStageNumber(batch2.current_stage_order)}階段(待清洗)`;
+    expect(displayProgress2).toBe("第一階段(浸泡消毒)");
+
+    const buttonText2 = isDisinfect2 ? "確認開始浸泡消毒" : "確認開始清洗";
+    expect(buttonText2).toBe("確認開始浸泡消毒");
   });
 
   it("消毒單號可正確產生帶有車號與單號之消毒操作 URL 查詢參數", () => {
-    const orderNumber = "MAIN-20261005-0004";
-    const cartNumber = "8D-1";
-    const institutionName = "清春";
+    const orderNumber = "MAIN-20261008-0001";
+    const cartNumber = "2C-6";
+    const institutionName = "護家";
 
     const params = new URLSearchParams();
     if (orderNumber) params.set("order", orderNumber);
@@ -138,9 +156,9 @@ describe("操作控制點與批次標籤 (Operations Control & Batch Labels)", (
     if (institutionName) params.set("institution", institutionName);
 
     const href = `/app/operations/disinfection?${params.toString()}`;
-    expect(href).toBe("/app/operations/disinfection?order=MAIN-20261005-0004&cart=8D-1&institution=%E6%B8%85%E6%98%A5");
-    expect(params.get("order")).toBe("MAIN-20261005-0004");
-    expect(params.get("cart")).toBe("8D-1");
+    expect(href).toBe("/app/operations/disinfection?order=MAIN-20261008-0001&cart=2C-6&institution=%E8%AD%B7%E5%AE%B6");
+    expect(params.get("order")).toBe("MAIN-20261008-0001");
+    expect(params.get("cart")).toBe("2C-6");
   });
 
   it("操作頁面標題與處理進度邏輯一致 (Title matches display progress)", () => {

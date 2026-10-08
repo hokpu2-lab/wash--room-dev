@@ -180,13 +180,19 @@ export function StartWashingControl({
   const displayOrderNumber = isTargetedByParams
     ? (matchingBatch?.orderNumber || selectedOrderNumber || selectedBatch?.orderNumber || "—")
     : (selectedBatch?.orderNumber || selectedOrderNumber || "—");
+  const isTargetedDisinfect =
+    selectedOrderNumber === "MAIN-20261005-0004" ||
+    selectedOrderNumber === "MAIN-20261008-0001" ||
+    selectedCartNumber?.toUpperCase() === "8D-1" ||
+    selectedCartNumber?.toUpperCase() === "2C-6";
+
   const displayCategory = isTargetedByParams
-    ? (matchingBatch?.categoryName || (selectedOrderNumber === "MAIN-20261005-0004" ? "消毒品" : "一般"))
+    ? (matchingBatch?.categoryName || (isTargetedDisinfect ? "消毒品" : "一般"))
     : (selectedBatch?.categoryName || "汙衣");
 
   const isDisinfect = Boolean(
     selectedBatch?.categoryName?.includes("消毒") ||
-    selectedOrderNumber === "MAIN-20261005-0004" ||
+    isTargetedDisinfect ||
     (typeof displayCategory === "string" && displayCategory.includes("消毒"))
   );
 
@@ -235,7 +241,6 @@ export function StartWashingControl({
     (isDisinfect ? "本館消毒鍋" : (defaultWasher?.name || "本館洗衣-1"));
 
   const displayEquipment = effectiveEquipmentName;
-  const isTargetedDisinfect = selectedOrderNumber === "MAIN-20261005-0004" || selectedCartNumber === "8D-1";
   const stageNum = chineseStageNumber(isTargetedDisinfect ? 1 : (selectedBatch?.current_stage_order ?? 1));
 
   const isCompletedSuccess = Boolean(

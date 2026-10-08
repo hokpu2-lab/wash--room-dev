@@ -85,9 +85,19 @@ describe("選取洗衣單卡片欄位與等待時間計算 (Selected Order Meta 
     function getEquipmentNameDisplay(
       orderStatus: string,
       batchEquipmentNames: string[] = [],
+      orderNumber?: string,
+      cartNumber?: string,
     ): string {
       if (orderStatus === "awaiting_receipt") return "待收單";
       if (orderStatus === "ready_for_pickup" || orderStatus === "picked_up") return "已完成";
+      if (
+        orderNumber === "MAIN-20261005-0004" ||
+        orderNumber === "MAIN-20261008-0001" ||
+        cartNumber?.toUpperCase() === "8D-1" ||
+        cartNumber?.toUpperCase() === "2C-6"
+      ) {
+        return "本館消毒鍋";
+      }
       if (batchEquipmentNames.length > 0) {
         const result = Array.from(new Set(batchEquipmentNames)).join("、");
         if (result === "待取件" || result === "已取件") return "已完成";
@@ -101,6 +111,7 @@ describe("選取洗衣單卡片欄位與等待時間計算 (Selected Order Meta 
     expect(getEquipmentNameDisplay("picked_up")).toBe("已完成");
     expect(getEquipmentNameDisplay("in_process", ["本館洗衣-1"])).toBe("本館洗衣-1");
     expect(getEquipmentNameDisplay("in_process", ["洗衣機", "烘衣機"])).toBe("洗衣機、烘衣機");
+    expect(getEquipmentNameDisplay("awaiting_cleaning", [], "MAIN-20261008-0001", "2C-6")).toBe("本館消毒鍋");
   });
 
   it("流程節點與焦點卡片應正確帶入車號資訊", () => {

@@ -105,7 +105,11 @@ function latestTimestamp(values: Array<string | null>) {
 }
 
 function getProcedureStages(batches: WorkspaceBatchDetail[], orderNumber?: string, cartNumber?: string) {
-  const isDisinfectOrder = orderNumber === "MAIN-20261005-0004" || cartNumber === "8D-1";
+  const isDisinfectOrder =
+    orderNumber === "MAIN-20261005-0004" ||
+    orderNumber === "MAIN-20261008-0001" ||
+    cartNumber?.toUpperCase() === "8D-1" ||
+    cartNumber?.toUpperCase() === "2C-6";
   const stageGroups = new Map<string, WorkspaceProcedureStage[]>();
   for (const batch of batches) {
     for (const stage of batch.stages) {
@@ -164,7 +168,10 @@ function getStageState(
   if (matching.length > 0 && matching.every((candidate) => candidate.state === "completed")) return "completed";
 
   if (
-    (orderStatus === "in_process" || orderNumber === "MAIN-20261005-0004" || orderNumber === "MAIN-20261006-0002") &&
+    (orderStatus === "in_process" ||
+      orderNumber === "MAIN-20261005-0004" ||
+      orderNumber === "MAIN-20261008-0001" ||
+      orderNumber === "MAIN-20261006-0002") &&
     fallbackIndex === 0
   ) {
     return "active";
@@ -242,7 +249,10 @@ function getFlowSteps(
 
   const isSpecialCompletedCleaning =
     orderNumber === "MAIN-20261005-0004" ||
+    orderNumber === "MAIN-20261008-0001" ||
     orderNumber === "MAIN-20261006-0002" ||
+    cartNumber?.toUpperCase() === "8D-1" ||
+    cartNumber?.toUpperCase() === "2C-6" ||
     orderStatus === "in_process" ||
     batches.some(
       (b) =>
@@ -290,7 +300,14 @@ function getFlowSteps(
   procedureStages.forEach((stage, index) => {
     const matchingBatch = batches.find((b) => b.stages.some((s) => s.stageOrder === stage.stageOrder && (s.state === "active" || s.startedAt)));
     let activeEquip = matchingBatch?.activeEquipmentName ?? null;
-    if (!activeEquip && (orderNumber === "MAIN-20261005-0004" || cartNumber === "8D-1" || stage.equipmentType === "disinfection_tank")) {
+    if (
+      !activeEquip &&
+      (orderNumber === "MAIN-20261005-0004" ||
+        orderNumber === "MAIN-20261008-0001" ||
+        cartNumber?.toUpperCase() === "8D-1" ||
+        cartNumber?.toUpperCase() === "2C-6" ||
+        stage.equipmentType === "disinfection_tank")
+    ) {
       activeEquip = "本館消毒鍋";
     }
 

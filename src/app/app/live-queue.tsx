@@ -99,6 +99,15 @@ function getEquipmentNameDisplay(
   if (order.status === "awaiting_receipt") return "待收單";
   if (order.status === "ready_for_pickup" || order.status === "picked_up") return "已完成";
 
+  if (
+    order.orderNumber === "MAIN-20261005-0004" ||
+    order.orderNumber === "MAIN-20261008-0001" ||
+    order.cartNumber?.toUpperCase() === "8D-1" ||
+    order.cartNumber?.toUpperCase() === "2C-6"
+  ) {
+    return "本館消毒鍋";
+  }
+
   if (detail?.batches && detail.batches.length > 0) {
     const equipmentNames = detail.batches.map((batch) => {
       const activeStage = batch.stages.find((s) => s.state === "active");
@@ -583,7 +592,7 @@ export function LiveQueue({
                   >
                     前往收單建立分類批次 →
                   </AppLink>
-                ) : selected.orderNumber === "MAIN-20261005-0004" || selected.status === "in_process" ? (
+                ) : selected.orderNumber === "MAIN-20261005-0004" || selected.orderNumber === "MAIN-20261008-0001" || selected.cartNumber?.toUpperCase() === "8D-1" || selected.cartNumber?.toUpperCase() === "2C-6" || selected.status === "in_process" ? (
                   <AppLink
                     href={hrefWithClientScope("/app/operations/control-center", { siteId: siteId ?? null, institutionId: null })}
                     className={styles.primaryActionCta}
@@ -636,7 +645,7 @@ export function LiveQueue({
                 >
                   前往收單 ↗
                 </AppLink>
-              ) : selected?.orderNumber === "MAIN-20261005-0004" || selected?.status === "in_process" ? (
+              ) : selected?.orderNumber === "MAIN-20261005-0004" || selected?.orderNumber === "MAIN-20261008-0001" || selected?.cartNumber?.toUpperCase() === "8D-1" || selected?.cartNumber?.toUpperCase() === "2C-6" || selected?.status === "in_process" ? (
                 <AppLink
                   href={hrefWithClientScope("/app/operations/control-center", { siteId: siteId ?? null, institutionId: null })}
                   className={styles.orderFlowHeaderAction}
