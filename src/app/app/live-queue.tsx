@@ -95,6 +95,7 @@ function getEquipmentTypeName(type: string | undefined | null): string {
 function getEquipmentNameDisplay(
   order: WorkspaceOrder,
   detail: WorkspaceOrderDetail | null,
+  equipment: WorkspaceEquipment[] = [],
 ): string {
   if (order.status === "awaiting_receipt") return "待收單";
   if (order.status === "ready_for_pickup" || order.status === "picked_up") return "已完成";
@@ -110,23 +111,32 @@ function getEquipmentNameDisplay(
 
   if (detail?.batches && detail.batches.length > 0) {
     const equipmentNames = detail.batches.map((batch) => {
+      if (batch.activeEquipmentName) return batch.activeEquipmentName;
       const activeStage = batch.stages.find((s) => s.state === "active");
       const currentStage =
         activeStage ??
         batch.stages.find((s) => s.stageOrder === batch.currentStageOrder) ??
         batch.stages[0];
-      return (
-        batch.activeEquipmentName ||
-        (currentStage?.equipmentType && getEquipmentTypeName(currentStage.equipmentType)) ||
-        "洗衣機"
-      );
+      const eqType = currentStage?.equipmentType;
+      if (eqType) {
+        const matched = equipment.find((e) => e.equipmentType === eqType && (e.occupied || e.status === "normal"));
+        if (matched) return matched.name;
+        if (eqType === "disinfection_tank") return "本館消毒鍋";
+        if (eqType === "washer") return "本館洗衣-1";
+        if (eqType === "dryer") return "本館烘衣-1";
+        return getEquipmentTypeName(eqType);
+      }
+      return "本館洗衣-1";
     });
     const result = Array.from(new Set(equipmentNames)).join("、");
     if (result === "待取件" || result === "已取件") return "已完成";
     return result;
   }
 
-  if (order.status === "awaiting_cleaning" || order.status === "in_process") return "洗衣機";
+  if (order.status === "awaiting_cleaning" || order.status === "in_process") {
+    const defaultWasher = equipment.find((e) => e.equipmentType === "washer" && (e.occupied || e.status === "normal"));
+    return defaultWasher?.name || "本館洗衣-1";
+  }
   const label = orderStatusLabel(order.status) || "待清洗";
   if (label === "待取件" || label === "已取件") return "已完成";
   return label;
@@ -557,7 +567,7 @@ export function LiveQueue({
                 <div className={styles.orderMetaCol}>
                   <span className={styles.orderMetaColLabel}>使用中設備</span>
                   <strong className={styles.orderMetaColVal}>
-                    {getEquipmentNameDisplay(selected, selectedDetail)}
+                    {getEquipmentNameDisplay(selected, selectedDetail, equipment)}
                   </strong>
                 </div>
                 <div className={styles.orderMetaCol}>

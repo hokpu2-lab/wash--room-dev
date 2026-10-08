@@ -16,6 +16,9 @@
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
 
+- **選取洗衣單之「使用中設備」抓取對應「洗衣設備與固定 QR」設備（/app/dashboard）**：
+  - **精準設備名稱解析**：於 `src/app/app/live-queue.tsx` 更新 `getEquipmentNameDisplay`，接收 `equipment` 清單，優先解析活躍批次與設備類型對應之實際設備名稱（如 `本館洗衣-1`、`WASHER MAIN 01`、`本館消毒鍋`），取代原本通用的抽象字串「洗衣機」。
+  - **快照資料傳遞修復**：於 `src/app/app/workspace-live.tsx` 確保所有角色（含 `supervisor`）的 `LiveQueue` 皆接收 `snapshot.equipment`，使選取洗衣單卡片能無縫關聯設備清單。
 - **洗衣排程流程節點與名稱精準對齊（1.送件->收件->分類 2.洗衣 3.烘衣 4.消毒 5.取件）**：
   - **前段交接節點精準更名**：於 `src/app/app/laundry-order-flow-3d.tsx` 將前三節點標籤統一對齊為「送件（送單建立）」➔「收件（等待掃車收件）」➔「分類（收單分類完成）」。
   - **洗滌與烘衣階段標籤**：將清洗階段標籤對齊為「洗衣」（設備：洗衣機）、烘乾階段標籤對齊為「烘衣」（設備：烘衣機）。

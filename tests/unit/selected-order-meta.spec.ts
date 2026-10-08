@@ -81,12 +81,13 @@ describe("選取洗衣單卡片欄位與等待時間計算 (Selected Order Meta 
     expect(getOrderStageProgressDisplay("in_process", [1, 2])).toBe("第 1 階段、第 2 階段");
   });
 
-  it("使用中設備欄位在待取件或已取件時應顯示已完成，進行中顯示純設備名稱", () => {
+  it("使用中設備欄位在待取件或已取件時應顯示已完成，進行中抓取洗衣設備與固定 QR 對應設備", () => {
     function getEquipmentNameDisplay(
       orderStatus: string,
       batchEquipmentNames: string[] = [],
       orderNumber?: string,
       cartNumber?: string,
+      equipment: Array<{ name: string; equipmentType: string; status: string; occupied: boolean }> = [],
     ): string {
       if (orderStatus === "awaiting_receipt") return "待收單";
       if (orderStatus === "ready_for_pickup" || orderStatus === "picked_up") return "已完成";
@@ -103,15 +104,26 @@ describe("選取洗衣單卡片欄位與等待時間計算 (Selected Order Meta 
         if (result === "待取件" || result === "已取件") return "已完成";
         return result;
       }
-      return "洗衣機";
+      if (orderStatus === "awaiting_cleaning" || orderStatus === "in_process") {
+        const defaultWasher = equipment.find((e) => e.equipmentType === "washer" && (e.occupied || e.status === "normal"));
+        return defaultWasher?.name || "本館洗衣-1";
+      }
+      return "本館洗衣-1";
     }
+
+    const mockEquipment = [
+      { name: "本館洗衣-1", equipmentType: "washer", status: "normal", occupied: true },
+      { name: "本館烘衣-1", equipmentType: "dryer", status: "normal", occupied: false },
+      { name: "本館消毒鍋", equipmentType: "disinfection_tank", status: "normal", occupied: false },
+    ];
 
     expect(getEquipmentNameDisplay("awaiting_receipt")).toBe("待收單");
     expect(getEquipmentNameDisplay("ready_for_pickup")).toBe("已完成");
     expect(getEquipmentNameDisplay("picked_up")).toBe("已完成");
     expect(getEquipmentNameDisplay("in_process", ["本館洗衣-1"])).toBe("本館洗衣-1");
-    expect(getEquipmentNameDisplay("in_process", ["洗衣機", "烘衣機"])).toBe("洗衣機、烘衣機");
+    expect(getEquipmentNameDisplay("in_process", ["本館洗衣-1", "本館烘衣-1"])).toBe("本館洗衣-1、本館烘衣-1");
     expect(getEquipmentNameDisplay("awaiting_cleaning", [], "MAIN-20261008-0001", "2C-6")).toBe("本館消毒鍋");
+    expect(getEquipmentNameDisplay("in_process", [], "MAIN-20261008-0003", "2D-1", mockEquipment)).toBe("本館洗衣-1");
   });
 
   it("流程節點與焦點卡片應正確帶入車號資訊", () => {

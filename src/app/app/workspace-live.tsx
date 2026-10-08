@@ -243,7 +243,7 @@ export function WorkspaceLive({
       {mode !== "command" ? <LiveQueue
           orders={snapshot?.orders ?? []}
           orderDetails={snapshot?.orderDetails ?? []}
-          equipment={variant === "supervisor" ? [] : snapshot?.equipment ?? []}
+          equipment={snapshot?.equipment ?? []}
           query={snapshot?.query ?? query ?? ""}
           page={snapshot?.page ?? 1}
           pageSize={snapshot?.pageSize ?? 20}
