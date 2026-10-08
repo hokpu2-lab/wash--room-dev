@@ -16,6 +16,12 @@
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
 
+- **「目前洗衣車」分類標籤加大顯示並完整呈現送洗機構名稱（/app/admin/laundry-carts）**：
+  - **標籤按鈕加大顯示**：於 `src/app/app/workspace.module.css` 新增 `.filterPillLarge` 樣式（`min-height: 44px; padding: 8px 20px; font-size: 1.05rem; font-weight: 850; border-radius: 8px;`），標籤列間距擴展為 `10px`，大幅提升點擊面積與視覺易讀性。
+  - **完整顯示送洗機構名稱**：新增純函式工具 [`src/app/app/admin/laundry-carts/institution-label.ts`](file:///c:/Users/user/Desktop/PU2/src/app/app/admin/laundry-carts/institution-label.ts) 提供 `formatInstitutionLabel`。若送洗機構代碼為 `2C` 且名稱為 `護家`，標籤自動格式化為 `2C護家 (2)`，徹底避免資訊被簡略截斷。
+  - **單元測試與相容性維護**：於 `tests/unit/laundry-cart-filter.spec.ts` 補充機構名稱格式化測試案例（全數 6 通過）；隔離 server-only 相依，確保客戶端與測試環境均能無縫載入。
+  - **測試與建置覆核**：35 個測試檔、145 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
 - **徹底修復清洗與烘乾設備相容性檢核與「洗衣機與批次分類或程序不相容。」阻塞（/app/operations/washing, /app/operations/drying）**：
   - **根本原因排除**：
     1. 後端 RPC 函式 `private.validate_laundry_equipment_for_stage` 原先嚴格檢查 `laundry_equipment_categories` 與 `laundry_equipment_procedures`；由於現場洗衣機通常設定為一般或汙衣分類，未在後台為洗衣機勾選「消毒品」與消毒範本，導致消毒批次（`MAIN-20261008-0001`，車號 2C-6）進入第二階段（清洗）時遭後端拒絕並回傳 `incompatible_equipment`（「洗衣機與批次分類或程序不相容。」）。

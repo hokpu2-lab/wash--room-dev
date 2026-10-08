@@ -4,6 +4,9 @@ import { useState } from "react";
 
 import styles from "../../workspace.module.css";
 import { changeLaundryCartActive } from "./actions";
+import { formatInstitutionLabel } from "./institution-label";
+
+export { formatInstitutionLabel };
 
 type CartItem = {
   id: string;
@@ -29,6 +32,7 @@ type InstitutionItem = {
     name: string;
   };
 };
+
 
 export type CartListClientProps = {
   carts: CartItem[];
@@ -63,7 +67,7 @@ export function CartListClient({ carts, institutions }: CartListClientProps) {
         className={styles.queueFilterGroup}
         role="tablist"
         aria-label="依照送洗機構分類標籤"
-        style={{ marginBottom: "1.25rem" }}
+        style={{ marginBottom: "1.25rem", gap: "10px" }}
       >
         <button
           type="button"
@@ -71,8 +75,8 @@ export function CartListClient({ carts, institutions }: CartListClientProps) {
           aria-selected={selectedInstitutionCode === null}
           className={
             selectedInstitutionCode === null
-              ? `${styles.filterPill} ${styles.filterPillAll} ${styles.filterPillActive}`
-              : `${styles.filterPill} ${styles.filterPillAll}`
+              ? `${styles.filterPill} ${styles.filterPillLarge} ${styles.filterPillAll} ${styles.filterPillActive}`
+              : `${styles.filterPill} ${styles.filterPillLarge} ${styles.filterPillAll}`
           }
           onClick={() => setSelectedInstitutionCode(null)}
         >
@@ -81,6 +85,7 @@ export function CartListClient({ carts, institutions }: CartListClientProps) {
         {institutionList.map((inst) => {
           const count = carts.filter((c) => c.institutions.code === inst.code).length;
           const isSelected = selectedInstitutionCode === inst.code;
+          const labelName = formatInstitutionLabel(inst.code, inst.name);
           return (
             <button
               key={inst.id}
@@ -89,12 +94,12 @@ export function CartListClient({ carts, institutions }: CartListClientProps) {
               aria-selected={isSelected}
               className={
                 isSelected
-                  ? `${styles.filterPill} ${styles.filterPillBlue} ${styles.filterPillActive}`
-                  : `${styles.filterPill} ${styles.filterPillBlue}`
+                  ? `${styles.filterPill} ${styles.filterPillLarge} ${styles.filterPillBlue} ${styles.filterPillActive}`
+                  : `${styles.filterPill} ${styles.filterPillLarge} ${styles.filterPillBlue}`
               }
               onClick={() => setSelectedInstitutionCode(inst.code)}
             >
-              {inst.name} ({count})
+              {labelName} ({count})
             </button>
           );
         })}
@@ -104,7 +109,7 @@ export function CartListClient({ carts, institutions }: CartListClientProps) {
         <div className={styles.emptyQueueBox}>
           <p className={styles.emptyQueue}>
             {currentInstitution
-              ? `目前「${currentInstitution.name}」尚無洗衣車。`
+              ? `目前「${formatInstitutionLabel(currentInstitution.code, currentInstitution.name)}」尚無洗衣車。`
               : "目前管理範圍內尚無洗衣車。"}
           </p>
         </div>

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { formatInstitutionLabel } from "../../src/app/app/admin/laundry-carts/institution-label";
+
 describe("洗衣車清單依照送洗機構標籤篩選 (Laundry Cart Filter by Institution)", () => {
   const mockCarts = [
     {
@@ -85,5 +87,16 @@ describe("洗衣車清單依照送洗機構標籤篩選 (Laundry Cart Filter by 
       { name: "長照中心", count: 1 },
       { name: "日照中心", count: 0 },
     ]);
+  });
+
+  it("formatInstitutionLabel 完整顯示送洗機構名稱，例如 2C · 護家 顯示為 2C護家", () => {
+    expect(formatInstitutionLabel("2C", "護家")).toBe("2C護家");
+    expect(formatInstitutionLabel("CARE-NURSING", "護理之家")).toBe("CARE-NURSING護理之家");
+    expect(formatInstitutionLabel("2C", "2C護家")).toBe("2C護家");
+    expect(formatInstitutionLabel("", "護理之家")).toBe("護理之家");
+    expect(formatInstitutionLabel("2C", "")).toBe("2C");
+
+    const label = `${formatInstitutionLabel("2C", "護家")} (${2})`;
+    expect(label).toBe("2C護家 (2)");
   });
 });
