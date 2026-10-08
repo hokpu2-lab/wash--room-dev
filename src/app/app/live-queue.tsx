@@ -585,14 +585,7 @@ export function LiveQueue({
               </div>
 
               <div className={styles.selectedOrderMainActionRow}>
-                {selected.status === "awaiting_receipt" ? (
-                  <AppLink
-                    href={hrefWithClientScope("/app/operations/receive", { siteId: siteId ?? null, institutionId: null })}
-                    className={styles.primaryActionCta}
-                  >
-                    前往收單建立分類批次 →
-                  </AppLink>
-                ) : selected.orderNumber === "MAIN-20261005-0004" || selected.orderNumber === "MAIN-20261008-0001" || selected.cartNumber?.toUpperCase() === "8D-1" || selected.cartNumber?.toUpperCase() === "2C-6" || selected.status === "in_process" ? (
+                {selected.orderNumber === "MAIN-20261005-0004" || selected.orderNumber === "MAIN-20261008-0001" || selected.cartNumber?.toUpperCase() === "8D-1" || selected.cartNumber?.toUpperCase() === "2C-6" || selected.status === "in_process" ? (
                   <AppLink
                     href={hrefWithClientScope("/app/operations/control-center", { siteId: siteId ?? null, institutionId: null })}
                     className={styles.primaryActionCta}
@@ -610,9 +603,9 @@ export function LiveQueue({
                   <span className={styles.primaryActionInfo}>
                     🚚 所有程序已完成，請由送洗人員掃描洗衣車 QR 完成取件結案。
                   </span>
-                ) : (
+                ) : selected.status === "picked_up" ? (
                   <span className={styles.primaryActionInfo}>✓ 此單已完成取件結案。</span>
-                )}
+                ) : null}
               </div>
             </div>
           ) : (
@@ -638,14 +631,7 @@ export function LiveQueue({
             orderReadyAt={selectedDetail?.orderReadyAt}
             orderClosedAt={selectedDetail?.orderClosedAt}
             headerAction={
-              selected?.status === "awaiting_receipt" ? (
-                <AppLink
-                  href={hrefWithClientScope("/app/operations/receive", { siteId: siteId ?? null, institutionId: null })}
-                  className={styles.orderFlowHeaderAction}
-                >
-                  前往收單 ↗
-                </AppLink>
-              ) : selected?.orderNumber === "MAIN-20261005-0004" || selected?.orderNumber === "MAIN-20261008-0001" || selected?.cartNumber?.toUpperCase() === "8D-1" || selected?.cartNumber?.toUpperCase() === "2C-6" || selected?.status === "in_process" ? (
+              selected?.orderNumber === "MAIN-20261005-0004" || selected?.orderNumber === "MAIN-20261008-0001" || selected?.cartNumber?.toUpperCase() === "8D-1" || selected?.cartNumber?.toUpperCase() === "2C-6" || selected?.status === "in_process" ? (
                 <AppLink
                   href={hrefWithClientScope("/app/operations/control-center", { siteId: siteId ?? null, institutionId: null })}
                   className={styles.orderFlowHeaderAction}

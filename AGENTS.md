@@ -26,6 +26,8 @@
 
 ## 2026-10-08 最新接手快照
 
+- **移除選取洗衣單卡片之「前往收單建立分類批次」按鈕（/app/dashboard）**：
+  - **精簡待收件動作列**：於 `src/app/app/live-queue.tsx` 移除 `selected.status === "awaiting_receipt"` 時顯示之「前往收單建立分類批次 →」主動作按鈕及流程頂部之「前往收單 ↗」按鈕，落實現場掃描車卡固定 QR 收單分類規範。
 - **洗衣排程 2C-6 車（單號 MAIN-20261008-0001）同步「本館消毒鍋」與消毒功能**：
   - **使用中設備精準顯示**：於 `src/app/app/live-queue.tsx` 之 `getEquipmentNameDisplay` 將單號 `MAIN-20261008-0001` 與車號 `2C-6`（護家）之使用中設備同步為「本館消毒鍋」。
   - **流程圖與控制中心串聯**：於 `laundry-order-flow-3d.tsx` 將該單納入 `isDisinfectOrder` 與消毒浸泡階段，階段設備指定為「本館消毒鍋」；選取該單時，主動作按鈕與流程頂部按鈕直通批次控制中心（`/app/operations/control-center`）。
