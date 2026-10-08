@@ -11,6 +11,7 @@ import type {
 
 import { AppLink } from "./app-link";
 import { LaundryOrderFlow3D } from "./laundry-order-flow-3d";
+import { QuickLiveView } from "./quick-live-view";
 import { WashingModalContent } from "./operations/washing/modal-content";
 import {
   equipmentStatusLabels,
@@ -422,6 +423,13 @@ export function LiveQueue({
 
   return (
     <section className={styles.liveQueueSection} aria-labelledby="live-queue-title">
+      {/* 簡易即時視圖 (待收件洗衣車 ➔ 設備即時動態 ➔ 完成待取件) */}
+      <QuickLiveView
+        orders={orders}
+        orderDetails={orderDetails}
+        equipment={equipment}
+      />
+
       {/* Top Cards Row: Left + Right */}
       <div className={styles.topCardsGrid}>
         {/* Left Card: 洗衣排程 */}

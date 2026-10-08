@@ -16,6 +16,14 @@
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
 
+- **洗衣單與批次頁面新增「即時洗衣車與設備流轉簡易即時視圖」（/app/dashboard）**：
+  - **三欄全流程流線視圖架構（`src/app/app/quick-live-view.tsx`、`quick-live-view.module.css`）**：
+    - **左側（📥 待收件洗衣車）**：過濾 `orders` 中狀態為 `awaiting_receipt` 的洗衣車清單，依序排列；滑鼠懸停（hover）或聚焦（focus）於車號晶片標籤（`🛒 車號`）時，顯示懸浮提示框（Tooltip），清晰呈現「機構名稱」與「洗衣單號」。
+    - **中間（⚙️ 洗衣設備運作動態）**：動態依「消毒鍋（🧪）➔ 洗衣機（🫧）➔ 烘衣機（💨）」之分類順序排列目前「洗衣設備與固定 QR」中的所有實體設備。精準結合 `orderDetails` 批次階段執行與設備占用狀態，即時呈現「消毒中」、「清洗中」、「烘乾中」、「消毒完畢」、「清洗完畢」、「烘乾完畢」、「暫停」或「閒置待機」，並清楚標示當前正在使用該機台的「送洗機構」與「洗衣車號」。
+    - **右側（📤 待取件）**：過濾 `orders` 中狀態為 `ready_for_pickup` 的洗衣車清單，呈現已完成所有洗烘消毒階段之洗衣車號與機構資訊，供現場取件人員即時確認。
+  - **整合與位置**：在 `src/app/app/live-queue.tsx` 的「洗衣排程」區塊上方無縫嵌入 `<QuickLiveView />`，並附帶運作中狀態顏色圖例（粉紅：消毒中、天藍：清洗中、橙黃：烘乾中、翡翠綠：階段完畢），具備脈衝動態小圓點提示。
+  - **測試與建置覆核**：35 個測試檔、146 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
 - **操作控制台手機版資訊卡片響應式排版優化與洗衣車號清晰展示（/app/operations/disinfection, /app/operations/washing, /app/operations/drying）**：
   - **根本原因排除**：先前操作控制台上方資訊卡片使用內嵌網格樣式 `minmax(210px, 1fr)` 且間距與內距過大（`padding: 1.5rem 1.75rem`、`gap: 1.5rem 1.75rem`），在手機直向螢幕（寬度 360px ~ 430px）下無法容納兩欄，導致所有項目被強制退化為單欄垂直堆疊 5 大區塊，資訊卡片高度被撐至超過一個手機螢幕，造成「🛒 洗衣車號」等關鍵欄位被推擠至可視區域下方或排版截斷。
   - **響應式類別架構重構（`workspace.module.css`）**：

@@ -1,0 +1,414 @@
+.liveViewContainer {
+  margin-bottom: 1.5rem;
+  padding: 1.25rem 1.4rem;
+  background: linear-gradient(145deg, #0d172e 0%, #070d1a 100%);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  color: #f1f5f9;
+}
+
+.liveViewHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.15rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-wrap: wrap;
+}
+
+.liveViewTitleWrap {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.liveViewPulse {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #38bdf8;
+  box-shadow: 0 0 10px #38bdf8;
+  animation: pulse 2s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.7);
+  }
+  70% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 8px rgba(56, 189, 248, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0);
+  }
+}
+
+.liveViewTitle {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 850;
+  color: #ffffff;
+  letter-spacing: 0.02em;
+}
+
+.liveViewLegend {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  font-size: 0.82rem;
+  color: #94a3b8;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.legendDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.toneDisinfect { background-color: #ec4899; box-shadow: 0 0 6px #ec4899; }
+.toneWash { background-color: #38bdf8; box-shadow: 0 0 6px #38bdf8; }
+.toneDry { background-color: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+.toneDone { background-color: #10b981; box-shadow: 0 0 6px #10b981; }
+
+/* 三欄網格：左側待收車、中間設備群、右側待取車 */
+.liveViewGrid {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(360px, 2.6fr) minmax(180px, 1fr);
+  gap: 1.15rem;
+  align-items: stretch;
+}
+
+.liveViewCol {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 0.95rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.equipmentCol {
+  background: rgba(11, 20, 39, 0.85);
+  border-color: rgba(56, 189, 248, 0.2);
+}
+
+.colHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.colTitle {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #e2e8f0;
+}
+
+.colCount {
+  font-size: 0.8rem;
+  font-weight: 850;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #38bdf8;
+}
+
+.cartList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-content: flex-start;
+  min-height: 80px;
+}
+
+.cartChip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.75rem;
+  background: #1e293b;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+
+.cartChip:hover {
+  background: #334155;
+  border-color: #38bdf8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.25);
+}
+
+.cartChipReady {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.45);
+}
+
+.cartChipReady:hover {
+  background: rgba(16, 185, 129, 0.25);
+  border-color: #10b981;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.cartIcon {
+  font-size: 1.05rem;
+}
+
+.cartNumber {
+  font-size: 0.96rem;
+  font-weight: 850;
+  color: #ffffff;
+  letter-spacing: 0.03em;
+}
+
+/* Hover Tooltip 浮動提示機構名稱 */
+.tooltipBox {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0f172a;
+  border: 1px solid #38bdf8;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tooltipBox::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: #38bdf8 transparent transparent transparent;
+}
+
+.cartChip:hover .tooltipBox,
+.cartChip:focus-within .tooltipBox {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(-2px);
+}
+
+.tooltipLabel {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.tooltipValue {
+  font-size: 0.92rem;
+  font-weight: 850;
+  color: #38bdf8;
+}
+
+.tooltipOrder {
+  font-size: 0.75rem;
+  color: #cbd5e1;
+}
+
+/* 設備卡片網格 */
+.equipmentGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 0.75rem;
+}
+
+.equipmentCard {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.equipmentCard:hover {
+  transform: translateY(-1px);
+}
+
+/* 設備狀態樣式 Tone */
+.eqDisinfecting {
+  border-color: #ec4899;
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.1) 0%, rgba(15, 23, 42, 0.95) 100%);
+}
+
+.eqWashing {
+  border-color: #38bdf8;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%);
+}
+
+.eqDrying {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%);
+}
+
+.eqCompleted {
+  border-color: #10b981;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%);
+}
+
+.eqPaused {
+  border-color: #ef4444;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%);
+}
+
+.eqIdle {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: #0f172a;
+  opacity: 0.85;
+}
+
+.eqTopRow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.eqTypeIcon {
+  font-size: 1.15rem;
+}
+
+.eqName {
+  font-size: 0.95rem;
+  font-weight: 850;
+  color: #ffffff;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eqStatusBadge {
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
+  white-space: nowrap;
+}
+
+.eqDisinfecting .eqStatusBadge {
+  background: rgba(236, 72, 153, 0.25);
+  color: #f472b6;
+  border: 1px solid rgba(236, 72, 153, 0.5);
+}
+
+.eqWashing .eqStatusBadge {
+  background: rgba(56, 189, 248, 0.25);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.5);
+}
+
+.eqDrying .eqStatusBadge {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.5);
+}
+
+.eqCompleted .eqStatusBadge {
+  background: rgba(16, 185, 129, 0.25);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.5);
+}
+
+.eqPaused .eqStatusBadge {
+  background: rgba(239, 68, 68, 0.25);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+}
+
+.eqDetailRow {
+  font-size: 0.84rem;
+  padding-top: 0.35rem;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.activeRunningInfo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.runningInstBadge {
+  color: #cbd5e1;
+  font-weight: 750;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runningCartBadge {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 850;
+}
+
+.idleRunningInfo {
+  display: flex;
+  align-items: center;
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.busyWithoutCart {
+  color: #38bdf8;
+  font-weight: 750;
+}
+
+.idleText {
+  color: #64748b;
+}
+
+.emptyState {
+  font-size: 0.82rem;
+  color: #64748b;
+  padding: 0.75rem 0;
+  text-align: center;
+  width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .liveViewGrid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
