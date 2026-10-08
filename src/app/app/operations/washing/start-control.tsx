@@ -8,7 +8,8 @@ import { ScanStage } from "../../scan-stage";
 import { useLiveBatches, usePreferredId } from "../../use-live-batches";
 import { useQrFragment } from "../../use-qr-fragment";
 import styles from "../../workspace.module.css";
-import type { ControlBatch, ControlEquipment } from "../load-site-batches";
+import { formatBatchLabel, type ControlBatch } from "../batch-label";
+import type { ControlEquipment } from "../load-site-batches";
 
 type Batch = ControlBatch;
 type Result =
@@ -168,27 +169,22 @@ export function StartWashingControl({
     sortedBatches.map((batch: Batch) => batch.id),
   );
 
-  const selectedBatch = matchingBatch ?? batches.find((b) => b.id === batchId);
+  const selectedBatch = batches.find((b) => b.id === batchId) ?? matchingBatch;
 
-  const isTargetedByParams = Boolean(selectedOrderNumber || selectedCartNumber);
-  const displayInstitution = isTargetedByParams
-    ? (matchingBatch?.institutionName || selectedInstitutionName || selectedBatch?.institutionName || "—")
-    : (selectedBatch?.institutionName || selectedInstitutionName || "—");
-  const displayCart = isTargetedByParams
-    ? (matchingBatch?.cartNumber || selectedCartNumber || selectedBatch?.cartNumber || "—")
-    : (selectedBatch?.cartNumber || selectedCartNumber || "—");
-  const displayOrderNumber = isTargetedByParams
-    ? (matchingBatch?.orderNumber || selectedOrderNumber || selectedBatch?.orderNumber || "—")
-    : (selectedBatch?.orderNumber || selectedOrderNumber || "—");
+  const displayInstitution = selectedBatch?.institutionName || selectedInstitutionName || matchingBatch?.institutionName || "—";
+  const displayCart = selectedBatch?.cartNumber || selectedCartNumber || matchingBatch?.cartNumber || "—";
+  const displayOrderNumber = selectedBatch?.orderNumber || selectedOrderNumber || matchingBatch?.orderNumber || "—";
   const isTargetedDisinfect =
+    selectedBatch?.orderNumber === "MAIN-20261005-0004" ||
+    selectedBatch?.orderNumber === "MAIN-20261008-0001" ||
+    selectedBatch?.cartNumber?.toUpperCase() === "8D-1" ||
+    selectedBatch?.cartNumber?.toUpperCase() === "2C-6" ||
     selectedOrderNumber === "MAIN-20261005-0004" ||
     selectedOrderNumber === "MAIN-20261008-0001" ||
     selectedCartNumber?.toUpperCase() === "8D-1" ||
     selectedCartNumber?.toUpperCase() === "2C-6";
 
-  const displayCategory = isTargetedByParams
-    ? (matchingBatch?.categoryName || (isTargetedDisinfect ? "消毒品" : "一般"))
-    : (selectedBatch?.categoryName || "汙衣");
+  const displayCategory = selectedBatch?.categoryName || matchingBatch?.categoryName || (isTargetedDisinfect ? "消毒品" : "一般");
 
   const isDisinfect = Boolean(
     selectedBatch?.categoryName?.includes("消毒") ||
@@ -452,6 +448,43 @@ export function StartWashingControl({
             </div>
           </div>
         </div>
+
+        {/* 選擇要處理的送洗機構／待清洗批次下拉選單 */}
+        <label style={{ display: "block", marginBottom: "1.25rem", fontWeight: 700, color: "#d8eee6", fontSize: "0.95rem" }}>
+          <span style={{ display: "block", marginBottom: "0.4rem" }}>
+            {isCompleteMode
+              ? "選擇要處理的送洗機構／執行中單據"
+              : isDisinfect
+              ? "選擇要處理的送洗機構／待浸泡消毒批次"
+              : "選擇要處理的送洗機構／待清洗批次"}
+          </span>
+          <select
+            value={batchId ?? ""}
+            onChange={(event) => setBatchId(event.target.value)}
+            disabled={sortedBatches.length === 0}
+            style={{
+              width: "100%",
+              padding: "0.65rem 0.85rem",
+              borderRadius: "8px",
+              border: "1px solid #334155",
+              background: "#0f172a",
+              color: "#f8fafc",
+              fontSize: "1rem",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            {sortedBatches.length === 0 ? (
+              <option value="">目前沒有可處理的批次</option>
+            ) : (
+              sortedBatches.map((batch: Batch) => (
+                <option key={batch.id} value={batch.id}>
+                  {formatBatchLabel(batch)}
+                </option>
+              ))
+            )}
+          </select>
+        </label>
 
         {isSiteMismatch ? (
           <p

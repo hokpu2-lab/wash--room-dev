@@ -170,7 +170,7 @@ export function DisinfectionControl({
     (visible.length > 0 ? visible : candidateBatches).map((batch) => batch.id),
   );
 
-  const selectedBatch = matchingBatch ?? batches.find((b) => b.id === batchId);
+  const selectedBatch = batches.find((b) => b.id === batchId) ?? matchingBatch;
 
   const availableDisinfectTanks = availableEquipment.filter((e) => e.equipment_type === "disinfection_tank");
   const matchedDisinfectTanks = selectedBatch?.operating_site_id
@@ -200,19 +200,10 @@ export function DisinfectionControl({
     "本館消毒鍋";
 
   const displayEquipment = effectiveEquipmentName;
-  const isTargetedByParams = Boolean(selectedOrderNumber || selectedCartNumber);
-  const displayInstitution = isTargetedByParams
-    ? (matchingBatch?.institutionName || selectedInstitutionName || selectedBatch?.institutionName || "—")
-    : (selectedBatch?.institutionName || selectedInstitutionName || "—");
-  const displayCart = isTargetedByParams
-    ? (matchingBatch?.cartNumber || selectedCartNumber || selectedBatch?.cartNumber || "—")
-    : (selectedBatch?.cartNumber || selectedCartNumber || "—");
-  const displayOrderNumber = isTargetedByParams
-    ? (matchingBatch?.orderNumber || selectedOrderNumber || selectedBatch?.orderNumber || "—")
-    : (selectedBatch?.orderNumber || selectedOrderNumber || "—");
-  const displayCategory = isTargetedByParams
-    ? (matchingBatch?.categoryName || "消毒品")
-    : (selectedBatch?.categoryName || "消毒品");
+  const displayInstitution = selectedBatch?.institutionName || selectedInstitutionName || matchingBatch?.institutionName || "—";
+  const displayCart = selectedBatch?.cartNumber || selectedCartNumber || matchingBatch?.cartNumber || "—";
+  const displayOrderNumber = selectedBatch?.orderNumber || selectedOrderNumber || matchingBatch?.orderNumber || "—";
+  const displayCategory = selectedBatch?.categoryName || matchingBatch?.categoryName || "消毒品";
 
   const hasScanned = Boolean(activeToken || activeEquipmentId || effectiveEquipmentId);
 
@@ -396,6 +387,39 @@ export function DisinfectionControl({
             </div>
           </div>
         </div>
+
+        {/* 選擇要處理的送洗機構／待浸泡消毒批次下拉選單 */}
+        <label style={{ display: "block", marginBottom: "1.25rem", fontWeight: 700, color: "#d8eee6", fontSize: "0.95rem" }}>
+          <span style={{ display: "block", marginBottom: "0.4rem" }}>
+            {mode === "complete" ? "選擇要處理的送洗機構／執行中單據" : "選擇要處理的送洗機構／待浸泡消毒批次"}
+          </span>
+          <select
+            value={batchId ?? ""}
+            onChange={(event) => setBatchId(event.target.value)}
+            disabled={visible.length === 0}
+            style={{
+              width: "100%",
+              padding: "0.65rem 0.85rem",
+              borderRadius: "8px",
+              border: "1px solid #334155",
+              background: "#0f172a",
+              color: "#f8fafc",
+              fontSize: "1rem",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            {visible.length === 0 ? (
+              <option value="">目前沒有可處理的消毒批次</option>
+            ) : (
+              visible.map((batch) => (
+                <option key={batch.id} value={batch.id}>
+                  {formatBatchLabel(batch)}
+                </option>
+              ))
+            )}
+          </select>
+        </label>
 
         {isSiteMismatch ? (
           <p

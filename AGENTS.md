@@ -26,8 +26,10 @@
 
 ## 2026-10-08 最新接手快照
 
+- **操作控制點還原送洗機構／批次選取功能（/app/operations/drying, washing, disinfection）**：
+  - **機構批次動態選取與資訊卡片即時連動**：於烘乾（`drying/control.tsx`）、清洗（`washing/start-control.tsx`）與消毒（`disinfection/control.tsx`）控制台還原「選擇要處理的送洗機構／待處理批次」下拉選單，讓現場操作人員可自由選取不同送洗機構之批次。切換選取時，上方資訊卡片（機構名稱、洗衣車號、洗衣單號、洗滌分類、處理進度）即時連動更新為該機構之單據詳情，確認送出時精確處理所選機構批次。
 - **洗衣車與固定 QR 之「目前洗衣車」依送洗機構標籤式分類選取（/app/admin/laundry-carts）**：
-  - **送洗機構標籤選取元件**：新增 [`src/app/app/admin/laundry-carts/cart-list-client.tsx`](file:///c:/Users/user/Desktop/PU2/src/app/app/admin/laundry-carts/cart-list-client.tsx)，提供「全部 (總數)」與各個送洗機構標籤（如 `護理之家 (6)`、`養護中心 (8)`），點選標籤即時篩選並只顯示該機構所屬之洗衣車。
+  - **送洗機構標籤選取元件**：新增 [`src/app/app/admin/laundry-carts/cart-list-client.tsx`](file:///c:/Users/user/Desktop/PU2/src/app/app/admin/laundry-carts/cart-list-client.tsx), 提供「全部 (總數)」與各個送洗機構標籤（如 `護理之家 (6)`、`養護中心 (8)`），點選標籤即時篩選並只顯示該機構所屬之洗衣車。
   - **空狀態防呆與完整表單操作**：未選擇特定機構時預設顯示全部，選擇無車輛機構時呈現機構友善空狀態提示；各列保留啟用／停用表單與固定 QR 查看連結。
 - **選取洗衣單之「使用中設備」抓取對應「洗衣設備與固定 QR」設備（/app/dashboard）**：
   - **精準設備名稱解析**：於 `src/app/app/live-queue.tsx` 更新 `getEquipmentNameDisplay`，接收 `equipment` 清單，優先解析活躍批次與設備類型對應之實際設備名稱（如 `本館洗衣-1`、`WASHER MAIN 01`、`本館消毒鍋`），取代原本通用的抽象字串「洗衣機」。
@@ -44,14 +46,14 @@
   - **洗衣設備與固定 QR 頁面同步**：於 `src/lib/laundry-equipment/administration.ts` 及 `/app/admin/laundry-equipment/[equipmentId]/qr` 將「本館消毒鍋」狀態同步為「使用中」，正使用機構同步為「護家」、車號同步為「2C-6」。
   - **流程圖與控制中心串聯**：於 `laundry-order-flow-3d.tsx` 將該單納入 `isDisinfectOrder` 與消毒浸泡階段，階段設備指定為「本館消毒鍋」；選取該單時，主動作按鈕與流程頂部按鈕直通批次控制中心（`/app/operations/control-center`）。
   - **消毒控制點支援**：於清洗（`washing/start-control.tsx`）與消毒（`disinfection/control.tsx`）控制台將 `MAIN-20261008-0001` / `2C-6` 納入消毒品目標批次，預設設備鎖定「本館消毒鍋」並支援確認開始浸泡消毒。
-- **操作控制台設備名稱與批次下拉選單移除精簡（/app/operations/drying, washing, disinfection, receive）**：
-  - **烘乾控制台精簡**：於 `src/app/app/operations/drying/control.tsx` 移除上方資訊卡片內之「🖥️ 烘乾設備」欄位，並完全移除下方多餘的「待烘乾批次」下拉選單（`<label>...<select>`），讓卡片維持「機構名稱、洗衣車號、洗衣單號、洗滌分類、處理進度」之簡潔平衡版面。
+- **操作控制台設備名稱精簡（/app/operations/drying, washing, disinfection, receive）**：
+  - **烘乾控制台精簡**：於 `src/app/app/operations/drying/control.tsx` 移除上方資訊卡片內之「🖥️ 烘乾設備」欄位，讓卡片維持「機構名稱、洗衣車號、洗衣單號、洗滌分類、處理進度」之簡潔平衡版面。
   - **各操作點同步一致**：於清洗（`washing/start-control.tsx`）與消毒（`disinfection/control.tsx`）控制台資訊卡片同步移除「🖥️ 洗衣設備」與「🖥️ 消毒設備」欄位；於收單控制台（`receive/receive-control.tsx`）頂部摘要列移除「使用設備名稱 (Equipment)」。
 - **移除流程圖節點與卡片「進入固定 QR / 掃碼」按鈕與浮層**：
   - **精簡節點焦點卡片**：於 `src/app/app/laundry-order-flow-3d.tsx` 移除 `flowSelectionCopy` 底部之「📷 進入 [設備名稱/階段名稱] 固定 QR / 掃碼 →」按鈕連結（`flowStepScanLink`），以及 `flowSelectionVisual` 圖示圖片上的點選掃碼浮層（`flowImageScanOverlay`）。
   - **清理資料模型與輔助函式**：移除 `FlowStep` 中的 `href` 屬性，刪除不再需要的 `getEquipmentQrHref` 函式與 `AppLink` 引用，使流程步驟純粹呈現時間線、狀態與說明。
 - **測試與建置覆核**（2026-10-08）：
-  - `npm test`：34 個測試檔、136 個 tests 全數通過。
+  - `npm test`：35 個測試檔、142 個 tests 全數通過。
   - `npm run typecheck`：0 錯誤通過。
   - `npm run build`：Next.js 16.3.0 正式生產建置成功。
 

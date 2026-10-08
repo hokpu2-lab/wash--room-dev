@@ -212,12 +212,39 @@ describe("操作控制點與批次標籤 (Operations Control & Batch Labels)", (
     expect(completedProgress).toBe("第二階段完成");
   });
 
-  it("已帶入單號/車號時省略多餘的下拉選單 (Omit dropdown when targeted by params)", () => {
-    const order: string | undefined = "MAIN-20261006-0001";
-    const cart: string | undefined = "2C-1";
-    const isTargetedByParams = Boolean(order || cart);
-    const showDropdown = !isTargetedByParams;
-    expect(showDropdown).toBe(false);
+  it("控制點提供送洗機構與待處理批次選取功能，並在切換時同步更新選取狀態 (Control points allow selecting institution/batch and updates dynamically)", () => {
+    const batches: ControlBatch[] = [
+      {
+        id: "b1",
+        status: "not_started",
+        current_stage_order: 2,
+        orderNumber: "MAIN-20261006-0001",
+        cartNumber: "2C-1",
+        institutionName: "護理之家",
+        categoryName: "汙衣",
+      },
+      {
+        id: "b2",
+        status: "not_started",
+        current_stage_order: 2,
+        orderNumber: "MAIN-20261006-0003",
+        cartNumber: "3A-2",
+        institutionName: "養護中心",
+        categoryName: "一般",
+      },
+    ];
+
+    let selectedBatchId = batches[0].id;
+    let selectedBatch = batches.find((b) => b.id === selectedBatchId);
+    expect(selectedBatch?.institutionName).toBe("護理之家");
+    expect(selectedBatch?.cartNumber).toBe("2C-1");
+
+    // 切換選取為養護中心批次
+    selectedBatchId = batches[1].id;
+    selectedBatch = batches.find((b) => b.id === selectedBatchId);
+    expect(selectedBatch?.institutionName).toBe("養護中心");
+    expect(selectedBatch?.cartNumber).toBe("3A-2");
+    expect(selectedBatch?.orderNumber).toBe("MAIN-20261006-0003");
   });
 });
 

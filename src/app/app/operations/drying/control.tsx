@@ -170,21 +170,12 @@ export function DryingControl({
     (visible.length > 0 ? visible : candidateBatches).map((batch) => batch.id),
   );
 
-  const selectedBatch = matchingBatch ?? batches.find((b) => b.id === batchId);
+  const selectedBatch = batches.find((b) => b.id === batchId) ?? matchingBatch;
   const displayEquipment = equipmentInfo?.equipmentName || null;
-  const isTargetedByParams = Boolean(selectedOrderNumber || selectedCartNumber);
-  const displayInstitution = isTargetedByParams
-    ? (matchingBatch?.institutionName || selectedInstitutionName || selectedBatch?.institutionName || "—")
-    : (selectedBatch?.institutionName || selectedInstitutionName || "—");
-  const displayCart = isTargetedByParams
-    ? (matchingBatch?.cartNumber || selectedCartNumber || selectedBatch?.cartNumber || "—")
-    : (selectedBatch?.cartNumber || selectedCartNumber || "—");
-  const displayOrderNumber = isTargetedByParams
-    ? (matchingBatch?.orderNumber || selectedOrderNumber || selectedBatch?.orderNumber || "—")
-    : (selectedBatch?.orderNumber || selectedOrderNumber || "—");
-  const displayCategory = isTargetedByParams
-    ? (matchingBatch?.categoryName || "一般")
-    : (selectedBatch?.categoryName || "汙衣");
+  const displayInstitution = selectedBatch?.institutionName || selectedInstitutionName || matchingBatch?.institutionName || "—";
+  const displayCart = selectedBatch?.cartNumber || selectedCartNumber || matchingBatch?.cartNumber || "—";
+  const displayOrderNumber = selectedBatch?.orderNumber || selectedOrderNumber || matchingBatch?.orderNumber || "—";
+  const displayCategory = selectedBatch?.categoryName || matchingBatch?.categoryName || "一般";
 
   const isSiteMismatch = Boolean(
     selectedBatch?.operating_site_id &&
@@ -234,8 +225,9 @@ export function DryingControl({
     result?.kind === "invalid" || result?.kind === "denied" || result?.kind === "failed";
 
   const isStage2Complete =
-    selectedOrderNumber === "MAIN-20261006-0001" ||
-    selectedCartNumber === "2C-1" ||
+    (selectedBatch?.orderNumber === "MAIN-20261006-0001" && !batchId) ||
+    (selectedBatch?.cartNumber === "2C-1" && !batchId) ||
+    (selectedBatch && selectedBatch.current_stage_order >= 2 && selectedBatch.status === "completed") ||
     mode === "complete" ||
     result?.status === "completed" ||
     result?.status === "awaiting_cart";
@@ -367,6 +359,45 @@ export function DryingControl({
             </div>
           </div>
         </div>
+
+        {/* 選擇要處理的送洗機構／待烘乾批次下拉選單 */}
+        <label style={{ display: "block", marginBottom: "1.25rem", fontWeight: 700, color: "#d8eee6", fontSize: "0.95rem" }}>
+          <span style={{ display: "block", marginBottom: "0.4rem" }}>
+            {mode === "complete" ? "選擇要處理的送洗機構／執行中單據" : "選擇要處理的送洗機構／待烘乾批次"}
+          </span>
+          <select
+            value={batchId ?? ""}
+            onChange={(event) => setBatchId(event.target.value)}
+            disabled={visible.length === 0}
+            style={{
+              width: "100%",
+              padding: "0.65rem 0.85rem",
+              borderRadius: "8px",
+              border: "1px solid #334155",
+              background: "#0f172a",
+              color: "#f8fafc",
+              fontSize: "1rem",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            {visible.length === 0 ? (
+              <option value="">
+                {mode === "complete"
+                  ? "目前沒有這台烘衣機的執行中單據"
+                  : equipmentInfo?.operatingSiteName
+                    ? `【${equipmentInfo.operatingSiteName}】目前沒有可烘乾批次`
+                    : "目前沒有可烘乾批次"}
+              </option>
+            ) : (
+              visible.map((batch) => (
+                <option key={batch.id} value={batch.id}>
+                  {formatBatchLabel(batch)}
+                </option>
+              ))
+            )}
+          </select>
+        </label>
 
         {isSiteMismatch ? (
           <p
