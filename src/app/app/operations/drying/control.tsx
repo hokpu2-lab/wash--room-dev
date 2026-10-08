@@ -174,31 +174,40 @@ export function DryingControl({
 
   const selectedBatch = batches.find((b) => b.id === batchId) ?? matchingBatch;
 
+  const [selectedDryerId, setSelectedDryerId] = useState<string>("");
+
   const availableDryers = availableEquipment.filter((e) => e.equipment_type === "dryer");
   const matchedDryers = selectedBatch?.operating_site_id
     ? availableDryers.filter((w) => w.operating_site_id === selectedBatch.operating_site_id)
     : availableDryers;
 
+  const idleMatchedDryer = matchedDryers.find((w) => !w.occupied && w.status === "normal");
   const defaultDryer =
+    idleMatchedDryer ||
     matchedDryers.find((w) => w.name === "本館烘衣-1") ||
-    availableDryers.find((w) => w.name === "本館烘衣-1") ||
+    availableDryers.find((w) => !w.occupied && w.status === "normal") ||
     matchedDryers[0] ||
     availableDryers[0];
+
+  const effectiveDryer =
+    matchedDryers.find((w) => w.id === selectedDryerId) ||
+    availableDryers.find((w) => w.id === selectedDryerId) ||
+    defaultDryer;
 
   const effectiveEquipmentId =
     activeToken
       ? undefined
-      : activeEquipmentId || defaultDryer?.id;
+      : activeEquipmentId || effectiveDryer?.id;
 
   const effectiveEquipmentObj =
     availableEquipment.find((w) => w.id === effectiveEquipmentId) ||
     availableEquipment.find((w) => w.id === activeEquipmentId) ||
-    defaultDryer;
+    effectiveDryer;
 
   const effectiveEquipmentName =
     equipmentInfo?.equipmentName ||
     effectiveEquipmentObj?.name ||
-    (defaultDryer?.name || "本館烘衣-1");
+    (effectiveDryer?.name || "本館烘衣-1");
 
   const displayEquipment = effectiveEquipmentName;
   const displayInstitution = selectedBatch?.institutionName || selectedInstitutionName || matchingBatch?.institutionName || "—";
@@ -430,6 +439,41 @@ export function DryingControl({
             )}
           </select>
         </label>
+
+        {/* 選擇使用的烘衣設備下拉選單 */}
+        {mode !== "complete" && (
+          <label style={{ display: "block", marginBottom: "1.25rem", fontWeight: 700, color: "#d8eee6", fontSize: "0.95rem" }}>
+            <span style={{ display: "block", marginBottom: "0.4rem" }}>
+              選擇使用的烘衣設備：
+            </span>
+            <select
+              value={effectiveDryer?.id ?? ""}
+              onChange={(event) => setSelectedDryerId(event.target.value)}
+              disabled={matchedDryers.length === 0}
+              style={{
+                width: "100%",
+                padding: "0.65rem 0.85rem",
+                borderRadius: "8px",
+                border: "1px solid #334155",
+                background: "#0f172a",
+                color: "#f8fafc",
+                fontSize: "1rem",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              {matchedDryers.length === 0 ? (
+                <option value="">目前沒有可用的烘衣設備</option>
+              ) : (
+                matchedDryers.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name} {w.operating_site_name ? `(${w.operating_site_name})` : ""} {w.occupied ? "— 使用中" : "— 可使用"}
+                  </option>
+                ))
+              )}
+            </select>
+          </label>
+        )}
 
         {isSiteMismatch ? (
           <p

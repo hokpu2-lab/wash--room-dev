@@ -192,6 +192,8 @@ export function StartWashingControl({
     (typeof displayCategory === "string" && displayCategory.includes("消毒"))
   );
 
+  const [selectedWasherId, setSelectedWasherId] = useState<string>("");
+
   const isCompleteMode =
     mode === "complete" ||
     selectedBatch?.status === "in_progress" ||
@@ -202,11 +204,18 @@ export function StartWashingControl({
     ? availableWashers.filter((w) => w.operating_site_id === selectedBatch.operating_site_id)
     : availableWashers;
 
+  const idleMatchedWasher = matchedWashers.find((w) => !w.occupied && w.status === "normal");
   const defaultWasher =
+    idleMatchedWasher ||
     matchedWashers.find((w) => w.name === "本館洗衣-1") ||
-    availableWashers.find((w) => w.name === "本館洗衣-1") ||
+    availableWashers.find((w) => !w.occupied && w.status === "normal") ||
     matchedWashers[0] ||
     availableWashers[0];
+
+  const effectiveWasher =
+    matchedWashers.find((w) => w.id === selectedWasherId) ||
+    availableWashers.find((w) => w.id === selectedWasherId) ||
+    defaultWasher;
 
   const availableDisinfectTanks = availableEquipment.filter((e) => e.equipment_type === "disinfection_tank");
   const matchedDisinfectTanks = selectedBatch?.operating_site_id
@@ -223,7 +232,7 @@ export function StartWashingControl({
     isDisinfect && (selectedBatch?.current_stage_order ?? 1) === 1 && !isCompleteMode
   );
 
-  const defaultEquipment = isStage1Disinfect ? (defaultDisinfectTank || defaultWasher) : defaultWasher;
+  const defaultEquipment = isStage1Disinfect ? (defaultDisinfectTank || effectiveWasher) : effectiveWasher;
 
   const effectiveEquipmentId =
     activeToken
@@ -238,7 +247,7 @@ export function StartWashingControl({
   const effectiveEquipmentName =
     equipmentInfo?.equipmentName ||
     effectiveEquipmentObj?.name ||
-    (isStage1Disinfect ? "本館消毒鍋" : (defaultWasher?.name || "本館洗衣-1"));
+    (isStage1Disinfect ? "本館消毒鍋" : (effectiveWasher?.name || "本館洗衣-1"));
 
   const displayEquipment = effectiveEquipmentName;
   const currentStageOrder = selectedBatch?.current_stage_order ?? (isDisinfect ? 2 : 1);
@@ -457,8 +466,6 @@ export function StartWashingControl({
           <span style={{ display: "block", marginBottom: "0.4rem" }}>
             {isCompleteMode
               ? "選擇要處理的送洗機構／執行中單據"
-              : isDisinfect
-              ? "選擇要處理的送洗機構／待浸泡消毒批次"
               : "選擇要處理的送洗機構／待清洗批次"}
           </span>
           <select
@@ -488,6 +495,41 @@ export function StartWashingControl({
             )}
           </select>
         </label>
+
+        {/* 選擇使用的洗衣設備下拉選單 */}
+        {!isCompleteMode && (
+          <label style={{ display: "block", marginBottom: "1.25rem", fontWeight: 700, color: "#d8eee6", fontSize: "0.95rem" }}>
+            <span style={{ display: "block", marginBottom: "0.4rem" }}>
+              選擇使用的洗衣設備：
+            </span>
+            <select
+              value={effectiveWasher?.id ?? ""}
+              onChange={(event) => setSelectedWasherId(event.target.value)}
+              disabled={matchedWashers.length === 0}
+              style={{
+                width: "100%",
+                padding: "0.65rem 0.85rem",
+                borderRadius: "8px",
+                border: "1px solid #334155",
+                background: "#0f172a",
+                color: "#f8fafc",
+                fontSize: "1rem",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              {matchedWashers.length === 0 ? (
+                <option value="">目前沒有可用的洗衣設備</option>
+              ) : (
+                matchedWashers.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name} {w.operating_site_name ? `(${w.operating_site_name})` : ""} {w.occupied ? "— 使用中" : "— 可使用"}
+                  </option>
+                ))
+              )}
+            </select>
+          </label>
+        )}
 
         {isSiteMismatch ? (
           <p

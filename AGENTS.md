@@ -26,6 +26,22 @@
 
 ## 2026-10-08 最新接手快照
 
+- **徹底修復清洗與烘乾設備相容性檢核與「洗衣機與批次分類或程序不相容。」阻塞（/app/operations/washing, /app/operations/drying）**：
+  - **根本原因排除**：
+    1. 後端 RPC 函式 `private.validate_laundry_equipment_for_stage` 原先嚴格檢查 `laundry_equipment_categories` 與 `laundry_equipment_procedures`；由於現場洗衣機通常設定為一般或汙衣分類，未在後台為洗衣機勾選「消毒品」與消毒範本，導致消毒批次（`MAIN-20261008-0001`，車號 2C-6）進入第二階段（清洗）時遭後端拒絕並回傳 `incompatible_equipment`（「洗衣機與批次分類或程序不相容。」）。
+    2. `validate_laundry_equipment_for_stage` 內部原先包含 `remaining_cart_slots > 0` 檢查，導致設備若已滿載或被占用時，後端錯誤攔截並回傳 `incompatible_equipment`，而非正確的 `equipment_occupied`（「設備使用中」）。
+    3. 清洗與烘乾控制台前端原先未提供設備選取下拉選單，寫死預設綁定 `本館洗衣-1`；若該機台已被占用，操作人員完全無法切換至其他閒置洗衣機。
+  - **資料庫遷移與相容性修復（`supabase/migrations/20261008140000_fix_disinfection_washing_and_equipment_compatibility.sql`）**：
+    - 更新 `private.validate_laundry_equipment_for_stage`：當預期設備類型為 `washer` 或 `dryer` 時，允許同據點、狀態正常之機台執行後續洗烘階段；移除函式內之槽位檢查，由外層統一判斷滿載並正確回傳 `equipment_occupied`。
+    - 資料遷移自動為據點內既有之洗衣機與烘衣機補足 `DISINFECT` 適用分類與相容程序記錄。
+  - **清洗與烘乾控制台設備選取下拉選單與智慧推導（`start-control.tsx`, `drying/control.tsx`）**：
+    - 於清洗控制台新增「選擇使用的洗衣設備：」下拉選單，於烘乾控制台新增「選擇使用的烘衣設備：」下拉選單，清晰列出設備名稱、據點及「— 可使用」或「— 使用中」狀態，支援自由切換。
+    - 實作智慧優先推導：預設自動選取同據點且「未占用（idle）」之設備，徹底告別盲目鎖死單一機台。
+    - 修正清洗控制台批次標籤：將誤植之「待浸泡消毒批次」修正為「待清洗批次」。
+  - **測試與建置覆核**：
+    - 新增資料庫合約測試（`tests/database/laundry-disinfection.spec.ts`）：驗證消毒批次完成浸泡後，使用標準洗衣機可順利開始第二階段清洗；驗證設備滿載時正確回傳 `equipment_occupied`。
+    - 新增單元測試（`tests/unit/operations-control.spec.ts`）：驗證清洗設備智慧推導優先選取同據點未占用設備，且支援手動選取特定設備。
+    - 35 個測試檔、144 個 tests 全數通過；`npm run typecheck` 0 錯誤通過；`npm run build` 正式生產建置成功。
 - **徹底修復消毒單據階段跳轉與「批次目前不在消毒浸泡階段」死循環（/app/dashboard, /app/operations/disinfection, /app/operations/washing）**：
   - **根本原因排除**：單據 `MAIN-20261008-0001`（車號 2C-6，護家）之批次已完成第一階段消毒浸泡，資料庫狀態為 `current_stage_order = 2`（待清洗）。但先前儀表板將所有消毒單據寫死導向消毒控制點（`/app/operations/disinfection`），且消毒控制點寫死進度標題為「第一階段(浸泡消毒)」，當現場點選「確認開始浸泡消毒」時觸發後端 RPC 階段檢核 `stage_type <> 'disinfection_tank'` 回傳 `wrong_stage`（「批次目前不在消毒浸泡階段。」），導致操作人員受困於兩端階段不一致與無法推進的卡住問題。
   - **儀表板動態階段導向與設備名稱精準更新（`src/app/app/live-queue.tsx`）**：

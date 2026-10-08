@@ -13,6 +13,7 @@ export type ControlEquipment = {
   operating_site_id: string;
   operating_site_name?: string;
   occupied: boolean;
+  status?: string;
 };
 
 function named(value: unknown): string | undefined {
@@ -78,6 +79,7 @@ export async function loadSiteBatches(
                   typeof item.operating_site_id === "string" ? item.operating_site_id : "",
                 operating_site_name: named(item.operating_sites),
                 occupied: Boolean(item.occupied),
+                status: typeof item.status === "string" ? item.status : "normal",
               },
             ]
           : [],

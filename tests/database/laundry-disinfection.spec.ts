@@ -60,3 +60,77 @@ test("消毒程序先占用消毒鍋，浸泡完成後原子切換洗衣機", as
   expect(washing.rows).toEqual([{ stage_order: 2, reason_code: "washing_started", status: "in_progress" }]);
   expect(equipmentState.rows).toEqual([{ equipment_type: "disinfection_tank", occupied: false }, { equipment_type: "washer", occupied: true }]);
 });
+
+test("消毒批次完成浸泡後，即使洗衣機未特別指定消毒分類亦可順利開始清洗", async () => {
+  database = await createTestDatabase();
+  const supervisor = "10000000-0000-4000-8000-000000000911";
+  const supervisorProfile = "40000000-0000-4000-8000-000000000911";
+  const worker = "10000000-0000-4000-8000-000000000912";
+  const workerProfile = "40000000-0000-4000-8000-000000000912";
+  const ids = Array.from({ length: 15 }, (_, index) => `60000000-0000-4000-8000-0000000019${20 + index}`);
+  await database.exec(`
+    insert into auth.users (id, email) values ('${supervisor}', 'disinfection.supervisor@example.com'), ('${worker}', 'disinfection.worker@example.com');
+    insert into public.user_access_profiles (id, email, auth_user_id) values
+      ('${supervisorProfile}', 'disinfection.supervisor@example.com', '${supervisor}'),
+      ('${workerProfile}', 'disinfection.worker@example.com', '${worker}');
+    insert into public.access_memberships (user_access_profile_id, role, operating_site_id)
+      select '${supervisorProfile}', 'laundry_supervisor', id from public.operating_sites where code = 'MAIN';
+    insert into public.access_memberships (user_access_profile_id, role, operating_site_id)
+      select '${workerProfile}', 'laundry_worker', id from public.operating_sites where code = 'MAIN';
+    insert into public.institutions (code, name, operating_site_id)
+      select 'DISINFECT-CARE', '消毒測試機構', id from public.operating_sites where code = 'MAIN';
+  `);
+  await database.query(`select set_config('request.jwt.claim.sub', $1, false)`, [supervisor]);
+  await database.exec("set role authenticated");
+  const stages = [
+    { stage_order: 1, name: "浸泡", standard_minutes: 20, equipment_type: "disinfection_tank", compatibility_conditions: { category_codes: ["DISINFECT"] }, transition_mode: "manual", requires_operator_confirmation: true },
+    { stage_order: 2, name: "清洗", standard_minutes: 45, equipment_type: "washer", compatibility_conditions: { category_codes: ["DISINFECT"] }, transition_mode: "manual", requires_operator_confirmation: true },
+  ];
+  const draft = await database.query<{ procedure_template_id: string; procedure_version_id: string }>(
+    `select * from public.create_procedure_template_draft(null, $1, $2, $3, $4::jsonb, $5, $6)`,
+    ["MAIN", "DISINFECT", "消毒測試程序", JSON.stringify(stages), ids[0], "建立消毒程序"],
+  );
+  await database.query(`select * from public.publish_procedure_template_version($1, $2, $3)`, [draft.rows[0].procedure_version_id, ids[1], "發布消毒程序"]);
+  const cart = await database.query<{ laundry_cart_id: string }>(`select laundry_cart_id from public.register_laundry_cart($1,$2,$3,$4)`, ["DISINFECT-CART-2", "DISINFECT-CARE", ids[2], "建立消毒測試車2"]);
+  const cartQr = await database.query<{ qr_token: string }>(`select qr_token from public.get_current_laundry_cart_qr($1)`, [cart.rows[0].laundry_cart_id]);
+  await database.exec("set role anon");
+  await database.query(`select * from public.create_laundry_order_from_cart_qr($1,$2)`, [cartQr.rows[0].qr_token, ids[3]]);
+  await database.query(`select set_config('request.jwt.claim.sub', $1, false)`, [worker]);
+  await database.exec("set role authenticated");
+  const received = await database.query<{ laundry_order_id: string }>(`select laundry_order_id from public.receive_laundry_order_from_cart_qr($1,$2::jsonb,$3)`, [cartQr.rows[0].qr_token, JSON.stringify(["DISINFECT"]), ids[4]]);
+  const batch = await database.query<{ id: string }>(`select id from public.laundry_batches where laundry_order_id=$1::uuid`, [received.rows[0].laundry_order_id]);
+  await database.query(`select set_config('request.jwt.claim.sub', $1, false)`, [supervisor]);
+  const tank = await database.query<{ laundry_equipment_id: string }>(`select laundry_equipment_id from public.register_laundry_equipment($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7,$8)`, ["Tank DISINFECT 02", "MAIN", "disinfection_tank", 80, JSON.stringify(["DISINFECT"]), JSON.stringify([draft.rows[0].procedure_template_id]), ids[5], "建立消毒鍋"]);
+  // 標準洗衣機容量為 1 車，僅指定 SOILED 分類，未指定 DISINFECT
+  const standardWasher = await database.query<{ laundry_equipment_id: string }>(`select laundry_equipment_id from public.register_laundry_equipment($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7,$8)`, ["Washer STANDARD 01", "MAIN", "washer", 1, JSON.stringify(["SOILED"]), JSON.stringify([]), ids[6], "建立一般洗衣機"]);
+  const tankQr = await database.query<{ qr_token: string }>(`select qr_token from public.get_current_laundry_equipment_qr($1)`, [tank.rows[0].laundry_equipment_id]);
+  const washerQr = await database.query<{ qr_token: string }>(`select qr_token from public.get_current_laundry_equipment_qr($1)`, [standardWasher.rows[0].laundry_equipment_id]);
+  await database.query(`select set_config('request.jwt.claim.sub', $1, false)`, [worker]);
+  // 1. 開始浸泡
+  const soaking = await database.query<{ status: string; reason_code: string }>(`select status, reason_code from public.start_laundry_batch_disinfection_from_equipment_qr($1,$2,$3)`, [tankQr.rows[0].qr_token, batch.rows[0].id, ids[7]]);
+  expect(soaking.rows).toEqual([{ status: "in_progress", reason_code: "soak_started" }]);
+  // 2. 完成浸泡
+  const soakComplete = await database.query<{ status: string; reason_code: string }>(`select status, reason_code from public.complete_laundry_batch_stage_from_equipment_qr($1,$2,$3)`, [tankQr.rows[0].qr_token, batch.rows[0].id, ids[8]]);
+  expect(soakComplete.rows).toEqual([{ status: "not_started", reason_code: "stage_completed" }]);
+  // 3. 以標準洗衣機開始第二階段清洗（不再觸發 incompatible_equipment）
+  const startWash = await database.query<{ stage_order: number; reason_code: string; status: string; outcome: string }>(`select stage_order, reason_code, status, outcome from public.start_laundry_batch_washing_from_equipment_qr($1,$2,$3)`, [washerQr.rows[0].qr_token, batch.rows[0].id, ids[9]]);
+  expect(startWash.rows).toEqual([{ stage_order: 2, reason_code: "washing_started", status: "in_progress", outcome: "applied" }]);
+
+  // 4. 當設備已達容量上限時，另一批次嘗試使用該設備回傳 equipment_occupied 而非 incompatible_equipment
+  await database.query(`select set_config('request.jwt.claim.sub', $1, false)`, [supervisor]);
+  const cartB = await database.query<{ laundry_cart_id: string }>(`select laundry_cart_id from public.register_laundry_cart($1,$2,$3,$4)`, ["DISINFECT-CART-3", "DISINFECT-CARE", ids[10], "建立消毒測試車3"]);
+  const cartBQr = await database.query<{ qr_token: string }>(`select qr_token from public.get_current_laundry_cart_qr($1)`, [cartB.rows[0].laundry_cart_id]);
+  await database.exec("set role anon");
+  await database.query(`select * from public.create_laundry_order_from_cart_qr($1,$2)`, [cartBQr.rows[0].qr_token, ids[11]]);
+  await database.query(`select set_config('request.jwt.claim.sub', $1, false)`, [worker]);
+  await database.exec("set role authenticated");
+  const receivedB = await database.query<{ laundry_order_id: string }>(`select laundry_order_id from public.receive_laundry_order_from_cart_qr($1,$2::jsonb,$3)`, [cartBQr.rows[0].qr_token, JSON.stringify(["DISINFECT"]), ids[12]]);
+  const batchB = await database.query<{ id: string }>(`select id from public.laundry_batches where laundry_order_id=$1::uuid`, [receivedB.rows[0].laundry_order_id]);
+  // 浸泡
+  await database.query(`select * from public.start_laundry_batch_disinfection_from_equipment_qr($1,$2,$3)`, [tankQr.rows[0].qr_token, batchB.rows[0].id, ids[13]]);
+  await database.query(`select * from public.complete_laundry_batch_stage_from_equipment_qr($1,$2,$3)`, [tankQr.rows[0].qr_token, batchB.rows[0].id, ids[14]]);
+  // 嘗試使用已被 batch 占用的洗衣機
+  const occupiedWash = await database.query<{ reason_code: string; outcome: string }>(`select reason_code, outcome from public.start_laundry_batch_washing_from_equipment_qr($1,$2,$3)`, [washerQr.rows[0].qr_token, batchB.rows[0].id, "60000000-0000-4000-8000-000000001999"]);
+  expect(occupiedWash.rows).toEqual([{ reason_code: "equipment_occupied", outcome: "denied" }]);
+});
+

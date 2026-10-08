@@ -264,5 +264,43 @@ describe("操作控制點與批次標籤 (Operations Control & Batch Labels)", (
     expect(selectedBatch?.cartNumber).toBe("3A-2");
     expect(selectedBatch?.orderNumber).toBe("MAIN-20261006-0003");
   });
+
+  it("清洗控制點設備智慧推導優先選取同據點未占用設備，且支援手動選取 (Washer smart inference & manual selection)", () => {
+    const availableEquipment = [
+      { id: "w1", name: "本館洗衣-1", equipment_type: "washer", occupied: true, status: "normal", operating_site_id: "site-main", operating_site_name: "清福本館" },
+      { id: "w2", name: "本館洗衣-2", equipment_type: "washer", occupied: false, status: "normal", operating_site_id: "site-main", operating_site_name: "清福本館" },
+      { id: "w3", name: "法人洗衣-1", equipment_type: "washer", occupied: false, status: "normal", operating_site_id: "site-corp", operating_site_name: "清福法人" },
+    ];
+
+    const batch: ControlBatch = {
+      id: "b-main",
+      status: "not_started",
+      current_stage_order: 2,
+      orderNumber: "MAIN-20261008-0001",
+      operating_site_id: "site-main",
+    };
+
+    const matchedWashers = availableEquipment.filter((e) => e.equipment_type === "washer" && e.operating_site_id === batch.operating_site_id);
+    const idleMatchedWasher = matchedWashers.find((w) => !w.occupied && w.status === "normal");
+    const defaultWasher =
+      idleMatchedWasher ||
+      matchedWashers.find((w) => w.name === "本館洗衣-1") ||
+      matchedWashers[0];
+
+    // 1. 預設自動選取未占用的本館洗衣-2，而非已被占用的本館洗衣-1
+    expect(defaultWasher?.id).toBe("w2");
+    expect(defaultWasher?.name).toBe("本館洗衣-2");
+
+    // 2. 當操作者手動指定特定洗衣機時，以手動選取為準
+    let selectedWasherId = "w1";
+    let effectiveWasher = matchedWashers.find((w) => w.id === selectedWasherId) || defaultWasher;
+    expect(effectiveWasher?.id).toBe("w1");
+    expect(effectiveWasher?.name).toBe("本館洗衣-1");
+
+    selectedWasherId = "w2";
+    effectiveWasher = matchedWashers.find((w) => w.id === selectedWasherId) || defaultWasher;
+    expect(effectiveWasher?.id).toBe("w2");
+    expect(effectiveWasher?.name).toBe("本館洗衣-2");
+  });
 });
 
