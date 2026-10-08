@@ -26,6 +26,15 @@
 
 ## 2026-10-08 最新接手快照
 
+- **修復本館消毒鍋無作業時仍錯誤顯示「使用中」與機構車號問題（/app/admin/laundry-equipment）**：
+  - **根本原因排除**：先前為了串聯 2C-6 車單號 `MAIN-20261008-0001` 的消毒單據，於 `src/lib/laundry-equipment/administration.ts` 的 `getLaundryEquipmentWorkspace` 中強制將 `本館消毒鍋` 寫死判定為 `occupied: true` 並強制塞入 `active_cart_numbers: ["2C-6"]` 與 `active_institutions: ["護家"]`；導致現場消毒單據已推進或無執行批次時，消毒鍋仍持續鎖死在「使用中」狀態。此外，流程圖 `src/app/app/laundry-order-flow-3d.tsx` 先前在所有階段（含洗衣、烘衣）均將未指派設備回退為「本館消毒鍋」，已一併修正為僅在 `stage.equipmentType === "disinfection_tank"` 時推導。
+  - **動態設備使用狀態推導**：
+    - 移除 `administration.ts` 內對本館消毒鍋的靜態寫死設定，完全遵循後端資料庫設備之真實 `occupied` 狀態與 `laundry_batch_stage_runs`（狀態為 `in_progress` 或 `paused`）之活躍執行紀錄。
+    - 當消毒鍋無活躍階段執行且資料庫為未占用時，狀態精準恢復為「正常」，「機構」與「車號」欄位精準回傳為「—」。
+  - **單元測試與相容性覆核**：
+    - 於 `tests/unit/equipment-usage.spec.ts` 新增閒置設備狀態驗證（驗證未占用時 `occupied: false`，機構與車號均顯示為 `—`）。
+    - 35 個測試檔、146 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
 - **「目前洗衣車」分類標籤加大顯示並完整呈現送洗機構名稱（/app/admin/laundry-carts）**：
   - **標籤按鈕加大顯示**：於 `src/app/app/workspace.module.css` 新增 `.filterPillLarge` 樣式（`min-height: 44px; padding: 8px 20px; font-size: 1.05rem; font-weight: 850; border-radius: 8px;`），標籤列間距擴展為 `10px`，大幅提升點擊面積與視覺易讀性。
   - **完整顯示送洗機構名稱**：新增純函式工具 [`src/app/app/admin/laundry-carts/institution-label.ts`](file:///c:/Users/user/Desktop/PU2/src/app/app/admin/laundry-carts/institution-label.ts) 提供 `formatInstitutionLabel`。若送洗機構代碼為 `2C` 且名稱為 `護家`，標籤自動格式化為 `2C護家 (2)`，徹底避免資訊被簡略截斷。

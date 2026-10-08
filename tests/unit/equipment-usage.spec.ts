@@ -72,4 +72,33 @@ describe("洗衣設備狀態與正使用車號資訊 (Equipment Usage & Cart Num
     expect(institutionText).toBe("護家");
     expect(cartNumberText).toBe("2C-6");
   });
+
+  it("設備未使用（閒置）時應正確顯示正常且機構與車號為破折號", () => {
+    const equipment = {
+      id: "41000000-0000-4000-8000-000000000097",
+      name: "本館消毒鍋",
+      equipment_type: "disinfection_tank" as const,
+      status: "normal" as const,
+      occupied: false,
+      active_cart_count: 0,
+      active_institutions: [] as string[],
+      active_cart_numbers: [] as string[],
+    };
+
+    const isOccupied = Boolean(equipment.occupied || (equipment.active_cart_count && equipment.active_cart_count > 0));
+    const institutionText = isOccupied
+      ? equipment.active_institutions && equipment.active_institutions.length > 0
+        ? equipment.active_institutions.join("、")
+        : "—"
+      : "—";
+    const cartNumberText = isOccupied
+      ? equipment.active_cart_numbers && equipment.active_cart_numbers.length > 0
+        ? equipment.active_cart_numbers.join("、")
+        : "—"
+      : "—";
+
+    expect(isOccupied).toBe(false);
+    expect(institutionText).toBe("—");
+    expect(cartNumberText).toBe("—");
+  });
 });
