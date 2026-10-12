@@ -246,7 +246,13 @@ function HistoryModal({
               <div><dt>目前狀態</dt><dd><span className={`${styles.badge} ${styles.historyTableBadge} ${orderStatusBadgeClass(detail.order.status, detail.order.stageName)}`}>{renderOrderStatusLabel(detail.order.status, detail.order.stageName)}</span></dd></div>
               <div><dt>送單時間</dt><dd>{formatDateTime(detail.order.createdAt)}</dd></div>
               <div><dt>收件時間</dt><dd>{formatDateTime(detail.order.receivedAt ?? firstEventTime(detail.events, "laundry_order_received"))}</dd></div>
+              <div><dt>完成時間</dt><dd>{formatDateTime(detail.order.readyAt ?? lastEventTime(detail.events, [
+                "laundry_batch_loaded_to_source_cart",
+                "laundry_batch_completed_without_source_loading",
+                "laundry_batch_drying_completed",
+              ]))}</dd></div>
               <div><dt>取件時間</dt><dd>{formatDateTime(detail.order.closedAt)}</dd></div>
+              <div><dt>總花費時間</dt><dd>{formatCompletionTime(detail.order.createdAt, detail.order.closedAt)}</dd></div>
             </dl>
 
             <LaundryOrderFlow3D
@@ -258,9 +264,10 @@ function HistoryModal({
               batches={detail.batches}
               orderCreatedAt={detail.order.createdAt}
               orderReceivedAt={detail.order.receivedAt ?? firstEventTime(detail.events, "laundry_order_received")}
-              orderReadyAt={lastEventTime(detail.events, [
+              orderReadyAt={detail.order.readyAt ?? lastEventTime(detail.events, [
                 "laundry_batch_loaded_to_source_cart",
                 "laundry_batch_completed_without_source_loading",
+                "laundry_batch_drying_completed",
               ])}
               orderClosedAt={detail.order.closedAt}
             />
@@ -414,6 +421,7 @@ export function HistoryResults({ items }: { items: LaundryOrderHistoryItem[] }) 
                 </th>
                 <th scope="col">送單時間</th>
                 <th scope="col">收件時間</th>
+                <th scope="col">完成時間</th>
                 <th scope="col" aria-sort={sortKey === "pickup_time" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}>
                   <button
                     type="button"
@@ -427,7 +435,7 @@ export function HistoryResults({ items }: { items: LaundryOrderHistoryItem[] }) 
                     </span>
                   </button>
                 </th>
-                <th scope="col">完成時間</th>
+                <th scope="col">總花費時間</th>
                 <th scope="col">狀態</th>
               </tr>
             </thead>
@@ -449,6 +457,7 @@ export function HistoryResults({ items }: { items: LaundryOrderHistoryItem[] }) 
                   </td>
                   <td>{formatDateTime(item.createdAt)}</td>
                   <td>{formatDateTime(item.receivedAt)}</td>
+                  <td>{formatDateTime(item.readyAt)}</td>
                   <td>{formatDateTime(item.closedAt)}</td>
                   <td>{formatCompletionTime(item.createdAt, item.closedAt)}</td>
                   <td><span className={`${styles.badge} ${styles.historyTableBadge} ${orderStatusBadgeClass(item.status, item.stageName)}`}>{renderOrderStatusLabel(item.status, item.stageName)}</span></td>

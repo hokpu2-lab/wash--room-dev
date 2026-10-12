@@ -46,31 +46,47 @@ function deriveStageName(
   return status === "in_process" ? "處理中" : status;
 }
 
-async function enrichMissingReceivedAt(
+async function enrichMissingTimings(
   supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
   items: LaundryOrderHistoryItem[],
 ): Promise<void> {
-  const missing = items.filter((item) => !item.receivedAt && item.status !== "awaiting_receipt");
-  if (missing.length === 0) return;
+  const missingReceived = items.filter((item) => !item.receivedAt && item.status !== "awaiting_receipt");
+  const missingReady = items.filter(
+    (item) => !item.readyAt && (item.status === "ready_for_pickup" || item.status === "picked_up"),
+  );
+  if (missingReceived.length === 0 && missingReady.length === 0) return;
 
-  const orderIds = missing.map((item) => item.id);
+  const targetIds = Array.from(new Set([...missingReceived.map((i) => i.id), ...missingReady.map((i) => i.id)]));
   try {
     const { data: batches } = await supabase
       .from("laundry_batches")
-      .select("laundry_order_id, created_at")
-      .in("laundry_order_id", orderIds);
+      .select("laundry_order_id, created_at, loaded_at, completed_at, status")
+      .in("laundry_order_id", targetIds);
 
     if (batches && batches.length > 0) {
-      const batchMap = new Map<string, string>();
+      const batchReceivedMap = new Map<string, string>();
+      const batchReadyMap = new Map<string, string>();
       for (const batch of batches) {
-        const prev = batchMap.get(batch.laundry_order_id);
-        if (!prev || new Date(batch.created_at).getTime() < new Date(prev).getTime()) {
-          batchMap.set(batch.laundry_order_id, batch.created_at);
+        const prevReceived = batchReceivedMap.get(batch.laundry_order_id);
+        if (!prevReceived || new Date(batch.created_at).getTime() < new Date(prevReceived).getTime()) {
+          batchReceivedMap.set(batch.laundry_order_id, batch.created_at);
+        }
+        const readyCandidate = batch.loaded_at || batch.completed_at;
+        if (readyCandidate) {
+          const prevReady = batchReadyMap.get(batch.laundry_order_id);
+          if (!prevReady || new Date(readyCandidate).getTime() > new Date(prevReady).getTime()) {
+            batchReadyMap.set(batch.laundry_order_id, readyCandidate);
+          }
         }
       }
       for (const item of items) {
-        if (!item.receivedAt && batchMap.has(item.id)) {
-          item.receivedAt = batchMap.get(item.id)!;
+        if (!item.receivedAt && batchReceivedMap.has(item.id)) {
+          item.receivedAt = batchReceivedMap.get(item.id)!;
+        }
+        if (!item.readyAt && (item.status === "ready_for_pickup" || item.status === "picked_up")) {
+          if (batchReadyMap.has(item.id)) {
+            item.readyAt = batchReadyMap.get(item.id)!;
+          }
         }
       }
     }
@@ -78,28 +94,47 @@ async function enrichMissingReceivedAt(
     // ignore batch query errors
   }
 
-  // Second pass fallback for any remaining items with status !== awaiting_receipt
-  const stillMissing = items.filter((item) => !item.receivedAt && item.status !== "awaiting_receipt");
-  if (stillMissing.length > 0) {
+  // Second pass fallback for any remaining items
+  const stillMissingReceived = items.filter((item) => !item.receivedAt && item.status !== "awaiting_receipt");
+  const stillMissingReady = items.filter((item) => !item.readyAt && (item.status === "ready_for_pickup" || item.status === "picked_up"));
+  if (stillMissingReceived.length > 0 || stillMissingReady.length > 0) {
     try {
-      const stillMissingIds = stillMissing.map((item) => item.id);
+      const auditTargetIds = Array.from(new Set([...stillMissingReceived.map((i) => i.id), ...stillMissingReady.map((i) => i.id)]));
       const { data: audits } = await supabase
         .from("authorization_audit_events")
-        .select("laundry_order_id, occurred_at")
-        .eq("action", "laundry_order_received")
+        .select("laundry_order_id, occurred_at, action")
+        .in("action", [
+          "laundry_order_received",
+          "laundry_batch_loaded_to_source_cart",
+          "laundry_batch_completed_without_source_loading",
+          "laundry_batch_drying_completed",
+        ])
         .eq("outcome", "succeeded")
-        .in("laundry_order_id", stillMissingIds);
+        .in("laundry_order_id", auditTargetIds);
 
       if (audits && audits.length > 0) {
-        const auditMap = new Map<string, string>();
+        const receivedMap = new Map<string, string>();
+        const readyMap = new Map<string, string>();
         for (const audit of audits) {
-          if (audit.laundry_order_id && !auditMap.has(audit.laundry_order_id)) {
-            auditMap.set(audit.laundry_order_id, audit.occurred_at);
+          if (!audit.laundry_order_id) continue;
+          if (audit.action === "laundry_order_received") {
+            const prev = receivedMap.get(audit.laundry_order_id);
+            if (!prev || new Date(audit.occurred_at).getTime() < new Date(prev).getTime()) {
+              receivedMap.set(audit.laundry_order_id, audit.occurred_at);
+            }
+          } else {
+            const prev = readyMap.get(audit.laundry_order_id);
+            if (!prev || new Date(audit.occurred_at).getTime() > new Date(prev).getTime()) {
+              readyMap.set(audit.laundry_order_id, audit.occurred_at);
+            }
           }
         }
         for (const item of items) {
-          if (!item.receivedAt && auditMap.has(item.id)) {
-            item.receivedAt = auditMap.get(item.id)!;
+          if (!item.receivedAt && receivedMap.has(item.id)) {
+            item.receivedAt = receivedMap.get(item.id)!;
+          }
+          if (!item.readyAt && readyMap.has(item.id)) {
+            item.readyAt = readyMap.get(item.id)!;
           }
         }
       }
@@ -157,6 +192,8 @@ export async function getLaundryOrderHistory(input: LaundryOrderHistoryInput): P
       const stageName = deriveStageName(order.status, orderDetail?.batches);
       const receivedAtIso = orderDetail?.orderReceivedAt
         ?? (order.status !== "awaiting_receipt" ? (orderDetail?.orderCreatedAt ?? order.updatedAt) : null);
+      const readyAtIso = orderDetail?.orderReadyAt
+        ?? (order.status === "ready_for_pickup" || order.status === "picked_up" ? order.updatedAt : null);
 
       activeItems.push({
         id: order.id,
@@ -165,6 +202,7 @@ export async function getLaundryOrderHistory(input: LaundryOrderHistoryInput): P
         stageName,
         createdAt: orderTimeIso,
         receivedAt: receivedAtIso ?? null,
+        readyAt: readyAtIso ?? null,
         closedAt: null,
         institutionCode: "",
         institutionName: order.institutionName,
@@ -178,7 +216,7 @@ export async function getLaundryOrderHistory(input: LaundryOrderHistoryInput): P
       if (!parsed) {
         activeItems.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         const resultItems = activeItems.slice((page - 1) * pageSize, page * pageSize);
-        await enrichMissingReceivedAt(supabase, resultItems);
+        await enrichMissingTimings(supabase, resultItems);
         return {
           siteId: snapshot.dashboard.site_id,
           total: activeItems.length,
@@ -202,7 +240,7 @@ export async function getLaundryOrderHistory(input: LaundryOrderHistoryInput): P
 
       const newTotal = parsed.total + activeItems.length;
       const resultItems = combined.slice(0, pageSize);
-      await enrichMissingReceivedAt(supabase, resultItems);
+      await enrichMissingTimings(supabase, resultItems);
       return {
         ...parsed,
         total: newTotal,
@@ -212,7 +250,7 @@ export async function getLaundryOrderHistory(input: LaundryOrderHistoryInput): P
   }
 
   if (parsed && parsed.items.length > 0) {
-    await enrichMissingReceivedAt(supabase, parsed.items);
+    await enrichMissingTimings(supabase, parsed.items);
   }
 
   return parsed;
@@ -242,6 +280,40 @@ export async function getLaundryOrderHistoryDetail(orderId: string): Promise<Lau
         // ignore batch query errors
       }
     }
+    if (!parsed.order.readyAt && (parsed.order.status === "ready_for_pickup" || parsed.order.status === "picked_up")) {
+      try {
+        const { data: batches } = await supabase
+          .from("laundry_batches")
+          .select("loaded_at, completed_at")
+          .eq("laundry_order_id", orderId)
+          .in("status", ["completed", "loaded"]);
+
+        if (batches && batches.length > 0) {
+          let latestReady: string | null = null;
+          for (const b of batches) {
+            const time = b.loaded_at || b.completed_at;
+            if (time && (!latestReady || new Date(time).getTime() > new Date(latestReady).getTime())) {
+              latestReady = time;
+            }
+          }
+          if (latestReady) {
+            parsed.order.readyAt = latestReady;
+          }
+        }
+      } catch {
+        // ignore
+      }
+      if (!parsed.order.readyAt) {
+        const readyEvent = parsed.events.filter((e) => [
+          "laundry_batch_loaded_to_source_cart",
+          "laundry_batch_completed_without_source_loading",
+          "laundry_batch_drying_completed",
+        ].includes(e.action)).at(-1)?.occurredAt;
+        if (readyEvent) {
+          parsed.order.readyAt = readyEvent;
+        }
+      }
+    }
     if (parsed.order.receivedAt && !parsed.events.some((e) => e.action === "laundry_order_received")) {
       parsed.events.push({
         id: `received-${orderId}`,
@@ -269,6 +341,8 @@ export async function getLaundryOrderHistoryDetail(orderId: string): Promise<Lau
     const createdAt = workspaceDetail?.orderCreatedAt ?? activeOrder.updatedAt ?? new Date().toISOString();
     const receivedAt = workspaceDetail?.orderReceivedAt
       ?? (activeOrder.status !== "awaiting_receipt" ? (workspaceDetail?.orderCreatedAt ?? activeOrder.updatedAt) : null);
+    const readyAt = workspaceDetail?.orderReadyAt
+      ?? (activeOrder.status === "ready_for_pickup" || activeOrder.status === "picked_up" ? activeOrder.updatedAt : null);
     return {
       order: {
         id: activeOrder.id,
@@ -277,6 +351,7 @@ export async function getLaundryOrderHistoryDetail(orderId: string): Promise<Lau
         stageName,
         createdAt,
         receivedAt: receivedAt ?? null,
+        readyAt: readyAt ?? null,
         closedAt: null,
         institutionCode: "",
         institutionName: activeOrder.institutionName,

@@ -179,6 +179,33 @@ begin
                 )
               )
             end,
+            'ready_at', case
+              when laundry_order.status not in ('ready_for_pickup', 'picked_up') then null
+              else coalesce(
+                (
+                  select max(coalesce(batch.loaded_at, batch.completed_at))
+                  from public.laundry_batches as batch
+                  where batch.laundry_order_id = laundry_order.id
+                    and batch.status in ('completed', 'loaded')
+                ),
+                (
+                  select max(audit.occurred_at)
+                  from public.authorization_audit_events as audit
+                  where audit.action in (
+                    'laundry_batch_loaded_to_source_cart',
+                    'laundry_batch_completed_without_source_loading',
+                    'laundry_batch_drying_completed'
+                  )
+                    and audit.outcome = 'succeeded'
+                    and (
+                      audit.laundry_order_id = laundry_order.id
+                      or audit.laundry_cart_id = laundry_order.laundry_cart_id
+                      or audit.after_state ->> 'laundry_order_id' = laundry_order.id::text
+                    )
+                    and audit.occurred_at >= laundry_order.created_at
+                )
+              )
+            end,
             'closed_at', laundry_order.closed_at,
             'institution_code', institution.code,
             'institution_name', institution.name,
@@ -292,6 +319,34 @@ begin
             select min(audit.occurred_at)
             from public.authorization_audit_events as audit
             where audit.action = 'laundry_order_received'
+              and audit.outcome = 'succeeded'
+              and (
+                audit.laundry_order_id = order_record.id
+                or audit.laundry_cart_id = order_record.laundry_cart_id
+                or audit.after_state ->> 'laundry_order_id' = order_record.id::text
+              )
+              and audit.occurred_at >= order_record.created_at
+          )
+        )
+      end,
+      'ready_at', case
+        when order_record.status not in ('ready_for_pickup', 'picked_up') then null
+        else coalesce(
+          (workspace_detail ->> 'order_ready_at')::timestamptz,
+          (
+            select max(coalesce(batch.loaded_at, batch.completed_at))
+            from public.laundry_batches as batch
+            where batch.laundry_order_id = order_record.id
+              and batch.status in ('completed', 'loaded')
+          ),
+          (
+            select max(audit.occurred_at)
+            from public.authorization_audit_events as audit
+            where audit.action in (
+              'laundry_batch_loaded_to_source_cart',
+              'laundry_batch_completed_without_source_loading',
+              'laundry_batch_drying_completed'
+            )
               and audit.outcome = 'succeeded'
               and (
                 audit.laundry_order_id = order_record.id

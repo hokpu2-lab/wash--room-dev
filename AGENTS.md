@@ -26,6 +26,22 @@
 
 ## 2026-10-12 最新接手快照
 
+- **歷史查詢紀錄新增「完成時間」欄位與原欄位更名為「總花費時間」（/app/history）**：
+  - **歷史查詢表格欄位順序與標頭更新（`src/app/app/history-results.tsx`）**：
+    - 表格標頭依序為：`洗衣單號` ➔ `送洗機構` ➔ `送單時間` ➔ `收件時間` ➔ `完成時間` ➔ `取件時間` ➔ `總花費時間` ➔ `狀態`。
+    - 於「收件時間」與「取件時間」中間新增「`完成時間`」欄位（`<th>完成時間</th>`、`<td>{formatDateTime(item.readyAt)}</td>`），未達待取件或洗烘未完成時顯示「`—`」。
+    - 原本計算送單至取件歷時的「完成時間」欄位，依需求更名為「`總花費時間`」（`<th>總花費時間</th>`、`<td>{formatCompletionTime(item.createdAt, item.closedAt)}</td>`）。
+  - **洗衣單整體歷程彈窗升級（`HistoryModal`）**：
+    - 詳細歷程彈窗之基本資料項目（`historyMetaGrid`）同步升級，依序展示：送單時間、收件時間、完成時間（`formatDateTime(detail.order.readyAt ?? ...)`）、取件時間、總花費時間。
+    - 彈窗內的流程圖（`LaundryOrderFlow3D`）之 `orderReadyAt` 優先採用 `detail.order.readyAt`。
+  - **完成時間資料流、多層回補防禦與 RPC 升級（`order-history-model.ts`, `order-history.ts`, `20261012160000_add_received_at_to_order_history.sql`）**：
+    - 在 `getLaundryOrderHistory` 與 `getLaundryOrderHistoryDetail` 中新增 `readyAt` 欄位與回補邏輯：針對待取件（`ready_for_pickup`）或已取件（`picked_up`）但尚未取得完成時間的單據，自動查詢批次完成/裝車時間（`max(coalesce(loaded_at, completed_at))`），第二層回補稽核事件（`laundry_batch_loaded_to_source_cart` 等）。
+    - 資料庫函式 `search_laundry_order_history` 與 `get_laundry_order_history_detail` 新增 `ready_at` 欄位回傳。
+  - **單元測試、資料庫合約與建置覆核**：
+    - `tests/unit/order-history.spec.ts` 驗證 `readyAt` 解析、未完成時顯示 `—`、已完成時格式化為台北時間與 `formatCompletionTime` 總花費時間計算。
+    - `tests/database/order-history.spec.ts` 驗證 Postgres 函數回傳之 `ready_at`。
+    - 36 個測試檔、158 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
 - **歷史查詢紀錄新增「收件時間」欄位與雙重回補防禦（/app/history）**：
   - **歷史查詢表格欄位擴增（`src/app/app/history-results.tsx`）**：
     - 在「歷史查詢紀錄」結果表格中，於「送單時間」與「取件時間」欄位中間新增「`收件時間`」標頭與資料列（`<th>收件時間</th>`、`<td>{formatDateTime(item.receivedAt)}</td>`）。

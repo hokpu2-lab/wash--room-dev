@@ -9,6 +9,7 @@ const historyItemSchema = z.object({
   stage_name: z.string().optional().nullable(),
   created_at: z.string(),
   received_at: z.string().nullable().optional(),
+  ready_at: z.string().nullable().optional(),
   closed_at: z.string().nullable(),
   institution_code: z.string().min(1),
   institution_name: z.string().min(1),
@@ -92,6 +93,7 @@ const historyDetailRpcSchema = z.object({
     stage_name: z.string().optional().nullable(),
     created_at: z.string(),
     received_at: z.string().nullable().optional(),
+    ready_at: z.string().nullable().optional(),
     closed_at: z.string().nullable(),
     institution_code: z.string().min(1),
     institution_name: z.string().min(1),
@@ -110,6 +112,7 @@ export type LaundryOrderHistoryItem = {
   stageName?: string | null;
   createdAt: string;
   receivedAt?: string | null;
+  readyAt?: string | null;
   closedAt: string | null;
   institutionCode: string;
   institutionName: string;
@@ -176,6 +179,7 @@ export function parseLaundryOrderHistory(
       stageName: item.stage_name ?? null,
       createdAt: item.created_at,
       receivedAt: item.received_at ?? null,
+      readyAt: item.ready_at ?? null,
       closedAt: item.closed_at,
       institutionCode: item.institution_code,
       institutionName: item.institution_name,
@@ -203,6 +207,13 @@ export function parseLaundryOrderHistoryDetail(data: unknown): LaundryOrderHisto
       createdAt: parsed.data.order.created_at,
       receivedAt: parsed.data.order.received_at
         ?? parsed.data.events.find((e) => e.action === "laundry_order_received")?.occurred_at
+        ?? null,
+      readyAt: parsed.data.order.ready_at
+        ?? parsed.data.events.find((e) => [
+          "laundry_batch_loaded_to_source_cart",
+          "laundry_batch_completed_without_source_loading",
+          "laundry_batch_drying_completed",
+        ].includes(e.action))?.occurred_at
         ?? null,
       closedAt: parsed.data.order.closed_at,
       institutionCode: parsed.data.order.institution_code,

@@ -58,6 +58,7 @@ test("已取件歷史查詢依據點與送洗機構範圍回傳日期、關鍵�
     ) values
       ('2026-08-18T05:00:00Z', 'system', '${siteId}', '${institutionA}', '${cartA}', '${orderA}', 'laundry_order_created_from_cart_qr', 'succeeded', '匿名固定 QR 送單', '{"laundry_order_id":"${orderA}"}'),
       ('2026-08-18T05:15:00Z', 'system', '${siteId}', '${institutionA}', '${cartA}', '${orderA}', 'laundry_order_received', 'succeeded', '掃車收單分類', '{"laundry_order_id":"${orderA}"}'),
+      ('2026-08-18T07:30:00Z', 'system', '${siteId}', '${institutionA}', '${cartA}', '${orderA}', 'laundry_batch_loaded_to_source_cart', 'succeeded', '裝回來源車', '{"laundry_order_id":"${orderA}"}'),
       ('2026-08-18T08:00:00Z', 'system', '${siteId}', '${institutionA}', '${cartA}', '${orderA}', 'laundry_order_picked_up', 'succeeded', '送洗人員掃車取件', '{"status":"picked_up"}');
   `);
 
@@ -71,7 +72,7 @@ test("已取件歷史查詢依據點與送洗機構範圍回傳日期、關鍵�
   const supervisorResult = await database.query<{
     search_laundry_order_history: {
       outcome: string;
-      queue: { total: number; items: Array<{ id: string; institution_code: string; cart_number: string; received_at?: string | null; closed_at: string }> };
+      queue: { total: number; items: Array<{ id: string; institution_code: string; cart_number: string; received_at?: string | null; ready_at?: string | null; closed_at: string }> };
     };
   }>(
     "select public.search_laundry_order_history($1::uuid, $2::timestamptz, $3::timestamptz, $4::text, null, 1, 1)",
@@ -90,11 +91,13 @@ test("已取件歷史查詢依據點與送洗機構範圍回傳日期、關鍵�
   });
   expect(new Date(supervisorResult.rows[0]!.search_laundry_order_history.queue.items[0]!.received_at!).toISOString())
     .toBe("2026-08-18T05:15:00.000Z");
+  expect(new Date(supervisorResult.rows[0]!.search_laundry_order_history.queue.items[0]!.ready_at!).toISOString())
+    .toBe("2026-08-18T07:30:00.000Z");
 
   const supervisorDetail = await database.query<{
     get_laundry_order_history_detail: {
       outcome: string;
-      order: { id: string; order_number: string; status: string; received_at?: string | null };
+      order: { id: string; order_number: string; status: string; received_at?: string | null; ready_at?: string | null };
       batches: unknown[];
       events: Array<{ action: string; reason: string | null }>;
     };
@@ -112,11 +115,14 @@ test("已取件歷史查詢依據點與送洗機構範圍回傳日期、關鍵�
     events: [
       { action: "laundry_order_created_from_cart_qr" },
       { action: "laundry_order_received" },
+      { action: "laundry_batch_loaded_to_source_cart" },
       { action: "laundry_order_picked_up" },
     ],
   });
   expect(new Date(supervisorDetail.rows[0]!.get_laundry_order_history_detail.order.received_at!).toISOString())
     .toBe("2026-08-18T05:15:00.000Z");
+  expect(new Date(supervisorDetail.rows[0]!.get_laundry_order_history_detail.order.ready_at!).toISOString())
+    .toBe("2026-08-18T07:30:00.000Z");
 
   await database.exec("reset role");
   await database.query(`select set_config('request.jwt.claim.sub', $1, false)`, [institutionSupervisorAuthUserId]);

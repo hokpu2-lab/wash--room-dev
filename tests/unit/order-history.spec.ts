@@ -345,3 +345,101 @@ test("歷史查詢紀錄與詳情彈窗正確取得收件時間（送單時間�
   expect(detailResult?.order.receivedAt).toBe("2026-10-12T01:45:00.000Z");
   expect(formatDateTime(detailResult?.order.receivedAt)).toBe("2026/10/12 上午09:45");
 });
+
+test("歷史查詢紀錄與詳情彈窗正確取得完成時間（收件時間與取件時間中間）與總花費時間", async () => {
+  const { formatDateTime, formatCompletionTime } = await import("../../src/app/app/history-results");
+
+  // 1. 未完成洗烘訂單：readyAt 為 null，格式化為 —
+  const inProcessHistory = parseLaundryOrderHistory({
+    outcome: "ok",
+    site_id: siteId,
+    period: { start: "2026-10-01T00:00:00.000Z", end: "2026-10-15T00:00:00.000Z" },
+    queue: {
+      total: 1,
+      limit: 20,
+      offset: 0,
+      items: [{
+        id: orderId,
+        order_number: "MAIN-20261012-0003",
+        status: "in_process",
+        created_at: "2026-10-12T01:30:00.000Z",
+        received_at: "2026-10-12T01:45:00.000Z",
+        ready_at: null,
+        closed_at: null,
+        institution_code: "CARE-A",
+        institution_name: "照護機構 A",
+        cart_number: "CART-A-01",
+        site_code: "MAIN",
+        site_name: "本館",
+      }],
+    },
+  }, { page: 1, pageSize: 20 });
+
+  expect(inProcessHistory?.items[0].readyAt).toBeNull();
+  expect(formatDateTime(inProcessHistory?.items[0].readyAt)).toBe("—");
+  expect(formatCompletionTime(inProcessHistory!.items[0].createdAt, inProcessHistory!.items[0].closedAt)).toBe("—");
+
+  // 2. 待取件/已取件訂單：包含 ready_at，格式化為正確台北時間，以及計算總花費時間
+  const completedHistory = parseLaundryOrderHistory({
+    outcome: "ok",
+    site_id: siteId,
+    period: { start: "2026-10-01T00:00:00.000Z", end: "2026-10-15T00:00:00.000Z" },
+    queue: {
+      total: 1,
+      limit: 20,
+      offset: 0,
+      items: [{
+        id: orderId,
+        order_number: "MAIN-20261012-0004",
+        status: "picked_up",
+        created_at: "2026-10-12T01:30:00.000Z",
+        received_at: "2026-10-12T01:45:00.000Z",
+        ready_at: "2026-10-12T03:15:00.000Z",
+        closed_at: "2026-10-12T04:30:00.000Z",
+        institution_code: "CARE-A",
+        institution_name: "照護機構 A",
+        cart_number: "CART-A-01",
+        site_code: "MAIN",
+        site_name: "本館",
+      }],
+    },
+  }, { page: 1, pageSize: 20 });
+
+  expect(completedHistory?.items[0].readyAt).toBe("2026-10-12T03:15:00.000Z");
+  expect(formatDateTime(completedHistory?.items[0].readyAt)).toBe("2026/10/12 上午11:15");
+  expect(formatDateTime(completedHistory?.items[0].closedAt)).toBe("2026/10/12 下午12:30");
+  expect(formatCompletionTime(completedHistory!.items[0].createdAt, completedHistory!.items[0].closedAt)).toBe("3 小時");
+
+  // 3. 詳情彈窗：若 RPC 訂單未直接提供 ready_at，自動從 laundry_batch_loaded_to_source_cart 事件回退推導
+  const detailResult = parseLaundryOrderHistoryDetail({
+    outcome: "ok",
+    order: {
+      id: orderId,
+      order_number: "MAIN-20261012-0004",
+      status: "picked_up",
+      created_at: "2026-10-12T01:30:00.000Z",
+      received_at: "2026-10-12T01:45:00.000Z",
+      ready_at: null,
+      closed_at: "2026-10-12T04:30:00.000Z",
+      institution_code: "CARE-A",
+      institution_name: "照護機構 A",
+      cart_number: "CART-A-01",
+      site_code: "MAIN",
+      site_name: "本館",
+    },
+    batches: [],
+    events: [{
+      id: "50000000-0000-4000-8000-000000000103",
+      occurred_at: "2026-10-12T03:15:00.000Z",
+      action: "laundry_batch_loaded_to_source_cart",
+      outcome: "succeeded",
+      reason: "裝回來源車",
+      batch_id: null,
+      equipment_name: null,
+    }],
+  });
+
+  expect(detailResult?.order.readyAt).toBe("2026-10-12T03:15:00.000Z");
+  expect(formatDateTime(detailResult?.order.readyAt)).toBe("2026/10/12 上午11:15");
+});
+
