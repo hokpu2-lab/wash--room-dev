@@ -27,10 +27,32 @@ interface PendingCartItem {
   orderNumber: string;
   cartNumber: string;
   institutionName: string;
+  receiptTime: string;
   isPostStage: boolean;
   justFinishedStage: string | null;
   nextStageName: string;
   nextStageTone: "disinfect" | "wash" | "dry" | "pickup";
+}
+
+interface ReadyCartItem {
+  id: string;
+  orderNumber: string;
+  cartNumber: string;
+  institutionName: string;
+  readyTime: string;
+}
+
+function formatClockTime(isoString?: string | null): string {
+  if (!isoString) return "—";
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return "—";
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  const period = hours >= 12 ? "下午" : "上午";
+  const displayHours = String(hours % 12 === 0 ? 12 : hours % 12).padStart(2, "0");
+  return `${month}/${day} ${period} ${displayHours}:${minutes}`;
 }
 
 export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveViewProps) {
@@ -59,6 +81,9 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
     }
 
     const detail = orderDetailByIdMap.get(order.id);
+    const receiptIso = detail?.orderReceivedAt || detail?.orderCreatedAt || order.updatedAt;
+    const formattedReceiptTime = formatClockTime(receiptIso);
+
     const isDisinfect = Boolean(
       order.orderNumber === "MAIN-20261005-0004" ||
       order.orderNumber === "MAIN-20261008-0001" ||
@@ -74,6 +99,7 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
         orderNumber: order.orderNumber,
         cartNumber: order.cartNumber,
         institutionName: order.institutionName,
+        receiptTime: formattedReceiptTime,
         isPostStage: false,
         justFinishedStage: null,
         nextStageName: isDisinfect ? "待消毒" : "待分類",
@@ -137,6 +163,7 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
           orderNumber: order.orderNumber,
           cartNumber: order.cartNumber,
           institutionName: order.institutionName,
+          receiptTime: formattedReceiptTime,
           isPostStage: true,
           justFinishedStage: justFinished,
           nextStageName: nextStage,
@@ -147,7 +174,19 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
   }
 
   // 2. 右側：完成待取件的洗衣車列表 (ready_for_pickup)
-  const readyForPickupOrders = orders.filter((o) => o.status === "ready_for_pickup");
+  const readyCarts: ReadyCartItem[] = orders
+    .filter((o) => o.status === "ready_for_pickup")
+    .map((order) => {
+      const detail = orderDetailByIdMap.get(order.id);
+      const readyIso = detail?.orderReadyAt || order.updatedAt;
+      return {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        cartNumber: order.cartNumber,
+        institutionName: order.institutionName,
+        readyTime: formatClockTime(readyIso),
+      };
+    });
 
   // 3. 中間：各設備即時狀態推導
   interface ActiveRunInfo {
@@ -205,21 +244,7 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
       o.status !== "awaiting_receipt"
   );
 
-  // 排序設備：消毒鍋 -> 洗衣機 -> 烘衣機 -> 名稱
-  const typeOrder: Record<string, number> = {
-    disinfection_tank: 1,
-    washer: 2,
-    dryer: 3,
-  };
-
-  const sortedEquipment = [...equipment].sort((a, b) => {
-    const orderA = typeOrder[a.equipmentType] ?? 99;
-    const orderB = typeOrder[b.equipmentType] ?? 99;
-    if (orderA !== orderB) return orderA - orderB;
-    return a.name.localeCompare(b.name, "zh-Hant");
-  });
-
-  const equipmentLiveList: EquipmentLiveStatus[] = sortedEquipment.map((eq) => {
+  const getEquipmentLiveStatus = (eq: WorkspaceEquipment): EquipmentLiveStatus => {
     // 尋找關聯的 active run
     let match = activeRuns.find(
       (r) => r.activeEquipmentName === eq.name || (r.stageType === eq.equipmentType && eq.occupied)
@@ -322,7 +347,86 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
       activeCartNumber: null,
       activeInstitutionName: null,
     };
-  });
+  };
+
+  // 分組依序並排顯示：消毒鍋群 ➔ 洗衣機群 ➔ 烘衣機群
+  const disinfectionEquipment = equipment
+    .filter((e) => e.equipmentType === "disinfection_tank")
+    .sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"))
+    .map(getEquipmentLiveStatus);
+
+  const washingEquipment = equipment
+    .filter((e) => e.equipmentType === "washer")
+    .sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"))
+    .map(getEquipmentLiveStatus);
+
+  const dryingEquipment = equipment
+    .filter((e) => e.equipmentType === "dryer")
+    .sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"))
+    .map(getEquipmentLiveStatus);
+
+  const totalEquipmentCount =
+    disinfectionEquipment.length + washingEquipment.length + dryingEquipment.length;
+
+  const renderEquipmentCard = (item: EquipmentLiveStatus) => {
+    const toneClass =
+      item.statusTone === "disinfecting"
+        ? styles.eqDisinfecting
+        : item.statusTone === "washing"
+        ? styles.eqWashing
+        : item.statusTone === "drying"
+        ? styles.eqDrying
+        : item.statusTone === "completed"
+        ? styles.eqCompleted
+        : item.statusTone === "paused"
+        ? styles.eqPaused
+        : styles.eqIdle;
+
+    const icon =
+      item.equipment.equipmentType === "disinfection_tank"
+        ? "🧪"
+        : item.equipment.equipmentType === "washer"
+        ? "🫧"
+        : "💨";
+
+    const typeTitle =
+      item.equipment.equipmentType === "disinfection_tank"
+        ? "消毒鍋"
+        : item.equipment.equipmentType === "washer"
+        ? "洗衣機"
+        : "烘衣機";
+
+    return (
+      <div key={item.equipment.id} className={`${styles.equipmentCard} ${toneClass}`}>
+        <div className={styles.eqTopRow}>
+          <span className={styles.eqTypeIcon} title={typeTitle}>{icon}</span>
+          <strong className={styles.eqName}>{item.equipment.name}</strong>
+          <span className={styles.eqStatusBadge}>{item.statusLabel}</span>
+        </div>
+
+        <div className={styles.eqDetailRow}>
+          {item.activeCartNumber || item.activeInstitutionName ? (
+            <div className={styles.activeRunningInfo}>
+              <span className={styles.runningInstBadge}>
+                {item.activeInstitutionName || "現場機構"}
+              </span>
+              <span className={styles.runningCartBadge}>
+                🛒 {item.activeCartNumber || "作業中"}
+              </span>
+            </div>
+          ) : (
+            <div className={styles.idleRunningInfo}>
+              {item.equipment.occupied ? (
+                <span className={styles.busyWithoutCart}>作業中 (未指定車)</span>
+              ) : (
+                <span className={styles.idleText}>設備待命中</span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <section className={styles.liveViewContainer} aria-label="全流程簡易即時視圖">
@@ -379,11 +483,12 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
                       {item.nextStageName}
                     </span>
 
-                    {/* Hover 浮動提示機構名稱與下一階段 */}
+                    {/* Hover 浮動提示機構名稱、單號、收單時間與下一階段 */}
                     <div className={styles.tooltipBox}>
                       <span className={styles.tooltipLabel}>機構名稱</span>
                       <span className={styles.tooltipValue}>{item.institutionName}</span>
                       <span className={styles.tooltipOrder}>單號 {item.orderNumber}</span>
+                      <span className={styles.tooltipTime}>收單時間：{item.receiptTime}</span>
                       {item.isPostStage && item.justFinishedStage ? (
                         <span className={styles.tooltipNextStage}>
                           已完成：{item.justFinishedStage} ➔ 下一階段：{item.nextStageName}
@@ -401,76 +506,58 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
           </div>
         </div>
 
-        {/* === 中間：洗衣設備與運作動態 === */}
+        {/* === 中間：洗衣設備運作動態 (消毒 ➔ 清洗 ➔ 烘乾 3種機器依序並排顯示) === */}
         <div className={`${styles.liveViewCol} ${styles.equipmentCol}`}>
           <div className={styles.colHeader}>
             <span className={styles.colTitle}>⚙️ 洗衣設備運作動態 (消毒 ➔ 清洗 ➔ 烘乾)</span>
-            <span className={styles.colCount}>{equipmentLiveList.length} 台</span>
+            <span className={styles.colCount}>{totalEquipmentCount} 台</span>
           </div>
-          <div className={styles.equipmentGrid}>
-            {equipmentLiveList.length === 0 ? (
-              <div className={styles.emptyState}>暫無設備資料</div>
-            ) : (
-              equipmentLiveList.map((item) => {
-                const toneClass =
-                  item.statusTone === "disinfecting"
-                    ? styles.eqDisinfecting
-                    : item.statusTone === "washing"
-                    ? styles.eqWashing
-                    : item.statusTone === "drying"
-                    ? styles.eqDrying
-                    : item.statusTone === "completed"
-                    ? styles.eqCompleted
-                    : item.statusTone === "paused"
-                    ? styles.eqPaused
-                    : styles.eqIdle;
 
-                const icon =
-                  item.equipment.equipmentType === "disinfection_tank"
-                    ? "🧪"
-                    : item.equipment.equipmentType === "washer"
-                    ? "🫧"
-                    : "💨";
+          <div className={styles.equipmentTrioColumns}>
+            {/* 1. 消毒鍋 專屬分組 */}
+            <div className={styles.equipmentTrioSection}>
+              <div className={styles.trioSectionHeader}>
+                <span className={styles.trioSectionTitle}>🧪 消毒鍋</span>
+                <span className={styles.trioSectionCount}>{disinfectionEquipment.length}</span>
+              </div>
+              <div className={styles.trioCardsList}>
+                {disinfectionEquipment.length === 0 ? (
+                  <div className={styles.emptyStateCompact}>無設備</div>
+                ) : (
+                  disinfectionEquipment.map(renderEquipmentCard)
+                )}
+              </div>
+            </div>
 
-                const typeTitle =
-                  item.equipment.equipmentType === "disinfection_tank"
-                    ? "消毒鍋"
-                    : item.equipment.equipmentType === "washer"
-                    ? "洗衣機"
-                    : "烘衣機";
+            {/* 2. 洗衣機 專屬分組 */}
+            <div className={styles.equipmentTrioSection}>
+              <div className={styles.trioSectionHeader}>
+                <span className={styles.trioSectionTitle}>🫧 洗衣機</span>
+                <span className={styles.trioSectionCount}>{washingEquipment.length}</span>
+              </div>
+              <div className={styles.trioCardsList}>
+                {washingEquipment.length === 0 ? (
+                  <div className={styles.emptyStateCompact}>無設備</div>
+                ) : (
+                  washingEquipment.map(renderEquipmentCard)
+                )}
+              </div>
+            </div>
 
-                return (
-                  <div key={item.equipment.id} className={`${styles.equipmentCard} ${toneClass}`}>
-                    <div className={styles.eqTopRow}>
-                      <span className={styles.eqTypeIcon} title={typeTitle}>{icon}</span>
-                      <strong className={styles.eqName}>{item.equipment.name}</strong>
-                      <span className={styles.eqStatusBadge}>{item.statusLabel}</span>
-                    </div>
-
-                    <div className={styles.eqDetailRow}>
-                      {item.activeCartNumber || item.activeInstitutionName ? (
-                        <div className={styles.activeRunningInfo}>
-                          <span className={styles.runningInstBadge}>
-                            {item.activeInstitutionName || "現場機構"}
-                          </span>
-                          <span className={styles.runningCartBadge}>
-                            🛒 {item.activeCartNumber || "作業中"}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className={styles.idleRunningInfo}>
-                          {item.equipment.occupied ? (
-                            <span className={styles.busyWithoutCart}>作業中 (未指定車)</span>
-                          ) : (
-                            <span className={styles.idleText}>設備待命中</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
+            {/* 3. 烘衣機 專屬分組 */}
+            <div className={styles.equipmentTrioSection}>
+              <div className={styles.trioSectionHeader}>
+                <span className={styles.trioSectionTitle}>💨 烘衣機</span>
+                <span className={styles.trioSectionCount}>{dryingEquipment.length}</span>
+              </div>
+              <div className={styles.trioCardsList}>
+                {dryingEquipment.length === 0 ? (
+                  <div className={styles.emptyStateCompact}>無設備</div>
+                ) : (
+                  dryingEquipment.map(renderEquipmentCard)
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -478,29 +565,30 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
         <div className={styles.liveViewCol}>
           <div className={styles.colHeader}>
             <span className={styles.colTitle}>📤 待取件 (洗烘完畢)</span>
-            <span className={styles.colCount}>{readyForPickupOrders.length}</span>
+            <span className={styles.colCount}>{readyCarts.length}</span>
           </div>
           <div className={styles.cartList}>
-            {readyForPickupOrders.length === 0 ? (
+            {readyCarts.length === 0 ? (
               <div className={styles.emptyState}>暫無待取件洗衣車</div>
             ) : (
-              readyForPickupOrders.map((order) => (
+              readyCarts.map((item) => (
                 <div
-                  key={order.id}
+                  key={item.id}
                   className={`${styles.cartChip} ${styles.cartChipReady}`}
                   tabIndex={0}
                   role="tooltip"
-                  aria-label={`${order.institutionName} - 車號 ${order.cartNumber}`}
+                  aria-label={`${item.institutionName} - 車號 ${item.cartNumber}，結束時間：${item.readyTime}`}
                 >
                   <div className={styles.cartChipMain}>
                     <span className={styles.cartIcon}>✨</span>
-                    <strong className={styles.cartNumber}>{order.cartNumber}</strong>
+                    <strong className={styles.cartNumber}>{item.cartNumber}</strong>
                   </div>
-                  {/* Hover 浮動提示機構名稱 */}
+                  {/* Hover 浮動提示機構名稱、單號與結束時間 */}
                   <div className={styles.tooltipBox}>
                     <span className={styles.tooltipLabel}>洗烘完畢 · 待領回</span>
-                    <span className={styles.tooltipValue}>{order.institutionName}</span>
-                    <span className={styles.tooltipOrder}>單號 {order.orderNumber}</span>
+                    <span className={styles.tooltipValue}>{item.institutionName}</span>
+                    <span className={styles.tooltipOrder}>單號 {item.orderNumber}</span>
+                    <span className={styles.tooltipTime}>結束時間：{item.readyTime}</span>
                   </div>
                 </div>
               ))
