@@ -46,6 +46,69 @@ function deriveStageName(
   return status === "in_process" ? "處理中" : status;
 }
 
+async function enrichMissingReceivedAt(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  items: LaundryOrderHistoryItem[],
+): Promise<void> {
+  const missing = items.filter((item) => !item.receivedAt && item.status !== "awaiting_receipt");
+  if (missing.length === 0) return;
+
+  const orderIds = missing.map((item) => item.id);
+  try {
+    const { data: batches } = await supabase
+      .from("laundry_batches")
+      .select("laundry_order_id, created_at")
+      .in("laundry_order_id", orderIds);
+
+    if (batches && batches.length > 0) {
+      const batchMap = new Map<string, string>();
+      for (const batch of batches) {
+        const prev = batchMap.get(batch.laundry_order_id);
+        if (!prev || new Date(batch.created_at).getTime() < new Date(prev).getTime()) {
+          batchMap.set(batch.laundry_order_id, batch.created_at);
+        }
+      }
+      for (const item of items) {
+        if (!item.receivedAt && batchMap.has(item.id)) {
+          item.receivedAt = batchMap.get(item.id)!;
+        }
+      }
+    }
+  } catch {
+    // ignore batch query errors
+  }
+
+  // Second pass fallback for any remaining items with status !== awaiting_receipt
+  const stillMissing = items.filter((item) => !item.receivedAt && item.status !== "awaiting_receipt");
+  if (stillMissing.length > 0) {
+    try {
+      const stillMissingIds = stillMissing.map((item) => item.id);
+      const { data: audits } = await supabase
+        .from("authorization_audit_events")
+        .select("laundry_order_id, occurred_at")
+        .eq("action", "laundry_order_received")
+        .eq("outcome", "succeeded")
+        .in("laundry_order_id", stillMissingIds);
+
+      if (audits && audits.length > 0) {
+        const auditMap = new Map<string, string>();
+        for (const audit of audits) {
+          if (audit.laundry_order_id && !auditMap.has(audit.laundry_order_id)) {
+            auditMap.set(audit.laundry_order_id, audit.occurred_at);
+          }
+        }
+        for (const item of items) {
+          if (!item.receivedAt && auditMap.has(item.id)) {
+            item.receivedAt = auditMap.get(item.id)!;
+          }
+        }
+      }
+    } catch {
+      // ignore audit query errors
+    }
+  }
+}
+
 export async function getLaundryOrderHistory(input: LaundryOrderHistoryInput): Promise<LaundryOrderHistory | null> {
   const supabase = await createServerSupabaseClient();
   const pageSize = Math.min(Math.max(input.pageSize ?? 20, 1), 40);
@@ -114,12 +177,14 @@ export async function getLaundryOrderHistory(input: LaundryOrderHistoryInput): P
     if (activeItems.length > 0) {
       if (!parsed) {
         activeItems.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        const resultItems = activeItems.slice((page - 1) * pageSize, page * pageSize);
+        await enrichMissingReceivedAt(supabase, resultItems);
         return {
           siteId: snapshot.dashboard.site_id,
           total: activeItems.length,
           page,
           pageSize,
-          items: activeItems.slice((page - 1) * pageSize, page * pageSize),
+          items: resultItems,
           period: {
             start: input.periodStart,
             end: input.periodEnd,
@@ -136,12 +201,18 @@ export async function getLaundryOrderHistory(input: LaundryOrderHistoryInput): P
       });
 
       const newTotal = parsed.total + activeItems.length;
+      const resultItems = combined.slice(0, pageSize);
+      await enrichMissingReceivedAt(supabase, resultItems);
       return {
         ...parsed,
         total: newTotal,
-        items: combined.slice(0, pageSize),
+        items: resultItems,
       };
     }
+  }
+
+  if (parsed && parsed.items.length > 0) {
+    await enrichMissingReceivedAt(supabase, parsed.items);
   }
 
   return parsed;
@@ -154,7 +225,37 @@ export async function getLaundryOrderHistoryDetail(orderId: string): Promise<Lau
   });
 
   const parsed = !error ? parseLaundryOrderHistoryDetail(data) : null;
-  if (parsed) return parsed;
+  if (parsed) {
+    if (!parsed.order.receivedAt && parsed.order.status !== "awaiting_receipt") {
+      try {
+        const { data: batches } = await supabase
+          .from("laundry_batches")
+          .select("created_at")
+          .eq("laundry_order_id", orderId)
+          .order("created_at", { ascending: true })
+          .limit(1);
+
+        if (batches?.[0]?.created_at) {
+          parsed.order.receivedAt = batches[0].created_at;
+        }
+      } catch {
+        // ignore batch query errors
+      }
+    }
+    if (parsed.order.receivedAt && !parsed.events.some((e) => e.action === "laundry_order_received")) {
+      parsed.events.push({
+        id: `received-${orderId}`,
+        occurredAt: parsed.order.receivedAt,
+        action: "laundry_order_received",
+        outcome: "succeeded",
+        reason: "收單並完成分類",
+        batchId: null,
+        equipmentName: null,
+      });
+      parsed.events.sort((a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime());
+    }
+    return parsed;
+  }
 
   // Fallback for active orders: fetch from workspace order detail
   const [workspaceDetail, snapshot] = await Promise.all([

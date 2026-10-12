@@ -157,27 +157,28 @@ begin
               end
             ),
             'created_at', laundry_order.created_at,
-            'received_at', coalesce(
-              (
-                select min(audit.occurred_at)
-                from public.authorization_audit_events as audit
-                where audit.action = 'laundry_order_received'
-                  and audit.outcome = 'succeeded'
-                  and audit.operating_site_id = site_id
-                  and (
-                    audit.laundry_order_id = laundry_order.id
-                    or audit.after_state ->> 'laundry_order_id' = laundry_order.id::text
-                  )
-              ),
-              case
-                when laundry_order.status <> 'awaiting_receipt' then (
+            'received_at', case
+              when laundry_order.status = 'awaiting_receipt' then null
+              else coalesce(
+                (
                   select min(batch.created_at)
                   from public.laundry_batches as batch
                   where batch.laundry_order_id = laundry_order.id
+                ),
+                (
+                  select min(audit.occurred_at)
+                  from public.authorization_audit_events as audit
+                  where audit.action = 'laundry_order_received'
+                    and audit.outcome = 'succeeded'
+                    and (
+                      audit.laundry_order_id = laundry_order.id
+                      or audit.laundry_cart_id = laundry_order.laundry_cart_id
+                      or audit.after_state ->> 'laundry_order_id' = laundry_order.id::text
+                    )
+                    and audit.occurred_at >= laundry_order.created_at
                 )
-                else null
-              end
-            ),
+              )
+            end,
             'closed_at', laundry_order.closed_at,
             'institution_code', institution.code,
             'institution_name', institution.name,
@@ -278,19 +279,29 @@ begin
       'order_number', order_record.order_number,
       'status', order_record.status,
       'created_at', order_record.created_at,
-      'received_at', coalesce(
-        (workspace_detail ->> 'order_received_at')::timestamptz,
-        (
-          select min(audit.occurred_at)
-          from public.authorization_audit_events as audit
-          where audit.action = 'laundry_order_received'
-            and audit.outcome = 'succeeded'
-            and (
-              audit.laundry_order_id = order_record.id
-              or audit.after_state ->> 'laundry_order_id' = order_record.id::text
-            )
+      'received_at', case
+        when order_record.status = 'awaiting_receipt' then null
+        else coalesce(
+          (workspace_detail ->> 'order_received_at')::timestamptz,
+          (
+            select min(batch.created_at)
+            from public.laundry_batches as batch
+            where batch.laundry_order_id = order_record.id
+          ),
+          (
+            select min(audit.occurred_at)
+            from public.authorization_audit_events as audit
+            where audit.action = 'laundry_order_received'
+              and audit.outcome = 'succeeded'
+              and (
+                audit.laundry_order_id = order_record.id
+                or audit.laundry_cart_id = order_record.laundry_cart_id
+                or audit.after_state ->> 'laundry_order_id' = order_record.id::text
+              )
+              and audit.occurred_at >= order_record.created_at
+          )
         )
-      ),
+      end,
       'closed_at', order_record.closed_at,
       'institution_code', institution.code,
       'institution_name', institution.name,
@@ -315,7 +326,17 @@ begin
       from public.authorization_audit_events as audit
       left join public.laundry_equipment as equipment
         on equipment.id = audit.laundry_equipment_id
-      where (audit.laundry_order_id = order_record.id or (cardinality(batch_ids) > 0 and audit.laundry_batch_id = any (batch_ids)))
+      where (
+        audit.laundry_order_id = order_record.id
+        or (cardinality(batch_ids) > 0 and audit.laundry_batch_id = any (batch_ids))
+        or (
+          audit.action = 'laundry_order_received'
+          and audit.outcome = 'succeeded'
+          and audit.laundry_cart_id = order_record.laundry_cart_id
+          and audit.occurred_at >= order_record.created_at
+          and (order_record.closed_at is null or audit.occurred_at <= order_record.closed_at)
+        )
+      )
         and audit.outcome = 'succeeded'
     ), '[]'::jsonb)
   )

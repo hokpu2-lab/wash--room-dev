@@ -16,14 +16,15 @@
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
 
-- **歷史查詢紀錄新增「收件時間」欄位（/app/history）**：
+- **歷史查詢紀錄新增「收件時間」欄位與雙重回補防禦（/app/history）**：
   - **歷史查詢表格欄位擴增（`src/app/app/history-results.tsx`）**：
     - 在「歷史查詢紀錄」結果表格中，於「送單時間」與「取件時間」欄位中間新增「`收件時間`」標頭與資料列（`<th>收件時間</th>`、`<td>{formatDateTime(item.receivedAt)}</td>`）。
   - **洗衣單整體歷程彈窗升級（`HistoryModal`）**：
     - 在詳細歷程彈窗基本資料項目中，於「送單時間」與「取件時間」之間新增「`收件時間`」（`<div><dt>收件時間</dt><dd>{formatDateTime(...)}</dd></div>`）。
-  - **收件時間資料流與遷移（`order-history-model.ts`, `order-history.ts`, `20261012160000_add_received_at_to_order_history.sql`）**：
-    - 收件時間依據現場掃車完成分類收單時間取得（`orderReceivedAt`、`laundry_order_received` 稽核事件發生時間或批次建立時間；待收件未完成分類者為 `null`，格式化為「`—`」）。
-    - 資料庫函式 `search_laundry_order_history` 與 `get_laundry_order_history_detail` 支援 `received_at`。
+  - **收件時間多層回補與資料流強化（`order-history-model.ts`, `order-history.ts`, `20261012160000_add_received_at_to_order_history.sql`）**：
+    - 排除遠端資料庫未即時遷移時返回 null 的問題：在 `getLaundryOrderHistory` 新增 `enrichMissingReceivedAt`，針對已收件（非 `awaiting_receipt`，含已取件 `picked_up`）但尚未取得收件時間的訂單，自動向 `laundry_batches` 查詢該單最初批次建立時間（`min(created_at)`）；第二層回補查詢稽核事件 `laundry_order_received`。
+    - 在 `getLaundryOrderHistoryDetail` 中同步對接批次建立時間回補，並於事件清單補齊「收單並完成分類」稽核記錄。
+    - 資料庫函式 `search_laundry_order_history` 與 `get_laundry_order_history_detail` 優先取自 `min(laundry_batches.created_at)`，次取自稽核事件，未收件者精準為 `null`（顯示「`—`」）。
   - **單元測試與建置覆核**：
     - `tests/unit/order-history.spec.ts` 與 `tests/database/order-history.spec.ts` 驗證收件時間解析與顯示。
     - 36 個測試檔、157 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
