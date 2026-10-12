@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  calculateEquipmentRemainingSeconds,
   derivePendingCarts,
   formatClockTime,
+  formatCountdown,
   type ReadyCartItem,
 } from "../../src/app/app/quick-live-view";
 import type {
@@ -374,5 +376,131 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
     expect(readyItem.sendTime).toBe(formatClockTime("2026-10-12T08:00:00.000Z"));
     expect(readyItem.receiptTime).toBe(formatClockTime("2026-10-12T08:30:00.000Z"));
     expect(readyItem.readyTime).toBe(formatClockTime("2026-10-12T11:00:00.000Z"));
+  });
+
+  it("倒數計時格式化 formatCountdown 應正確格式化秒數", () => {
+    expect(formatCountdown(3600)).toBe("1:00:00");
+    expect(formatCountdown(3599)).toBe("59:59");
+    expect(formatCountdown(125)).toBe("02:05");
+    expect(formatCountdown(5)).toBe("00:05");
+    expect(formatCountdown(0)).toBe("00:00");
+    expect(formatCountdown(-10)).toBe("00:00");
+  });
+
+  it("設備剩餘時間計算 calculateEquipmentRemainingSeconds 應正確計算或退回全額", () => {
+    const baseNow = new Date("2026-10-12T10:30:00.000Z").getTime();
+    
+    // 設備運作 60 分鐘，10 分鐘前開始 (經過 600 秒) -> 剩餘 50 分鐘 = 3000 秒
+    const tenMinAgo = new Date("2026-10-12T10:20:00.000Z").toISOString();
+    expect(calculateEquipmentRemainingSeconds(tenMinAgo, 60, baseNow)).toBe(3000);
+
+    // 設備剛好到達 60 分鐘 -> 剩餘 0 秒
+    const sixtyMinAgo = new Date("2026-10-12T09:30:00.000Z").toISOString();
+    expect(calculateEquipmentRemainingSeconds(sixtyMinAgo, 60, baseNow)).toBe(0);
+
+    // 設備超過 60 分鐘 -> 剩餘 0 秒 (不為負數)
+    const seventyMinAgo = new Date("2026-10-12T09:20:00.000Z").toISOString();
+    expect(calculateEquipmentRemainingSeconds(seventyMinAgo, 60, baseNow)).toBe(0);
+
+    // 未提供 startedAt 時退回設定時間 (預設 60 分鐘 = 3600 秒)
+    expect(calculateEquipmentRemainingSeconds(null, 60, baseNow)).toBe(3600);
+  });
+
+  it("待分類洗衣車不顯示分類標籤，分類後洗衣車應正確附帶分類標籤", () => {
+    const unclassifiedOrder: WorkspaceOrder = {
+      id: "unclass-1",
+      orderNumber: "MAIN-20261012-0010",
+      cartNumber: "1A-5",
+      institutionName: "慈心居",
+      status: "awaiting_receipt",
+      updatedAt: "2026-10-12T08:00:00.000Z",
+    };
+    const classifiedOrder: WorkspaceOrder = {
+      id: "class-1",
+      orderNumber: "MAIN-20261012-0011",
+      cartNumber: "2B-8",
+      institutionName: "康復院",
+      status: "awaiting_cleaning",
+      updatedAt: "2026-10-12T08:30:00.000Z",
+    };
+
+    const details: WorkspaceOrderDetail[] = [
+      makeDetail({
+        orderId: "class-1",
+        orderReceivedAt: "2026-10-12T08:30:00.000Z",
+        batches: [
+          makeBatch({
+            categoryName: "汙衣",
+            stages: [
+              makeStage({ stageOrder: 1, name: "主洗", equipmentType: "washer", state: "pending" }),
+            ],
+          }),
+        ],
+      }),
+    ];
+
+    const pending = derivePendingCarts([unclassifiedOrder, classifiedOrder], details);
+    expect(pending.length).toBe(2);
+
+    // 未分類單據無分類標籤
+    const unclassPending = pending.find((p) => p.cartNumber === "1A-5");
+    expect(unclassPending?.categoryNames).toBeUndefined();
+
+    // 分類後單據具備被分類標籤 [汙衣]
+    const classPending = pending.find((p) => p.cartNumber === "2B-8");
+    expect(classPending?.categoryNames).toEqual(["汙衣"]);
+  });
+
+  it("當運作中設備倒數完畢時，洗衣車應順利脫離設備並進入下一階段待處理", () => {
+    const orderRunning: WorkspaceOrder = {
+      id: "order-disinfect-run",
+      orderNumber: "MAIN-20261008-0001",
+      cartNumber: "2C-6",
+      institutionName: "護家",
+      status: "in_process",
+      updatedAt: "2026-10-12T09:00:00.000Z",
+    };
+
+    const details: WorkspaceOrderDetail[] = [
+      makeDetail({
+        orderId: "order-disinfect-run",
+        batches: [
+          makeBatch({
+            categoryName: "消毒品",
+            activeEquipmentName: "本館消毒鍋",
+            currentStageOrder: 1,
+            progress: {
+              stageRunId: "run-disinfect-1",
+              stageStatus: "in_progress",
+              stageProgressPercent: 99,
+              overallProgressPercent: 33,
+              estimatedStageCompletedAt: null,
+              overdueMinutes: 0,
+              totalStandardMinutes: 60,
+              isEstimate: false,
+            },
+            stages: [
+              makeStage({ stageOrder: 1, name: "浸泡消毒", equipmentType: "disinfection_tank", state: "active" }),
+              makeStage({ stageOrder: 2, name: "主洗", equipmentType: "washer", state: "pending" }),
+              makeStage({ stageOrder: 3, name: "烘乾", equipmentType: "dryer", state: "pending" }),
+            ],
+          }),
+        ],
+      }),
+    ];
+
+    // 倒數未完畢時，設備占用中，不應在待處理洗衣車
+    const beforeDone = derivePendingCarts([orderRunning], details);
+    expect(beforeDone.length).toBe(0);
+
+    // 倒數完畢時 (options 傳入本館消毒鍋已完成)，洗衣車應進入待處理洗衣車，下一階段為「待清洗」，並顯示分類標籤 [消毒品]
+    const afterDone = derivePendingCarts([orderRunning], details, {
+      completedEquipmentNames: new Set(["本館消毒鍋"]),
+    });
+    expect(afterDone.length).toBe(1);
+    expect(afterDone[0].cartNumber).toBe("2C-6");
+    expect(afterDone[0].justFinishedStage).toBe("消毒完畢");
+    expect(afterDone[0].nextStageName).toBe("待清洗");
+    expect(afterDone[0].categoryNames).toEqual(["消毒品"]);
   });
 });

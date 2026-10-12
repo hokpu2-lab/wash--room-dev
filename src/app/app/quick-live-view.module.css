@@ -161,6 +161,13 @@
   box-shadow: 0 4px 12px var(--lv-hover-shadow, rgba(56, 189, 248, 0.25));
 }
 
+.cartChipMainWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
 .cartChipMain {
   display: inline-flex;
   align-items: center;
@@ -738,3 +745,85 @@
   --lv-chip-radius: 6px;
   --lv-dot-radius: 50%;
 }
+
+/* 洗衣車分類標籤 */
+.cartCategoryBadges {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.cartCategoryBadge {
+  font-size: 0.72rem;
+  font-weight: 850;
+  padding: 2px 6px;
+  border-radius: var(--lv-chip-radius, 4px);
+  background: #1e293b;
+  color: #f1f5f9;
+  border: 1px solid #475569;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.cartCategoryDisinfect {
+  background: #831843;
+  color: #fdf2f8;
+  border-color: #f472b6;
+}
+
+.cartCategorySoiled {
+  background: #78350f;
+  color: #fffbeb;
+  border-color: #fbbf24;
+}
+
+.cartCategoryGeneral {
+  background: #0f172a;
+  color: #f8fafc;
+  border-color: #475569;
+}
+
+.tooltipCategory {
+  font-size: 0.75rem;
+  color: #e2e8f0;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-top: 2px;
+  display: inline-block;
+}
+
+/* 設備倒數計時徽章 */
+.eqCountdownBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 0.76rem;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+  background: #0f172a;
+  color: #fbbf24;
+  border: 1px solid #f59e0b;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.25);
+  white-space: nowrap;
+}
+
+.eqCountdownDone {
+  color: #34d399;
+  border-color: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.25);
+}
+
+.countdownIcon {
+  font-size: 0.8rem;
+}
+
+.countdownText {
+  letter-spacing: 0.03em;
+}
+

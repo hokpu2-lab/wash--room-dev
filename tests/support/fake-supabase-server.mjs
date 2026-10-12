@@ -223,6 +223,7 @@ const defaultLaundryEquipment = [
     name: "WASHER MAIN 01",
     equipment_type: "washer",
     capacity_kg: 1,
+    cleaning_duration_minutes: 60,
     status: "normal",
     occupied: false,
     current_qr_version: 1,
@@ -234,6 +235,7 @@ const defaultLaundryEquipment = [
     name: "DRYER CORP 01",
     equipment_type: "dryer",
     capacity_kg: 1,
+    cleaning_duration_minutes: 60,
     status: "normal",
     occupied: false,
     current_qr_version: 1,
@@ -245,6 +247,7 @@ const defaultLaundryEquipment = [
     name: "本館洗衣-4",
     equipment_type: "washer",
     capacity_kg: 1,
+    cleaning_duration_minutes: 60,
     status: "normal",
     occupied: false,
     current_qr_version: 1,
@@ -256,6 +259,7 @@ const defaultLaundryEquipment = [
     name: "本館烘衣-4",
     equipment_type: "dryer",
     capacity_kg: 1,
+    cleaning_duration_minutes: 60,
     status: "normal",
     occupied: false,
     current_qr_version: 1,
@@ -267,6 +271,7 @@ const defaultLaundryEquipment = [
     name: "本館消毒鍋",
     equipment_type: "disinfection_tank",
     capacity_kg: 1,
+    cleaning_duration_minutes: 60,
     status: "normal",
     occupied: false,
     current_qr_version: 1,
@@ -960,6 +965,7 @@ const server = createServer(async (request, response) => {
         equipment_type: item.equipment_type,
         status: item.status,
         occupied: item.occupied,
+        cleaning_duration_minutes: item.cleaning_duration_minutes ?? 60,
       })),
       incidents: [],
       generated_at: "2026-08-18T00:00:00.000Z",
@@ -2160,7 +2166,7 @@ const server = createServer(async (request, response) => {
       return;
     }
     const site = organizationSites.find((candidate) => candidate.code === change.target_site_code);
-    const equipment = { id: randomUUID(), name: change.requested_name, equipment_type: change.target_equipment_type, capacity_kg: change.target_capacity_kg, status: "normal", occupied: false, current_qr_version: 1, operating_site_id: site.id, operating_sites: { code: site.code, name: site.name } };
+    const equipment = { id: randomUUID(), name: change.requested_name, equipment_type: change.target_equipment_type, capacity_kg: change.target_capacity_kg, cleaning_duration_minutes: Number(change.target_cleaning_duration_minutes) || 60, status: "normal", occupied: false, current_qr_version: 1, operating_site_id: site.id, operating_sites: { code: site.code, name: site.name } };
     laundryEquipment.push(equipment);
     laundryEquipmentCredentials.set(equipment.id, { version: 1, token: fakeLaundryCartQrToken(laundryEquipment.length + 90) });
     laundryEquipmentChangeRequests.set(change.change_request_id, { payload, equipmentId: equipment.id, qrVersion: 1 });
@@ -2343,7 +2349,10 @@ const server = createServer(async (request, response) => {
     }
     const payload = JSON.stringify(change); const prior = laundryEquipmentChangeRequests.get(change.change_request_id);
     if (prior) { if (prior.payload !== payload) { json(response, 400, { message: "request id already used" }); return; } json(response, 200, [{ laundry_equipment_id: prior.equipmentId, qr_version: prior.qrVersion, already_applied: true, outcome: "applied" }]); return; }
-    equipment.name = change.requested_name; equipment.capacity_kg = change.target_capacity_kg; equipment.status = change.target_status;
+    equipment.name = change.requested_name;
+    equipment.capacity_kg = change.target_capacity_kg;
+    equipment.status = change.target_status;
+    equipment.cleaning_duration_minutes = Number(change.target_cleaning_duration_minutes) || 60;
     laundryEquipmentChangeRequests.set(change.change_request_id, { payload, equipmentId: equipment.id, qrVersion: equipment.current_qr_version });
     json(response, 200, [{ laundry_equipment_id: equipment.id, qr_version: equipment.current_qr_version, already_applied: false, outcome: "applied" }]);
     return;

@@ -18,17 +18,20 @@ function list(formData: FormData, name: string) {
   return raw ? raw.split(",").map((item) => item.trim()).filter(Boolean) : [];
 }
 const capacity = z.union([z.literal(""), z.coerce.number().int().min(1).max(20)]).transform((value) => value === "" ? null : value);
+const duration = z.coerce.number().int().min(1).max(1440).catch(60);
 
 export async function createLaundryEquipment(formData: FormData) {
   const parsedCapacity = capacity.safeParse(text(formData.get("capacity_kg")));
-  const result = await registerLaundryEquipment({ name: text(formData.get("name")), siteCode: text(formData.get("site_code")), equipmentType: text(formData.get("equipment_type")), capacityKg: parsedCapacity.success ? parsedCapacity.data : null, categoryCodes: list(formData, "category_codes"), procedureTemplateIds: list(formData, "procedure_template_ids"), requestId: text(formData.get("change_request_id")), reason: text(formData.get("change_reason")) });
+  const parsedDuration = duration.parse(formData.get("cleaning_duration_minutes"));
+  const result = await registerLaundryEquipment({ name: text(formData.get("name")), siteCode: text(formData.get("site_code")), equipmentType: text(formData.get("equipment_type")), capacityKg: parsedCapacity.success ? parsedCapacity.data : null, cleaningDurationMinutes: parsedDuration, categoryCodes: list(formData, "category_codes"), procedureTemplateIds: list(formData, "procedure_template_ids"), requestId: text(formData.get("change_request_id")), reason: text(formData.get("change_reason")) });
   if (result.kind === "applied" || result.kind === "already-applied") redirect(`/app/admin/laundry-equipment?equipment=applied`);
   redirect(`/app/admin/laundry-equipment?equipment=${result.kind === "invalid" ? "invalid" : "failed"}`);
 }
 
 export async function saveLaundryEquipment(formData: FormData) {
   const parsedCapacity = capacity.safeParse(text(formData.get("capacity_kg")));
-  const result = await updateLaundryEquipment({ equipmentId: text(formData.get("laundry_equipment_id")), name: text(formData.get("name")), capacityKg: parsedCapacity.success ? parsedCapacity.data : null,     status: text(formData.get("status")), categoryCodes: list(formData, "category_codes"), procedureTemplateIds: list(formData, "procedure_template_ids"), requestId: text(formData.get("change_request_id")), reason: text(formData.get("change_reason")) });
+  const parsedDuration = duration.parse(formData.get("cleaning_duration_minutes"));
+  const result = await updateLaundryEquipment({ equipmentId: text(formData.get("laundry_equipment_id")), name: text(formData.get("name")), capacityKg: parsedCapacity.success ? parsedCapacity.data : null, cleaningDurationMinutes: parsedDuration, status: text(formData.get("status")), categoryCodes: list(formData, "category_codes"), procedureTemplateIds: list(formData, "procedure_template_ids"), requestId: text(formData.get("change_request_id")), reason: text(formData.get("change_reason")) });
   if (result.kind === "applied" || result.kind === "already-applied") redirect(`/app/admin/laundry-equipment?equipment=saved`);
   redirect(`/app/admin/laundry-equipment?equipment=${result.kind === "invalid" ? "invalid" : "failed"}`);
 }

@@ -117,6 +117,7 @@ export const snapshotRpcSchema = z.object({
     equipment_type: z.enum(["disinfection_tank", "washer", "dryer"]),
     status: z.enum(["normal", "inactive", "abnormal", "maintenance"]),
     occupied: z.boolean(),
+    cleaning_duration_minutes: z.coerce.number().int().positive().optional().default(60),
   })),
   incidents: z.array(z.object({
     id: z.uuid(),
@@ -240,6 +241,7 @@ export type WorkspaceEquipment = {
   equipmentType: "disinfection_tank" | "washer" | "dryer";
   status: "normal" | "inactive" | "abnormal" | "maintenance";
   occupied: boolean;
+  cleaningDurationMinutes?: number;
 };
 
 export type WorkspaceSnapshot = {
@@ -339,6 +341,7 @@ export function parseWorkspaceSnapshot(
       equipmentType: row.equipment_type,
       status: row.status,
       occupied: row.occupied,
+      cleaningDurationMinutes: row.cleaning_duration_minutes ?? 60,
     })),
     orderTotal: parsed.data.queue.total,
     page,

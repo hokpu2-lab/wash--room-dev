@@ -8,6 +8,7 @@ type EquipmentOption = {
   id: string;
   name: string;
   capacity_kg?: number | null;
+  cleaning_duration_minutes?: number;
   status: "normal" | "inactive" | "abnormal" | "maintenance";
   operating_site_id?: string;
   category_codes: string[];
@@ -92,6 +93,18 @@ export function EquipmentEditForm({
           min={1}
           max={20}
           defaultValue={selected.capacity_kg ?? 1}
+        />
+      </label>
+      <label>
+        清洗時間（分鐘）
+        <input
+          key={`${selected.id}-duration`}
+          name="cleaning_duration_minutes"
+          type="number"
+          min={1}
+          max={1440}
+          defaultValue={selected.cleaning_duration_minutes ?? 60}
+          required
         />
       </label>
       <label>

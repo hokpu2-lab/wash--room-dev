@@ -14,6 +14,7 @@ const equipmentSchema = z.object({
   name: z.string().min(1),
   equipment_type: z.enum(["disinfection_tank", "washer", "dryer"]),
   capacity_kg: z.coerce.number().int().nullable().optional(),
+  cleaning_duration_minutes: z.coerce.number().int().min(1).max(1440).optional().default(60),
   status: z.enum(["normal", "inactive", "abnormal", "maintenance"]),
   occupied: z.boolean().optional().default(false),
   current_qr_version: z.number().int().positive(),
@@ -70,11 +71,13 @@ export type EquipmentDeletionResult =
 const registerInput = z.object({
   name: z.string().trim().min(1).max(80), siteCode: z.string().trim().min(1).max(40),
   equipmentType: z.enum(["disinfection_tank", "washer", "dryer"]), capacityKg: z.number().int().min(1).max(20).nullable(),
+  cleaningDurationMinutes: z.coerce.number().int().min(1).max(1440).optional().default(60),
   categoryCodes: z.array(z.string().trim().min(1)).max(30), procedureTemplateIds: z.array(z.uuid()).max(30),
   requestId: z.uuid(), reason: z.string().trim().min(1).max(500),
 });
 const updateInput = z.object({
   equipmentId: z.uuid(), name: z.string().trim().min(1).max(80), capacityKg: z.number().int().min(1).max(20).nullable(),
+  cleaningDurationMinutes: z.coerce.number().int().min(1).max(1440).optional().default(60),
   status: z.enum(["normal", "inactive", "abnormal", "maintenance"]), categoryCodes: z.array(z.string()).max(30), procedureTemplateIds: z.array(z.uuid()).max(30), requestId: z.uuid(), reason: z.string().trim().min(1).max(500),
 });
 const reissueInput = z.object({ equipmentId: z.uuid(), requestId: z.uuid(), reason: z.string().trim().min(1).max(500), confirmed: z.literal(true) });
@@ -111,7 +114,7 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
     allOrdersResult,
     allSourcesResult,
   ] = await Promise.all([
-    supabase.from("laundry_equipment").select("id, name, equipment_type, capacity_kg, status, occupied, current_qr_version, operating_site_id, operating_sites(code, name)").in("operating_site_id", siteIds).order("name", { ascending: true }),
+    supabase.from("laundry_equipment").select("id, name, equipment_type, capacity_kg, status, occupied, current_qr_version, cleaning_duration_minutes, operating_site_id, operating_sites(code, name)").in("operating_site_id", siteIds).order("name", { ascending: true }),
     supabase.from("laundry_categories").select("id, code, name").eq("active", true).order("sort_order", { ascending: true }),
     supabase.from("procedure_templates").select("id, operating_site_id, procedure_template_versions(template_name, status)").in("operating_site_id", siteIds),
     supabase.from("operating_sites").select("id, code, name").in("id", siteIds).order("code", { ascending: true }),
@@ -266,6 +269,7 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
         ...item,
         occupied: isOccupied,
         capacity_kg: 1,
+        cleaning_duration_minutes: (item as { cleaning_duration_minutes?: number }).cleaning_duration_minutes ?? 60,
         category_codes: categoryCaps.get(item.id) ?? [],
         procedure_template_ids: procedureCaps.get(item.id) ?? [],
         active_institutions: usage && usage.institutions.size > 0 ? Array.from(usage.institutions) : [],
@@ -292,7 +296,7 @@ export async function getLaundryEquipmentCard(id: unknown): Promise<LaundryEquip
 export async function registerLaundryEquipment(input: unknown): Promise<EquipmentChangeResult> {
   await requireRole("laundry_supervisor"); const parsed = registerInput.safeParse(input); if (!parsed.success) return { kind: "invalid" };
   const supabase = await createServerSupabaseClient({ cookieWritesRequired: true });
-  const { data, error } = await supabase.rpc("register_laundry_equipment", { requested_name: parsed.data.name.toUpperCase(), target_site_code: parsed.data.siteCode.toUpperCase(), target_equipment_type: parsed.data.equipmentType, target_capacity_kg: parsed.data.capacityKg, target_category_codes: parsed.data.categoryCodes.map((code) => code.toUpperCase()), target_procedure_template_ids: parsed.data.procedureTemplateIds, change_request_id: parsed.data.requestId, change_reason: parsed.data.reason });
+  const { data, error } = await supabase.rpc("register_laundry_equipment", { requested_name: parsed.data.name.toUpperCase(), target_site_code: parsed.data.siteCode.toUpperCase(), target_equipment_type: parsed.data.equipmentType, target_capacity_kg: parsed.data.capacityKg, target_category_codes: parsed.data.categoryCodes.map((code) => code.toUpperCase()), target_procedure_template_ids: parsed.data.procedureTemplateIds, change_request_id: parsed.data.requestId, change_reason: parsed.data.reason, target_cleaning_duration_minutes: parsed.data.cleaningDurationMinutes ?? 60 });
   const result = changeSchema.safeParse(data); if (error || !result.success || result.data.length !== 1) return { kind: "failed" };
   const change = result.data[0]; if (change.outcome === "denied") return { kind: "denied" }; if (!change.laundry_equipment_id || change.qr_version === null) return { kind: "failed" };
   return { kind: change.already_applied ? "already-applied" : "applied", equipmentId: change.laundry_equipment_id, qrVersion: change.qr_version };
@@ -301,7 +305,7 @@ export async function registerLaundryEquipment(input: unknown): Promise<Equipmen
 export async function updateLaundryEquipment(input: unknown): Promise<EquipmentChangeResult> {
   await requireRole("laundry_supervisor"); const parsed = updateInput.safeParse(input); if (!parsed.success) return { kind: "invalid" };
   const supabase = await createServerSupabaseClient({ cookieWritesRequired: true });
-  const { data, error } = await supabase.rpc("update_laundry_equipment", { target_laundry_equipment_id: parsed.data.equipmentId, requested_name: parsed.data.name.toUpperCase(), target_capacity_kg: parsed.data.capacityKg, target_status: parsed.data.status, target_category_codes: parsed.data.categoryCodes.map((code) => code.toUpperCase()), target_procedure_template_ids: parsed.data.procedureTemplateIds, change_request_id: parsed.data.requestId, change_reason: parsed.data.reason });
+  const { data, error } = await supabase.rpc("update_laundry_equipment", { target_laundry_equipment_id: parsed.data.equipmentId, requested_name: parsed.data.name.toUpperCase(), target_capacity_kg: parsed.data.capacityKg, target_status: parsed.data.status, target_category_codes: parsed.data.categoryCodes.map((code) => code.toUpperCase()), target_procedure_template_ids: parsed.data.procedureTemplateIds, change_request_id: parsed.data.requestId, change_reason: parsed.data.reason, target_cleaning_duration_minutes: parsed.data.cleaningDurationMinutes ?? 60 });
   const result = changeSchema.safeParse(data); if (error || !result.success || result.data.length !== 1) return { kind: "failed" }; const change = result.data[0]; if (change.outcome === "denied") return { kind: "denied" }; if (!change.laundry_equipment_id || change.qr_version === null) return { kind: "failed" };
   return { kind: change.already_applied ? "already-applied" : "applied", equipmentId: change.laundry_equipment_id, qrVersion: change.qr_version };
 }

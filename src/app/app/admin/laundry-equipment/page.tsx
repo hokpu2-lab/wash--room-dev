@@ -98,6 +98,10 @@ export default async function LaundryEquipmentPage({
               可容納洗衣車（台）
               <input name="capacity_kg" type="number" min={1} max={20} defaultValue={1} />
             </label>
+            <label>
+              清洗時間（分鐘）
+              <input name="cleaning_duration_minutes" type="number" min={1} max={1440} defaultValue={60} required />
+            </label>
             <fieldset className={styles.compatList}>
               <legend>適用分類</legend>
               {workspace.categories.map((category) => (
@@ -127,7 +131,7 @@ export default async function LaundryEquipmentPage({
         <section className={styles.managementSection} aria-labelledby="edit-equipment-title">
           <div className={styles.sectionHeading}>
             <h2 id="edit-equipment-title">修改設備資料</h2>
-            <p>可改名稱、可容納洗衣車數、狀態與適用分類。設備類型與據點不可改。</p>
+            <p>可改名稱、可容納洗衣車數、清洗時間、狀態與適用分類。設備類型與據點不可改。</p>
           </div>
           <form action={saveLaundryEquipment} className={styles.accessForm} aria-label="修改設備資料">
             <EquipmentEditForm
@@ -135,6 +139,7 @@ export default async function LaundryEquipmentPage({
                 id: item.id,
                 name: item.name,
                 capacity_kg: item.capacity_kg,
+                cleaning_duration_minutes: item.cleaning_duration_minutes,
                 status: item.status,
                 operating_site_id: item.operating_site_id,
                 category_codes: item.category_codes,
@@ -178,6 +183,7 @@ export default async function LaundryEquipmentPage({
                     <th>類型</th>
                     <th>據點</th>
                     <th>可容納洗衣車</th>
+                    <th>清洗時間</th>
                     <th>狀態</th>
                     <th>機構</th>
                     <th>車號</th>
@@ -206,6 +212,7 @@ export default async function LaundryEquipmentPage({
                           {equipment.operating_sites.code} · {equipment.operating_sites.name}
                         </td>
                         <td>1 台</td>
+                        <td>{equipment.cleaning_duration_minutes ?? 60} 分鐘</td>
                         <td>{isOccupied ? "使用中" : statusLabels[equipment.status]}</td>
                         <td>{institutionText}</td>
                         <td>{cartNumberText}</td>

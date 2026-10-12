@@ -16,6 +16,32 @@
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
 
+- **即時洗衣車流轉動態分類標籤、設備倒數計時與設備清洗時間設定（/app/dashboard, /app/admin/laundry-equipment）**：
+  - **洗衣車分類標籤即時展示（`src/app/app/quick-live-view.tsx`、`quick-live-view.module.css`）**：
+    - 洗衣車在現場完成收單分類後（`awaiting_cleaning`、階段交接中或待取件），於洗衣車卡片（`🛒 車號` 旁）清晰顯示被分類的標籤（例如 `[一般]`、`[汙衣]`、`[消毒品]`），並在懸浮提示框（Tooltip）同步顯示「`洗滌分類：...`」。未分類的「待收件（`awaiting_receipt`）」車輛則維持乾淨不顯示分類標籤。
+    - 標籤配色延續「深底淺字」的高對比樣式：
+      - 消毒品：深洋紅底（`#831843`）、淺粉白字（`#fdf2f8`）、亮粉邊框（`#f472b6`）。
+      - 汙衣：深琥珀底（`#78350f`）、淺金白字（`#fffbeb`）、亮金邊框（`#fbbf24`）。
+      - 一般：深藍灰底（`#0f172a`）、淺白字（`#f8fafc`）、深灰邊框（`#475569`）。
+  - **設備運作倒數計時與流轉推進（`QuickLiveView`）**：
+    - 當洗衣設備開始運作時（消毒中、清洗中、烘乾中），於設備卡片標頭清晰展示倒數計時徽章 `⏱️ MM:SS`（或 `H:MM:SS`），倒數計時基準精準抓取該設備設定之「清洗時間（分鐘）」。
+    - 倒數計時即時跳動（每秒更新），當倒數計時結束（歸零至 `00:00`）：
+      1. 洗衣設備立即停止運作，狀態轉為「階段完畢」（消毒完畢、清洗完畢、烘乾完畢）並以綠色徽章標示。
+      2. 洗衣車自動脫離設備並流轉進入下一階段：消毒鍋完畢 ➔ 待處理洗衣車（下一階段：待清洗）；洗衣機完畢 ➔ 待處理洗衣車（下一階段：待烘乾）；烘衣機完畢 ➔ 待取件 (洗烘完畢)。
+      3. 在背景自動調用後端階段完成端點（`/api/operations/complete-stage` 或 `/api/operations/complete-disinfection`）並觸發 `router.refresh()`，確保前端與資料庫狀態無縫同步。
+  - **後台設備管理新增可自行調整輸入之「清洗時間」數值（/app/admin/laundry-equipment）**：
+    - 「修改設備資料」彈窗（`EquipmentEditForm`）新增「清洗時間（分鐘）」輸入項，允許管理員為每一台設備自由設定清洗時間（預設為 60 分鐘，支援 1~1440 分鐘）。
+    - 登錄新設備表單（`page.tsx`）同步提供「清洗時間（分鐘）」輸入項，設備清單表格新增「清洗時間」欄位（顯示為 `60 分鐘` 等）。
+    - 後端 Form Actions（`actions.ts`）與領域管理模型（`administration.ts`）全面支援 `cleaningDurationMinutes` 驗證與更新。
+  - **資料庫遷移與快照 DTO 升級（`20261012170000_add_cleaning_duration_minutes_to_laundry_equipment.sql`, `workspace-snapshot.ts`）**：
+    - 資料表 `public.laundry_equipment` 新增欄位 `cleaning_duration_minutes integer not null default 60` 及數值檢查約束（1~1440）。
+    - RPC `update_laundry_equipment` 支援 9 參數（含 `target_cleaning_duration_minutes default 60`），徹底排除多簽名衝突。
+    - RPC `get_workspace_snapshot` 與快照 DTO `WorkspaceEquipment` 包含 `cleaningDurationMinutes`。
+  - **測試與建置覆核**：
+    - `tests/unit/quick-live-view.spec.ts` 新增 4 項測試：驗證 `formatCountdown` 格式化、`calculateEquipmentRemainingSeconds` 剩餘秒數計算、未分類無標籤與分類後附帶標籤、設備倒數結束時洗衣車脫離設備並推進下一階段（共 14 項測試通過）。
+    - `tests/database/laundry-equipment.spec.ts` 驗證設備 RPC 與更新合約。
+    - 全專案 36 個測試檔、162 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
 - **歷史查詢紀錄新增「完成時間」欄位與原欄位更名為「總花費時間」（/app/history）**：
   - **歷史查詢表格欄位順序與標頭更新（`src/app/app/history-results.tsx`）**：
     - 表格標頭依序為：`洗衣單號` ➔ `送洗機構` ➔ `送單時間` ➔ `收件時間` ➔ `完成時間` ➔ `取件時間` ➔ `總花費時間` ➔ `狀態`。
