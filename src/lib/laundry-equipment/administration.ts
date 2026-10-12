@@ -114,7 +114,7 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
     allOrdersResult,
     allSourcesResult,
   ] = await Promise.all([
-    supabase.from("laundry_equipment").select("id, name, equipment_type, capacity_kg, status, occupied, current_qr_version, cleaning_duration_minutes, operating_site_id, operating_sites(code, name)").in("operating_site_id", siteIds).order("name", { ascending: true }),
+    supabase.from("laundry_equipment").select("id, name, equipment_type, capacity_kg, status, occupied, current_qr_version, operating_site_id, operating_sites(code, name)").in("operating_site_id", siteIds).order("name", { ascending: true }),
     supabase.from("laundry_categories").select("id, code, name").eq("active", true).order("sort_order", { ascending: true }),
     supabase.from("procedure_templates").select("id, operating_site_id, procedure_template_versions(template_name, status)").in("operating_site_id", siteIds),
     supabase.from("operating_sites").select("id, code, name").in("id", siteIds).order("code", { ascending: true }),
@@ -261,15 +261,52 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
     }
   }
 
+  type EquipmentDbRow = {
+    id: string;
+    name: string;
+    equipment_type: "disinfection_tank" | "washer" | "dryer";
+    capacity_kg: number | null;
+    status: "normal" | "inactive" | "abnormal" | "maintenance";
+    occupied: boolean;
+    current_qr_version: number;
+    operating_site_id?: string;
+    operating_sites?: { code: string; name: string } | Array<{ code: string; name: string }>;
+    cleaning_duration_minutes?: number;
+  };
+
+  let equipmentRows = (equipmentResult.data ?? []) as EquipmentDbRow[];
+
+  // 彈性回補：若資料庫已遷移 cleaning_duration_minutes 欄位則動態讀取，否則預設 60 分鐘
+  try {
+    const durationRes = await supabase
+      .from("laundry_equipment")
+      .select("id, cleaning_duration_minutes")
+      .in("operating_site_id", siteIds);
+    if (durationRes.data && !durationRes.error) {
+      const durMap = new Map<string, number>();
+      for (const row of durationRes.data) {
+        if (row.id && typeof row.cleaning_duration_minutes === "number") {
+          durMap.set(row.id, row.cleaning_duration_minutes);
+        }
+      }
+      equipmentRows = equipmentRows.map((item) => ({
+        ...item,
+        cleaning_duration_minutes: durMap.get(item.id) ?? 60,
+      }));
+    }
+  } catch {
+    // 遠端資料庫未遷移該欄位時不拋錯，平滑保留預設值 60
+  }
+
   const workspace = workspaceSchema.safeParse({
-    equipment: (equipmentResult.data ?? []).map((item) => {
+    equipment: equipmentRows.map((item) => {
       const usage = equipmentUsageMap.get(item.id);
       const isOccupied = Boolean(item.occupied || (usage && usage.cartCount > 0));
       return {
         ...item,
         occupied: isOccupied,
         capacity_kg: 1,
-        cleaning_duration_minutes: (item as { cleaning_duration_minutes?: number }).cleaning_duration_minutes ?? 60,
+        cleaning_duration_minutes: item.cleaning_duration_minutes ?? 60,
         category_codes: categoryCaps.get(item.id) ?? [],
         procedure_template_ids: procedureCaps.get(item.id) ?? [],
         active_institutions: usage && usage.institutions.size > 0 ? Array.from(usage.institutions) : [],
@@ -282,6 +319,7 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
     sites: siteResult.data ?? [],
   });
   if (!workspace.success) {
+    console.error("Workspace parse failed:", workspace.error);
     return { equipment: [], categories: [], procedures: [], sites: [] };
   }
   return workspace.data;
@@ -296,7 +334,31 @@ export async function getLaundryEquipmentCard(id: unknown): Promise<LaundryEquip
 export async function registerLaundryEquipment(input: unknown): Promise<EquipmentChangeResult> {
   await requireRole("laundry_supervisor"); const parsed = registerInput.safeParse(input); if (!parsed.success) return { kind: "invalid" };
   const supabase = await createServerSupabaseClient({ cookieWritesRequired: true });
-  const { data, error } = await supabase.rpc("register_laundry_equipment", { requested_name: parsed.data.name.toUpperCase(), target_site_code: parsed.data.siteCode.toUpperCase(), target_equipment_type: parsed.data.equipmentType, target_capacity_kg: parsed.data.capacityKg, target_category_codes: parsed.data.categoryCodes.map((code) => code.toUpperCase()), target_procedure_template_ids: parsed.data.procedureTemplateIds, change_request_id: parsed.data.requestId, change_reason: parsed.data.reason, target_cleaning_duration_minutes: parsed.data.cleaningDurationMinutes ?? 60 });
+  let { data, error } = await supabase.rpc("register_laundry_equipment", {
+    requested_name: parsed.data.name.toUpperCase(),
+    target_site_code: parsed.data.siteCode.toUpperCase(),
+    target_equipment_type: parsed.data.equipmentType,
+    target_capacity_kg: parsed.data.capacityKg,
+    target_category_codes: parsed.data.categoryCodes.map((code) => code.toUpperCase()),
+    target_procedure_template_ids: parsed.data.procedureTemplateIds,
+    change_request_id: parsed.data.requestId,
+    change_reason: parsed.data.reason,
+    target_cleaning_duration_minutes: parsed.data.cleaningDurationMinutes ?? 60,
+  });
+  if (error && (error.code === "42883" || error.message?.includes("function"))) {
+    const fallback = await supabase.rpc("register_laundry_equipment", {
+      requested_name: parsed.data.name.toUpperCase(),
+      target_site_code: parsed.data.siteCode.toUpperCase(),
+      target_equipment_type: parsed.data.equipmentType,
+      target_capacity_kg: parsed.data.capacityKg,
+      target_category_codes: parsed.data.categoryCodes.map((code) => code.toUpperCase()),
+      target_procedure_template_ids: parsed.data.procedureTemplateIds,
+      change_request_id: parsed.data.requestId,
+      change_reason: parsed.data.reason,
+    });
+    data = fallback.data;
+    error = fallback.error;
+  }
   const result = changeSchema.safeParse(data); if (error || !result.success || result.data.length !== 1) return { kind: "failed" };
   const change = result.data[0]; if (change.outcome === "denied") return { kind: "denied" }; if (!change.laundry_equipment_id || change.qr_version === null) return { kind: "failed" };
   return { kind: change.already_applied ? "already-applied" : "applied", equipmentId: change.laundry_equipment_id, qrVersion: change.qr_version };
@@ -305,7 +367,31 @@ export async function registerLaundryEquipment(input: unknown): Promise<Equipmen
 export async function updateLaundryEquipment(input: unknown): Promise<EquipmentChangeResult> {
   await requireRole("laundry_supervisor"); const parsed = updateInput.safeParse(input); if (!parsed.success) return { kind: "invalid" };
   const supabase = await createServerSupabaseClient({ cookieWritesRequired: true });
-  const { data, error } = await supabase.rpc("update_laundry_equipment", { target_laundry_equipment_id: parsed.data.equipmentId, requested_name: parsed.data.name.toUpperCase(), target_capacity_kg: parsed.data.capacityKg, target_status: parsed.data.status, target_category_codes: parsed.data.categoryCodes.map((code) => code.toUpperCase()), target_procedure_template_ids: parsed.data.procedureTemplateIds, change_request_id: parsed.data.requestId, change_reason: parsed.data.reason, target_cleaning_duration_minutes: parsed.data.cleaningDurationMinutes ?? 60 });
+  let { data, error } = await supabase.rpc("update_laundry_equipment", {
+    target_laundry_equipment_id: parsed.data.equipmentId,
+    requested_name: parsed.data.name.toUpperCase(),
+    target_capacity_kg: parsed.data.capacityKg,
+    target_status: parsed.data.status,
+    target_category_codes: parsed.data.categoryCodes.map((code) => code.toUpperCase()),
+    target_procedure_template_ids: parsed.data.procedureTemplateIds,
+    change_request_id: parsed.data.requestId,
+    change_reason: parsed.data.reason,
+    target_cleaning_duration_minutes: parsed.data.cleaningDurationMinutes ?? 60,
+  });
+  if (error && (error.code === "42883" || error.message?.includes("function"))) {
+    const fallback = await supabase.rpc("update_laundry_equipment", {
+      target_laundry_equipment_id: parsed.data.equipmentId,
+      requested_name: parsed.data.name.toUpperCase(),
+      target_capacity_kg: parsed.data.capacityKg,
+      target_status: parsed.data.status,
+      target_category_codes: parsed.data.categoryCodes.map((code) => code.toUpperCase()),
+      target_procedure_template_ids: parsed.data.procedureTemplateIds,
+      change_request_id: parsed.data.requestId,
+      change_reason: parsed.data.reason,
+    });
+    data = fallback.data;
+    error = fallback.error;
+  }
   const result = changeSchema.safeParse(data); if (error || !result.success || result.data.length !== 1) return { kind: "failed" }; const change = result.data[0]; if (change.outcome === "denied") return { kind: "denied" }; if (!change.laundry_equipment_id || change.qr_version === null) return { kind: "failed" };
   return { kind: change.already_applied ? "already-applied" : "applied", equipmentId: change.laundry_equipment_id, qrVersion: change.qr_version };
 }
