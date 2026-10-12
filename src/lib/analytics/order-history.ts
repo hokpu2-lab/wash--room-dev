@@ -92,6 +92,8 @@ export async function getLaundryOrderHistory(input: LaundryOrderHistoryInput): P
       }
 
       const stageName = deriveStageName(order.status, orderDetail?.batches);
+      const receivedAtIso = orderDetail?.orderReceivedAt
+        ?? (order.status !== "awaiting_receipt" ? (orderDetail?.orderCreatedAt ?? order.updatedAt) : null);
 
       activeItems.push({
         id: order.id,
@@ -99,6 +101,7 @@ export async function getLaundryOrderHistory(input: LaundryOrderHistoryInput): P
         status: order.status,
         stageName,
         createdAt: orderTimeIso,
+        receivedAt: receivedAtIso ?? null,
         closedAt: null,
         institutionCode: "",
         institutionName: order.institutionName,
@@ -163,6 +166,8 @@ export async function getLaundryOrderHistoryDetail(orderId: string): Promise<Lau
   if (activeOrder) {
     const stageName = deriveStageName(activeOrder.status, workspaceDetail?.batches);
     const createdAt = workspaceDetail?.orderCreatedAt ?? activeOrder.updatedAt ?? new Date().toISOString();
+    const receivedAt = workspaceDetail?.orderReceivedAt
+      ?? (activeOrder.status !== "awaiting_receipt" ? (workspaceDetail?.orderCreatedAt ?? activeOrder.updatedAt) : null);
     return {
       order: {
         id: activeOrder.id,
@@ -170,6 +175,7 @@ export async function getLaundryOrderHistoryDetail(orderId: string): Promise<Lau
         status: activeOrder.status,
         stageName,
         createdAt,
+        receivedAt: receivedAt ?? null,
         closedAt: null,
         institutionCode: "",
         institutionName: activeOrder.institutionName,

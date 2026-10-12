@@ -16,6 +16,18 @@
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
 
+- **歷史查詢紀錄新增「收件時間」欄位（/app/history）**：
+  - **歷史查詢表格欄位擴增（`src/app/app/history-results.tsx`）**：
+    - 在「歷史查詢紀錄」結果表格中，於「送單時間」與「取件時間」欄位中間新增「`收件時間`」標頭與資料列（`<th>收件時間</th>`、`<td>{formatDateTime(item.receivedAt)}</td>`）。
+  - **洗衣單整體歷程彈窗升級（`HistoryModal`）**：
+    - 在詳細歷程彈窗基本資料項目中，於「送單時間」與「取件時間」之間新增「`收件時間`」（`<div><dt>收件時間</dt><dd>{formatDateTime(...)}</dd></div>`）。
+  - **收件時間資料流與遷移（`order-history-model.ts`, `order-history.ts`, `20261012160000_add_received_at_to_order_history.sql`）**：
+    - 收件時間依據現場掃車完成分類收單時間取得（`orderReceivedAt`、`laundry_order_received` 稽核事件發生時間或批次建立時間；待收件未完成分類者為 `null`，格式化為「`—`」）。
+    - 資料庫函式 `search_laundry_order_history` 與 `get_laundry_order_history_detail` 支援 `received_at`。
+  - **單元測試與建置覆核**：
+    - `tests/unit/order-history.spec.ts` 與 `tests/database/order-history.spec.ts` 驗證收件時間解析與顯示。
+    - 36 個測試檔、157 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
 - **即時洗衣車與設備流轉動態升級：送件/收件/完成三段時間推進顯示與標記徽章改為深底淺字（/app/dashboard）**：
   - **三段式時間流轉推進（`src/app/app/quick-live-view.tsx`）**：
     1. **進入「待分類」時（`awaiting_receipt`）**：單號下方精準顯示「`送件時間：MM/DD 上/下午 HH:MM`」。

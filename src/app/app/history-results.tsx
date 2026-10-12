@@ -245,6 +245,7 @@ function HistoryModal({
               <div><dt>作業據點</dt><dd>{detail.order.siteName}（{detail.order.siteCode}）</dd></div>
               <div><dt>目前狀態</dt><dd><span className={`${styles.badge} ${styles.historyTableBadge} ${orderStatusBadgeClass(detail.order.status, detail.order.stageName)}`}>{renderOrderStatusLabel(detail.order.status, detail.order.stageName)}</span></dd></div>
               <div><dt>送單時間</dt><dd>{formatDateTime(detail.order.createdAt)}</dd></div>
+              <div><dt>收件時間</dt><dd>{formatDateTime(detail.order.receivedAt ?? firstEventTime(detail.events, "laundry_order_received"))}</dd></div>
               <div><dt>取件時間</dt><dd>{formatDateTime(detail.order.closedAt)}</dd></div>
             </dl>
 
@@ -256,7 +257,7 @@ function HistoryModal({
               orderStatus={detail.order.status as WorkspaceOrder["status"]}
               batches={detail.batches}
               orderCreatedAt={detail.order.createdAt}
-              orderReceivedAt={firstEventTime(detail.events, "laundry_order_received")}
+              orderReceivedAt={detail.order.receivedAt ?? firstEventTime(detail.events, "laundry_order_received")}
               orderReadyAt={lastEventTime(detail.events, [
                 "laundry_batch_loaded_to_source_cart",
                 "laundry_batch_completed_without_source_loading",
@@ -412,6 +413,7 @@ export function HistoryResults({ items }: { items: LaundryOrderHistoryItem[] }) 
                   </button>
                 </th>
                 <th scope="col">送單時間</th>
+                <th scope="col">收件時間</th>
                 <th scope="col" aria-sort={sortKey === "pickup_time" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}>
                   <button
                     type="button"
@@ -446,6 +448,7 @@ export function HistoryResults({ items }: { items: LaundryOrderHistoryItem[] }) 
                     {item.institutionName}{item.cartNumber ? ` ${item.cartNumber}` : ""}
                   </td>
                   <td>{formatDateTime(item.createdAt)}</td>
+                  <td>{formatDateTime(item.receivedAt)}</td>
                   <td>{formatDateTime(item.closedAt)}</td>
                   <td>{formatCompletionTime(item.createdAt, item.closedAt)}</td>
                   <td><span className={`${styles.badge} ${styles.historyTableBadge} ${orderStatusBadgeClass(item.status, item.stageName)}`}>{renderOrderStatusLabel(item.status, item.stageName)}</span></td>

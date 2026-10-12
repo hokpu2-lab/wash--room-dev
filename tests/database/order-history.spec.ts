@@ -54,10 +54,11 @@ test("已取件歷史查詢依據點與送洗機構範圍回傳日期、關鍵�
       ('${orderB}', 'MAIN-20260819-0092', '${cartB}', '${institutionB}', '${siteId}', 'picked_up', '2026-08-19T05:00:00Z', '2026-08-19T09:00:00Z', '2026-08-19T09:00:00Z'),
       ('${orderOutsidePeriod}', 'MAIN-20260731-0093', '${cartA}', '${institutionA}', '${siteId}', 'picked_up', '2026-07-31T05:00:00Z', '2026-07-31T08:00:00Z', '2026-07-31T08:00:00Z');
     insert into public.authorization_audit_events (
-      occurred_at, actor_type, operating_site_id, institution_id, laundry_order_id, action, outcome, reason, after_state
+      occurred_at, actor_type, operating_site_id, institution_id, laundry_cart_id, laundry_order_id, action, outcome, reason, after_state
     ) values
-      ('2026-08-18T05:00:00Z', 'system', '${siteId}', '${institutionA}', '${orderA}', 'laundry_order_created_from_cart_qr', 'succeeded', '匿名固定 QR 送單', '{"laundry_order_id":"${orderA}"}'),
-      ('2026-08-18T08:00:00Z', 'system', '${siteId}', '${institutionA}', '${orderA}', 'laundry_order_picked_up', 'succeeded', '送洗人員掃車取件', '{"status":"picked_up"}');
+      ('2026-08-18T05:00:00Z', 'system', '${siteId}', '${institutionA}', '${cartA}', '${orderA}', 'laundry_order_created_from_cart_qr', 'succeeded', '匿名固定 QR 送單', '{"laundry_order_id":"${orderA}"}'),
+      ('2026-08-18T05:15:00Z', 'system', '${siteId}', '${institutionA}', '${cartA}', '${orderA}', 'laundry_order_received', 'succeeded', '掃車收單分類', '{"laundry_order_id":"${orderA}"}'),
+      ('2026-08-18T08:00:00Z', 'system', '${siteId}', '${institutionA}', '${cartA}', '${orderA}', 'laundry_order_picked_up', 'succeeded', '送洗人員掃車取件', '{"status":"picked_up"}');
   `);
 
   await expect(
@@ -70,7 +71,7 @@ test("已取件歷史查詢依據點與送洗機構範圍回傳日期、關鍵�
   const supervisorResult = await database.query<{
     search_laundry_order_history: {
       outcome: string;
-      queue: { total: number; items: Array<{ id: string; institution_code: string; cart_number: string; closed_at: string }> };
+      queue: { total: number; items: Array<{ id: string; institution_code: string; cart_number: string; received_at?: string | null; closed_at: string }> };
     };
   }>(
     "select public.search_laundry_order_history($1::uuid, $2::timestamptz, $3::timestamptz, $4::text, null, 1, 1)",
@@ -80,14 +81,20 @@ test("已取件歷史查詢依據點與送洗機構範圍回傳日期、關鍵�
     outcome: "ok",
     queue: {
       total: 2,
-      items: [{ id: orderA, institution_code: "HIST-A", cart_number: "HIST-CART-A" }],
+      items: [{
+        id: orderA,
+        institution_code: "HIST-A",
+        cart_number: "HIST-CART-A",
+      }],
     },
   });
+  expect(new Date(supervisorResult.rows[0]!.search_laundry_order_history.queue.items[0]!.received_at!).toISOString())
+    .toBe("2026-08-18T05:15:00.000Z");
 
   const supervisorDetail = await database.query<{
     get_laundry_order_history_detail: {
       outcome: string;
-      order: { id: string; order_number: string; status: string };
+      order: { id: string; order_number: string; status: string; received_at?: string | null };
       batches: unknown[];
       events: Array<{ action: string; reason: string | null }>;
     };
@@ -97,12 +104,19 @@ test("已取件歷史查詢依據點與送洗機構範圍回傳日期、關鍵�
   );
   expect(supervisorDetail.rows[0]?.get_laundry_order_history_detail).toMatchObject({
     outcome: "ok",
-    order: { id: orderA, order_number: "MAIN-20260818-0091", status: "picked_up" },
+    order: {
+      id: orderA,
+      order_number: "MAIN-20260818-0091",
+      status: "picked_up",
+    },
     events: [
       { action: "laundry_order_created_from_cart_qr" },
+      { action: "laundry_order_received" },
       { action: "laundry_order_picked_up" },
     ],
   });
+  expect(new Date(supervisorDetail.rows[0]!.get_laundry_order_history_detail.order.received_at!).toISOString())
+    .toBe("2026-08-18T05:15:00.000Z");
 
   await database.exec("reset role");
   await database.query(`select set_config('request.jwt.claim.sub', $1, false)`, [institutionSupervisorAuthUserId]);
