@@ -16,6 +16,21 @@
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
 
+- **即時洗衣車與設備流轉動態升級：待收件車輛階段銜接提示與全風格主題（MX/AP/GS/MB/SH）動態色彩連動（/app/dashboard）**：
+  - **待收件洗衣車流轉銜接推導（`src/app/app/quick-live-view.tsx`）**：
+    - 在「📥 待收件洗衣車」清單中，除了初始收單狀態（`awaiting_receipt`）外，自動納入「已結束消毒或清洗、正等待進入下一階段」的洗衣車。
+    - 清楚顯示**下一階段要進什麼**（例如：`待清洗`、`待烘乾`、`待消毒`、`待分類`），並配賦專屬色彩徽章（粉紅：待消毒、天藍：待清洗、橙黃：待烘乾）。
+    - Hover 浮動提示（Tooltip）同步顯示機構名稱、洗衣單號，以及「已完成：[階段名稱] ➔ 下一階段：[目標階段]」的完整流轉歷程。
+  - **全站風格主題配色動態連動（`src/app/app/quick-live-view.module.css`）**：
+    - 將即時視圖樣式全面重構為基於 CSS 變數系統（`--lv-bg`, `--lv-border`, `--lv-text`, `--lv-card-bg`, `--lv-accent` 等）。
+    - 深度對齊全站五大介面風格（`:global(html[data-workspace-style="..."])`），當使用者在上方導覽列切換風格時，即時視圖同步自動變換：
+      1. **MX（現行營運）**：高雅翡翠自然綠（`#126653`）、柔和底色與雙層深淺綠卡片。
+      2. **AP（Apple Flow）**：精緻毛玻璃透光質感（`backdrop-filter`）、湛藍焦點色（`#0071e3`）與圓角系統卡。
+      3. **GS（Kinetic System）**：深邃戰情室黑底、極簡像素方角、螢光青綠（`#8cf7b6`）控制台高對比線條。
+      4. **MB（Editorial UI）**：報章復古米紙質感（`#fbfaf6`）、經典俐落雙黑邊框與硬陰影、沉著蔚藍（`#1745d1`）。
+      5. **SH（shadcn UI）**：純粹現代中性灰黑（`#18181b`）、簡約白底卡片與細膩階層邊框。
+  - **測試與建置覆核**：35 個測試檔、146 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
 - **洗衣單與批次頁面新增「即時洗衣車與設備流轉簡易即時視圖」（/app/dashboard）**：
   - **三欄全流程流線視圖架構（`src/app/app/quick-live-view.tsx`、`quick-live-view.module.css`）**：
     - **左側（📥 待收件洗衣車）**：過濾 `orders` 中狀態為 `awaiting_receipt` 的洗衣車清單，依序排列；滑鼠懸停（hover）或聚焦（focus）於車號晶片標籤（`🛒 車號`）時，顯示懸浮提示框（Tooltip），清晰呈現「機構名稱」與「洗衣單號」。

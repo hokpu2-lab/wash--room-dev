@@ -1,11 +1,12 @@
 .liveViewContainer {
   margin-bottom: 1.5rem;
   padding: 1.25rem 1.4rem;
-  background: linear-gradient(145deg, #0d172e 0%, #070d1a 100%);
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-  color: #f1f5f9;
+  background: var(--lv-bg, linear-gradient(145deg, #0d172e 0%, #070d1a 100%));
+  border: 1px solid var(--lv-border, rgba(56, 189, 248, 0.25));
+  border-radius: var(--lv-radius, 16px);
+  box-shadow: var(--lv-shadow, 0 10px 30px rgba(0, 0, 0, 0.45));
+  color: var(--lv-text, #f1f5f9);
+  transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
 .liveViewHeader {
@@ -15,7 +16,7 @@
   gap: 1rem;
   margin-bottom: 1.15rem;
   padding-bottom: 0.85rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--lv-divider, rgba(255, 255, 255, 0.08));
   flex-wrap: wrap;
 }
 
@@ -29,9 +30,9 @@
   display: inline-block;
   width: 10px;
   height: 10px;
-  border-radius: 50%;
-  background-color: #38bdf8;
-  box-shadow: 0 0 10px #38bdf8;
+  border-radius: var(--lv-dot-radius, 50%);
+  background-color: var(--lv-accent, #38bdf8);
+  box-shadow: 0 0 10px var(--lv-accent, #38bdf8);
   animation: pulse 2s infinite ease-in-out;
 }
 
@@ -54,7 +55,7 @@
   margin: 0;
   font-size: 1.15rem;
   font-weight: 850;
-  color: #ffffff;
+  color: var(--lv-title, #ffffff);
   letter-spacing: 0.02em;
 }
 
@@ -63,7 +64,7 @@
   align-items: center;
   gap: 0.85rem;
   font-size: 0.82rem;
-  color: #94a3b8;
+  color: var(--lv-muted, #94a3b8);
 }
 
 .legendItem {
@@ -76,7 +77,7 @@
   display: inline-block;
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--lv-dot-radius, 50%);
 }
 
 .toneDisinfect { background-color: #ec4899; box-shadow: 0 0 6px #ec4899; }
@@ -87,23 +88,23 @@
 /* 三欄網格：左側待收車、中間設備群、右側待取車 */
 .liveViewGrid {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(360px, 2.6fr) minmax(180px, 1fr);
+  grid-template-columns: minmax(210px, 1.15fr) minmax(360px, 2.5fr) minmax(200px, 1.1fr);
   gap: 1.15rem;
   align-items: stretch;
 }
 
 .liveViewCol {
-  background: rgba(15, 23, 42, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  background: var(--lv-col-bg, rgba(15, 23, 42, 0.65));
+  border: 1px solid var(--lv-col-border, rgba(255, 255, 255, 0.1));
+  border-radius: var(--lv-col-radius, 12px);
   padding: 0.95rem;
   display: flex;
   flex-direction: column;
 }
 
 .equipmentCol {
-  background: rgba(11, 20, 39, 0.85);
-  border-color: rgba(56, 189, 248, 0.2);
+  background: var(--lv-eq-col-bg, rgba(11, 20, 39, 0.85));
+  border-color: var(--lv-eq-col-border, rgba(56, 189, 248, 0.2));
 }
 
 .colHeader {
@@ -112,27 +113,27 @@
   justify-content: space-between;
   margin-bottom: 0.85rem;
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--lv-divider, rgba(255, 255, 255, 0.06));
 }
 
 .colTitle {
   font-size: 0.92rem;
   font-weight: 800;
-  color: #e2e8f0;
+  color: var(--lv-col-title, #e2e8f0);
 }
 
 .colCount {
   font-size: 0.8rem;
   font-weight: 850;
   padding: 2px 7px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #38bdf8;
+  border-radius: var(--lv-chip-radius, 6px);
+  background: var(--lv-badge-bg, rgba(255, 255, 255, 0.1));
+  color: var(--lv-badge-text, #38bdf8);
 }
 
 .cartList {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 0.65rem;
   align-content: flex-start;
   min-height: 80px;
@@ -140,34 +141,30 @@
 
 .cartChip {
   position: relative;
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.5rem 0.75rem;
-  background: #1e293b;
-  border: 1px solid #475569;
-  border-radius: 8px;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.55rem 0.85rem;
+  background: var(--lv-card-bg, #1e293b);
+  border: 1px solid var(--lv-card-border, #475569);
+  border-radius: var(--lv-chip-radius, 8px);
   cursor: pointer;
   transition: all 0.18s ease;
   user-select: none;
 }
 
 .cartChip:hover {
-  background: #334155;
-  border-color: #38bdf8;
+  background: var(--lv-card-hover-bg, #334155);
+  border-color: var(--lv-accent, #38bdf8);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.25);
+  box-shadow: 0 4px 12px var(--lv-hover-shadow, rgba(56, 189, 248, 0.25));
 }
 
-.cartChipReady {
-  background: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.45);
-}
-
-.cartChipReady:hover {
-  background: rgba(16, 185, 129, 0.25);
-  border-color: #10b981;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+.cartChipMain {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 .cartIcon {
@@ -177,19 +174,66 @@
 .cartNumber {
   font-size: 0.96rem;
   font-weight: 850;
-  color: #ffffff;
+  color: var(--lv-cart-num, #ffffff);
   letter-spacing: 0.03em;
 }
 
-/* Hover Tooltip 浮動提示機構名稱 */
+/* 下一階段標籤 Next Stage Badge */
+.nextStageBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: var(--lv-chip-radius, 6px);
+  white-space: nowrap;
+}
+
+.nextStageDisinfect {
+  background: rgba(236, 72, 153, 0.16);
+  color: #f472b6;
+  border: 1px solid rgba(236, 72, 153, 0.35);
+}
+
+.nextStageWash {
+  background: rgba(56, 189, 248, 0.16);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.nextStageDry {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.nextStagePickup {
+  background: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.cartChipReady {
+  background: var(--lv-ready-bg, rgba(16, 185, 129, 0.12));
+  border-color: var(--lv-ready-border, rgba(16, 185, 129, 0.45));
+}
+
+.cartChipReady:hover {
+  background: var(--lv-ready-hover, rgba(16, 185, 129, 0.25));
+  border-color: #10b981;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+/* Hover Tooltip 浮動提示機構名稱與階段 */
 .tooltipBox {
   position: absolute;
   bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
-  background: #0f172a;
-  border: 1px solid #38bdf8;
-  border-radius: 8px;
+  background: var(--lv-tooltip-bg, #0f172a);
+  border: 1px solid var(--lv-tooltip-border, #38bdf8);
+  border-radius: var(--lv-chip-radius, 8px);
   padding: 0.5rem 0.75rem;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
   white-space: nowrap;
@@ -211,7 +255,7 @@
   transform: translateX(-50%);
   border-width: 5px;
   border-style: solid;
-  border-color: #38bdf8 transparent transparent transparent;
+  border-color: var(--lv-tooltip-border, #38bdf8) transparent transparent transparent;
 }
 
 .cartChip:hover .tooltipBox,
@@ -223,19 +267,28 @@
 
 .tooltipLabel {
   font-size: 0.72rem;
-  color: #94a3b8;
+  color: var(--lv-muted, #94a3b8);
   font-weight: 700;
 }
 
 .tooltipValue {
   font-size: 0.92rem;
   font-weight: 850;
-  color: #38bdf8;
+  color: var(--lv-tooltip-text, #38bdf8);
 }
 
 .tooltipOrder {
   font-size: 0.75rem;
-  color: #cbd5e1;
+  color: var(--lv-tooltip-order, #cbd5e1);
+}
+
+.tooltipNextStage {
+  font-size: 0.76rem;
+  color: #fbbf24;
+  font-weight: 800;
+  margin-top: 2px;
+  padding-top: 2px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.15);
 }
 
 /* 設備卡片網格 */
@@ -246,9 +299,9 @@
 }
 
 .equipmentCard {
-  background: #0f172a;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
+  background: var(--lv-card-bg, #0f172a);
+  border: 1px solid var(--lv-card-border, rgba(255, 255, 255, 0.12));
+  border-radius: var(--lv-eq-radius, 10px);
   padding: 0.7rem 0.85rem;
   display: flex;
   flex-direction: column;
@@ -263,32 +316,32 @@
 /* 設備狀態樣式 Tone */
 .eqDisinfecting {
   border-color: #ec4899;
-  background: linear-gradient(135deg, rgba(236, 72, 153, 0.1) 0%, rgba(15, 23, 42, 0.95) 100%);
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.1) 0%, var(--lv-card-bg, rgba(15, 23, 42, 0.95)) 100%);
 }
 
 .eqWashing {
   border-color: #38bdf8;
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%);
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.12) 0%, var(--lv-card-bg, rgba(15, 23, 42, 0.95)) 100%);
 }
 
 .eqDrying {
   border-color: #f59e0b;
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, var(--lv-card-bg, rgba(15, 23, 42, 0.95)) 100%);
 }
 
 .eqCompleted {
   border-color: #10b981;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, var(--lv-card-bg, rgba(15, 23, 42, 0.95)) 100%);
 }
 
 .eqPaused {
   border-color: #ef4444;
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, var(--lv-card-bg, rgba(15, 23, 42, 0.95)) 100%);
 }
 
 .eqIdle {
-  border-color: rgba(255, 255, 255, 0.1);
-  background: #0f172a;
+  border-color: var(--lv-card-border, rgba(255, 255, 255, 0.1));
+  background: var(--lv-card-bg, #0f172a);
   opacity: 0.85;
 }
 
@@ -305,7 +358,7 @@
 .eqName {
   font-size: 0.95rem;
   font-weight: 850;
-  color: #ffffff;
+  color: var(--lv-title, #ffffff);
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -317,8 +370,8 @@
   font-weight: 800;
   padding: 2px 7px;
   border-radius: 5px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #f8fafc;
+  background: var(--lv-badge-bg, rgba(255, 255, 255, 0.1));
+  color: var(--lv-title, #f8fafc);
   white-space: nowrap;
 }
 
@@ -355,7 +408,7 @@
 .eqDetailRow {
   font-size: 0.84rem;
   padding-top: 0.35rem;
-  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  border-top: 1px dashed var(--lv-divider, rgba(255, 255, 255, 0.08));
 }
 
 .activeRunningInfo {
@@ -367,7 +420,7 @@
 }
 
 .runningInstBadge {
-  color: #cbd5e1;
+  color: var(--lv-muted, #cbd5e1);
   font-weight: 750;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -375,8 +428,8 @@
 }
 
 .runningCartBadge {
-  color: #f8fafc;
-  background: rgba(255, 255, 255, 0.12);
+  color: var(--lv-title, #f8fafc);
+  background: var(--lv-badge-bg, rgba(255, 255, 255, 0.12));
   padding: 2px 6px;
   border-radius: 4px;
   font-weight: 850;
@@ -385,22 +438,22 @@
 .idleRunningInfo {
   display: flex;
   align-items: center;
-  color: #64748b;
+  color: var(--lv-muted, #64748b);
   font-size: 0.82rem;
 }
 
 .busyWithoutCart {
-  color: #38bdf8;
+  color: var(--lv-accent, #38bdf8);
   font-weight: 750;
 }
 
 .idleText {
-  color: #64748b;
+  color: var(--lv-muted, #64748b);
 }
 
 .emptyState {
   font-size: 0.82rem;
-  color: #64748b;
+  color: var(--lv-muted, #64748b);
   padding: 0.75rem 0;
   text-align: center;
   width: 100%;
@@ -411,4 +464,189 @@
     grid-template-columns: 1fr;
     gap: 1rem;
   }
+}
+
+/* =========================================================
+   網站切換風格 (MX, AP, GS, MB, SH) 專屬配色連動適配
+   ========================================================= */
+
+/* 1. MX · 現行營運（自然翡翠森林綠、清爽質感、圓角雅緻） */
+:global(html[data-workspace-style="MX"]) .liveViewContainer {
+  --lv-bg: linear-gradient(145deg, #f0f7f4 0%, #e5f0eb 100%);
+  --lv-border: #a9cfc1;
+  --lv-radius: 18px;
+  --lv-shadow: 0 10px 30px rgba(18, 102, 83, 0.08);
+  --lv-text: #14211e;
+  --lv-title: #124337;
+  --lv-muted: #5f746d;
+  --lv-divider: rgba(18, 102, 83, 0.12);
+  --lv-accent: #126653;
+  --lv-col-bg: rgba(255, 255, 255, 0.9);
+  --lv-col-border: #c4ded5;
+  --lv-col-radius: 14px;
+  --lv-col-title: #124337;
+  --lv-badge-bg: #dcefe8;
+  --lv-badge-text: #126653;
+  --lv-card-bg: #ffffff;
+  --lv-card-border: #c9ded6;
+  --lv-card-hover-bg: #f4fbf8;
+  --lv-cart-num: #134e42;
+  --lv-hover-shadow: rgba(18, 102, 83, 0.15);
+  --lv-ready-bg: rgba(18, 102, 83, 0.08);
+  --lv-ready-border: #126653;
+  --lv-ready-hover: rgba(18, 102, 83, 0.15);
+  --lv-tooltip-bg: #124337;
+  --lv-tooltip-border: #126653;
+  --lv-tooltip-text: #a7f3d0;
+  --lv-tooltip-order: #e6f4ef;
+  --lv-eq-col-bg: rgba(246, 251, 248, 0.95);
+  --lv-eq-col-border: #a8cfc2;
+  --lv-eq-radius: 12px;
+  --lv-chip-radius: 8px;
+  --lv-dot-radius: 50%;
+}
+
+/* 2. AP · Apple Flow（優雅毛玻璃、極簡灰白、大圓角、湛藍 Accent） */
+:global(html[data-workspace-style="AP"]) .liveViewContainer {
+  --lv-bg: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(20px) saturate(180%);
+  --lv-border: rgba(60, 60, 67, 0.14);
+  --lv-radius: 20px;
+  --lv-shadow: 0 16px 40px rgba(60, 60, 67, 0.08);
+  --lv-text: #1d1d1f;
+  --lv-title: #1d1d1f;
+  --lv-muted: #6e6e73;
+  --lv-divider: rgba(60, 60, 67, 0.1);
+  --lv-accent: #0071e3;
+  --lv-col-bg: rgba(245, 245, 247, 0.72);
+  --lv-col-border: rgba(60, 60, 67, 0.12);
+  --lv-col-radius: 16px;
+  --lv-col-title: #1d1d1f;
+  --lv-badge-bg: #e8f2ff;
+  --lv-badge-text: #0071e3;
+  --lv-card-bg: rgba(255, 255, 255, 0.9);
+  --lv-card-border: rgba(60, 60, 67, 0.16);
+  --lv-card-hover-bg: #ffffff;
+  --lv-cart-num: #1d1d1f;
+  --lv-hover-shadow: rgba(0, 113, 227, 0.2);
+  --lv-ready-bg: rgba(52, 199, 89, 0.1);
+  --lv-ready-border: #34c759;
+  --lv-ready-hover: rgba(52, 199, 89, 0.18);
+  --lv-tooltip-bg: #1d1d1f;
+  --lv-tooltip-border: #0071e3;
+  --lv-tooltip-text: #60a5fa;
+  --lv-tooltip-order: #e5e7eb;
+  --lv-eq-col-bg: rgba(250, 250, 252, 0.82);
+  --lv-eq-col-border: rgba(60, 60, 67, 0.14);
+  --lv-eq-radius: 14px;
+  --lv-chip-radius: 10px;
+  --lv-dot-radius: 50%;
+}
+
+/* 3. GS · Kinetic System（深邃戰情室、黑底螢光綠線條、精密控制台感、極簡直角） */
+:global(html[data-workspace-style="GS"]) .liveViewContainer {
+  --lv-bg: #0b1114;
+  --lv-border: rgba(140, 247, 182, 0.28);
+  --lv-radius: 4px;
+  --lv-shadow: 0 0 32px rgba(140, 247, 182, 0.08);
+  --lv-text: #eefcf3;
+  --lv-title: #8cf7b6;
+  --lv-muted: #6e897b;
+  --lv-divider: rgba(140, 247, 182, 0.15);
+  --lv-accent: #8cf7b6;
+  --lv-col-bg: rgba(16, 23, 25, 0.9);
+  --lv-col-border: rgba(140, 247, 182, 0.18);
+  --lv-col-radius: 2px;
+  --lv-col-title: #eefcf3;
+  --lv-badge-bg: #10211c;
+  --lv-badge-text: #8cf7b6;
+  --lv-card-bg: #101719;
+  --lv-card-border: rgba(140, 247, 182, 0.22);
+  --lv-card-hover-bg: #142220;
+  --lv-cart-num: #8cf7b6;
+  --lv-hover-shadow: rgba(140, 247, 182, 0.25);
+  --lv-ready-bg: rgba(140, 247, 182, 0.1);
+  --lv-ready-border: #8cf7b6;
+  --lv-ready-hover: rgba(140, 247, 182, 0.2);
+  --lv-tooltip-bg: #080b0d;
+  --lv-tooltip-border: #8cf7b6;
+  --lv-tooltip-text: #8cf7b6;
+  --lv-tooltip-order: #a7f3d0;
+  --lv-eq-col-bg: rgba(12, 18, 20, 0.95);
+  --lv-eq-col-border: rgba(140, 247, 182, 0.25);
+  --lv-eq-radius: 2px;
+  --lv-chip-radius: 2px;
+  --lv-dot-radius: 1px;
+}
+
+/* 4. MB · Editorial UI（文藝報章排版、米紙底色、經典俐落雙黑邊框、橙紅熱度） */
+:global(html[data-workspace-style="MB"]) .liveViewContainer {
+  --lv-bg: #fbfaf6;
+  --lv-border: #161616;
+  --lv-radius: 0px;
+  --lv-shadow: 4px 4px 0 #161616;
+  --lv-text: #161616;
+  --lv-title: #161616;
+  --lv-muted: #686761;
+  --lv-divider: #161616;
+  --lv-accent: #1745d1;
+  --lv-col-bg: #ffffff;
+  --lv-col-border: #161616;
+  --lv-col-radius: 0px;
+  --lv-col-title: #161616;
+  --lv-badge-bg: #161616;
+  --lv-badge-text: #fbfaf6;
+  --lv-card-bg: #ffffff;
+  --lv-card-border: #161616;
+  --lv-card-hover-bg: #e8edff;
+  --lv-cart-num: #161616;
+  --lv-hover-shadow: 3px 3px 0 #1745d1;
+  --lv-ready-bg: rgba(23, 69, 209, 0.08);
+  --lv-ready-border: #1745d1;
+  --lv-ready-hover: rgba(23, 69, 209, 0.16);
+  --lv-tooltip-bg: #161616;
+  --lv-tooltip-border: #161616;
+  --lv-tooltip-text: #ffffff;
+  --lv-tooltip-order: #e2e8f0;
+  --lv-eq-col-bg: #f7f6f2;
+  --lv-eq-col-border: #161616;
+  --lv-eq-radius: 0px;
+  --lv-chip-radius: 0px;
+  --lv-dot-radius: 0px;
+}
+
+/* 5. SH · shadcn/ui（現代灰黑純粹極簡、卡片層次、精準微邊框） */
+:global(html[data-workspace-style="SH"]) .liveViewContainer {
+  --lv-bg: var(--sh-card, #ffffff);
+  --lv-border: var(--sh-border, #e4e4e7);
+  --lv-radius: 8px;
+  --lv-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --lv-text: var(--sh-foreground, #09090b);
+  --lv-title: var(--sh-foreground, #09090b);
+  --lv-muted: var(--sh-muted-foreground, #71717a);
+  --lv-divider: var(--sh-border, #e4e4e7);
+  --lv-accent: var(--sh-primary, #18181b);
+  --lv-col-bg: var(--sh-muted, #f4f4f5);
+  --lv-col-border: var(--sh-border, #e4e4e7);
+  --lv-col-radius: 8px;
+  --lv-col-title: var(--sh-foreground, #09090b);
+  --lv-badge-bg: var(--sh-card, #ffffff);
+  --lv-badge-text: var(--sh-foreground, #18181b);
+  --lv-card-bg: var(--sh-card, #ffffff);
+  --lv-card-border: var(--sh-border, #e4e4e7);
+  --lv-card-hover-bg: #f4f4f5;
+  --lv-cart-num: var(--sh-foreground, #09090b);
+  --lv-hover-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --lv-ready-bg: rgba(22, 163, 74, 0.08);
+  --lv-ready-border: #16a34a;
+  --lv-ready-hover: rgba(22, 163, 74, 0.16);
+  --lv-tooltip-bg: #18181b;
+  --lv-tooltip-border: #27272a;
+  --lv-tooltip-text: #ffffff;
+  --lv-tooltip-order: #d4d4d8;
+  --lv-eq-col-bg: var(--sh-muted, #f4f4f5);
+  --lv-eq-col-border: var(--sh-border, #e4e4e7);
+  --lv-eq-radius: 6px;
+  --lv-chip-radius: 6px;
+  --lv-dot-radius: 50%;
 }

@@ -2,7 +2,6 @@
 
 import React from "react";
 import type {
-  WorkspaceBatchDetail,
   WorkspaceEquipment,
   WorkspaceOrder,
   WorkspaceOrderDetail,
@@ -23,14 +22,19 @@ interface EquipmentLiveStatus {
   activeInstitutionName: string | null;
 }
 
+interface PendingCartItem {
+  id: string;
+  orderNumber: string;
+  cartNumber: string;
+  institutionName: string;
+  isPostStage: boolean;
+  justFinishedStage: string | null;
+  nextStageName: string;
+  nextStageTone: "disinfect" | "wash" | "dry" | "pickup";
+}
+
 export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveViewProps) {
-  // 1. 左側：待收件的洗衣車列表 (awaiting_receipt)
-  const pendingReceiptOrders = orders.filter((o) => o.status === "awaiting_receipt");
-
-  // 2. 右側：完成待取件的洗衣車列表 (ready_for_pickup)
-  const readyForPickupOrders = orders.filter((o) => o.status === "ready_for_pickup");
-
-  // 建立 orderId -> order 對照表
+  // 建立 orderId -> order 與 orderNumber -> order 對照表
   const orderByIdMap = new Map<string, WorkspaceOrder>();
   const orderByNumberMap = new Map<string, WorkspaceOrder>();
   for (const order of orders) {
@@ -38,8 +42,114 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
     orderByNumberMap.set(order.orderNumber, order);
   }
 
+  const orderDetailByIdMap = new Map<string, WorkspaceOrderDetail>();
+  for (const detail of orderDetails) {
+    orderDetailByIdMap.set(detail.orderId, detail);
+  }
+
+  // 1. 左側：待收件洗衣車列表
+  // 包含：
+  // a) 初始待收件 (order.status === "awaiting_receipt")
+  // b) 以及已結束消毒、清洗，正等待收件/推進下一階段的洗衣車
+  const pendingCarts: PendingCartItem[] = [];
+
+  for (const order of orders) {
+    if (order.status === "ready_for_pickup" || order.status === "picked_up") {
+      continue;
+    }
+
+    const detail = orderDetailByIdMap.get(order.id);
+    const isDisinfect = Boolean(
+      order.orderNumber === "MAIN-20261005-0004" ||
+      order.orderNumber === "MAIN-20261008-0001" ||
+      order.cartNumber?.toUpperCase() === "8D-1" ||
+      order.cartNumber?.toUpperCase() === "2C-6" ||
+      detail?.batches?.some((b) => b.categoryName?.includes("消毒"))
+    );
+
+    // a) 初始待收件單據
+    if (order.status === "awaiting_receipt") {
+      pendingCarts.push({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        cartNumber: order.cartNumber,
+        institutionName: order.institutionName,
+        isPostStage: false,
+        justFinishedStage: null,
+        nextStageName: isDisinfect ? "待消毒" : "待分類",
+        nextStageTone: isDisinfect ? "disinfect" : "wash",
+      });
+      continue;
+    }
+
+    // b) 檢查是否已結束消毒或清洗，正等待下一階段
+    if (detail?.batches && detail.batches.length > 0) {
+      let isBetweenStages = false;
+      let justFinished = "";
+      let nextStage = "";
+      let nextTone: PendingCartItem["nextStageTone"] = "wash";
+
+      for (const batch of detail.batches) {
+        const activeStage = batch.stages.find((s) => s.state === "active");
+        const currentStageOrder = activeStage?.stageOrder ?? batch.currentStageOrder ?? 1;
+        const currentStage = batch.stages.find((s) => s.stageOrder === currentStageOrder);
+
+        const disinfectionStage = batch.stages.find((s) => s.equipmentType === "disinfection_tank");
+        const washingStage = batch.stages.find((s) => s.equipmentType === "washer");
+        const dryingStage = batch.stages.find((s) => s.equipmentType === "dryer");
+
+        // 情況 1: 消毒階段已完成，且目前尚未開始清洗
+        const isDisinfectionCompleted =
+          disinfectionStage?.state === "completed" ||
+          (isDisinfect && currentStageOrder > 1 && (!activeStage || activeStage.equipmentType !== "disinfection_tank"));
+
+        const isWashingStarted =
+          washingStage?.state === "active" ||
+          (washingStage && batch.progress.stageStatus === "in_progress" && currentStage?.equipmentType === "washer");
+
+        // 情況 2: 清洗階段已完成，且目前尚未開始烘乾
+        const isWashingCompleted =
+          washingStage?.state === "completed" ||
+          (currentStageOrder > (isDisinfect ? 2 : 1) && (!activeStage || activeStage.equipmentType !== "washer"));
+
+        const isDryingStarted =
+          dryingStage?.state === "active" ||
+          (dryingStage && batch.progress.stageStatus === "in_progress" && currentStage?.equipmentType === "dryer");
+
+        if (isDisinfectionCompleted && !isWashingStarted && currentStageOrder <= (isDisinfect ? 2 : 1)) {
+          isBetweenStages = true;
+          justFinished = "消毒完畢";
+          nextStage = "待清洗";
+          nextTone = "wash";
+          break;
+        } else if (isWashingCompleted && !isDryingStarted && currentStageOrder <= (isDisinfect ? 3 : 2)) {
+          isBetweenStages = true;
+          justFinished = "清洗完畢";
+          nextStage = "待烘乾";
+          nextTone = "dry";
+          break;
+        }
+      }
+
+      if (isBetweenStages) {
+        pendingCarts.push({
+          id: order.id,
+          orderNumber: order.orderNumber,
+          cartNumber: order.cartNumber,
+          institutionName: order.institutionName,
+          isPostStage: true,
+          justFinishedStage: justFinished,
+          nextStageName: nextStage,
+          nextStageTone: nextTone,
+        });
+      }
+    }
+  }
+
+  // 2. 右側：完成待取件的洗衣車列表 (ready_for_pickup)
+  const readyForPickupOrders = orders.filter((o) => o.status === "ready_for_pickup");
+
   // 3. 中間：各設備即時狀態推導
-  // 將所有進行中或待處理的 batch stages 收集起來
   interface ActiveRunInfo {
     orderNumber: string;
     cartNumber: string;
@@ -235,30 +345,58 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
         <div className={styles.liveViewCol}>
           <div className={styles.colHeader}>
             <span className={styles.colTitle}>📥 待收件洗衣車</span>
-            <span className={styles.colCount}>{pendingReceiptOrders.length}</span>
+            <span className={styles.colCount}>{pendingCarts.length}</span>
           </div>
           <div className={styles.cartList}>
-            {pendingReceiptOrders.length === 0 ? (
+            {pendingCarts.length === 0 ? (
               <div className={styles.emptyState}>暫無待收件洗衣車</div>
             ) : (
-              pendingReceiptOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className={styles.cartChip}
-                  tabIndex={0}
-                  role="tooltip"
-                  aria-label={`${order.institutionName} - 車號 ${order.cartNumber}`}
-                >
-                  <span className={styles.cartIcon}>🛒</span>
-                  <strong className={styles.cartNumber}>{order.cartNumber}</strong>
-                  {/* Hover 浮動提示機構名稱 */}
-                  <div className={styles.tooltipBox}>
-                    <span className={styles.tooltipLabel}>機構名稱</span>
-                    <span className={styles.tooltipValue}>{order.institutionName}</span>
-                    <span className={styles.tooltipOrder}>單號 {order.orderNumber}</span>
+              pendingCarts.map((item) => {
+                const nextBadgeClass =
+                  item.nextStageTone === "disinfect"
+                    ? styles.nextStageDisinfect
+                    : item.nextStageTone === "wash"
+                    ? styles.nextStageWash
+                    : item.nextStageTone === "dry"
+                    ? styles.nextStageDry
+                    : styles.nextStagePickup;
+
+                return (
+                  <div
+                    key={item.id}
+                    className={styles.cartChip}
+                    tabIndex={0}
+                    role="tooltip"
+                    aria-label={`${item.institutionName} - 車號 ${item.cartNumber}，下一階段：${item.nextStageName}`}
+                  >
+                    <div className={styles.cartChipMain}>
+                      <span className={styles.cartIcon}>🛒</span>
+                      <strong className={styles.cartNumber}>{item.cartNumber}</strong>
+                    </div>
+
+                    {/* 下一階段要進什麼標籤 */}
+                    <span className={`${styles.nextStageBadge} ${nextBadgeClass}`}>
+                      {item.nextStageName}
+                    </span>
+
+                    {/* Hover 浮動提示機構名稱與下一階段 */}
+                    <div className={styles.tooltipBox}>
+                      <span className={styles.tooltipLabel}>機構名稱</span>
+                      <span className={styles.tooltipValue}>{item.institutionName}</span>
+                      <span className={styles.tooltipOrder}>單號 {item.orderNumber}</span>
+                      {item.isPostStage && item.justFinishedStage ? (
+                        <span className={styles.tooltipNextStage}>
+                          已完成：{item.justFinishedStage} ➔ 下一階段：{item.nextStageName}
+                        </span>
+                      ) : (
+                        <span className={styles.tooltipNextStage}>
+                          下一階段：{item.nextStageName}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -354,8 +492,10 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
                   role="tooltip"
                   aria-label={`${order.institutionName} - 車號 ${order.cartNumber}`}
                 >
-                  <span className={styles.cartIcon}>✨</span>
-                  <strong className={styles.cartNumber}>{order.cartNumber}</strong>
+                  <div className={styles.cartChipMain}>
+                    <span className={styles.cartIcon}>✨</span>
+                    <strong className={styles.cartNumber}>{order.cartNumber}</strong>
+                  </div>
                   {/* Hover 浮動提示機構名稱 */}
                   <div className={styles.tooltipBox}>
                     <span className={styles.tooltipLabel}>洗烘完畢 · 待領回</span>
