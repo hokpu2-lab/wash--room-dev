@@ -22,7 +22,7 @@ interface EquipmentLiveStatus {
   activeInstitutionName: string | null;
 }
 
-interface PendingCartItem {
+export interface PendingCartItem {
   id: string;
   orderNumber: string;
   cartNumber: string;
@@ -34,7 +34,7 @@ interface PendingCartItem {
   nextStageTone: "disinfect" | "wash" | "dry" | "pickup";
 }
 
-interface ReadyCartItem {
+export interface ReadyCartItem {
   id: string;
   orderNumber: string;
   cartNumber: string;
@@ -42,7 +42,7 @@ interface ReadyCartItem {
   readyTime: string;
 }
 
-function formatClockTime(isoString?: string | null): string {
+export function formatClockTime(isoString?: string | null): string {
   if (!isoString) return "—";
   const d = new Date(isoString);
   if (isNaN(d.getTime())) return "—";
@@ -55,25 +55,29 @@ function formatClockTime(isoString?: string | null): string {
   return `${month}/${day} ${period} ${displayHours}:${minutes}`;
 }
 
-export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveViewProps) {
-  // 建立 orderId -> order 與 orderNumber -> order 對照表
-  const orderByIdMap = new Map<string, WorkspaceOrder>();
-  const orderByNumberMap = new Map<string, WorkspaceOrder>();
-  for (const order of orders) {
-    orderByIdMap.set(order.id, order);
-    orderByNumberMap.set(order.orderNumber, order);
-  }
-
+export function derivePendingCarts(
+  orders: WorkspaceOrder[],
+  orderDetails: WorkspaceOrderDetail[]
+): PendingCartItem[] {
   const orderDetailByIdMap = new Map<string, WorkspaceOrderDetail>();
   for (const detail of orderDetails) {
     orderDetailByIdMap.set(detail.orderId, detail);
   }
 
-  // 1. 左側：待收件洗衣車列表
+  // 1. 左側：待處理洗衣車列表
   // 包含：
-  // a) 初始待收件 (order.status === "awaiting_receipt")
-  // b) 以及已結束消毒、清洗，正等待收件/推進下一階段的洗衣車
+  // a) 初始進場待收件 (order.status === "awaiting_receipt")
+  // b) 階段交接中 (已結束消毒或清洗，正等待進入下一階段)
+  // c) 分類完成 (order.status === "awaiting_cleaning" 或批次已建立但第一階段尚未開始)
   const pendingCarts: PendingCartItem[] = [];
+  const addedPendingOrderIds = new Set<string>();
+
+  const pushPendingCart = (item: PendingCartItem) => {
+    if (!addedPendingOrderIds.has(item.id)) {
+      addedPendingOrderIds.add(item.id);
+      pendingCarts.push(item);
+    }
+  };
 
   for (const order of orders) {
     if (order.status === "ready_for_pickup" || order.status === "picked_up") {
@@ -92,9 +96,9 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
       detail?.batches?.some((b) => b.categoryName?.includes("消毒"))
     );
 
-    // a) 初始待收件單據
+    // a) 初始進場待收件單據（尚未收單分類）
     if (order.status === "awaiting_receipt") {
-      pendingCarts.push({
+      pushPendingCart({
         id: order.id,
         orderNumber: order.orderNumber,
         cartNumber: order.cartNumber,
@@ -108,13 +112,25 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
       continue;
     }
 
-    // b) 檢查是否已結束消毒或清洗，正等待下一階段
-    if (detail?.batches && detail.batches.length > 0) {
-      let isBetweenStages = false;
-      let justFinished = "";
-      let nextStage = "";
-      let nextTone: PendingCartItem["nextStageTone"] = "wash";
+    // 檢查是否有任何階段正在設備中執行中/暫停中
+    const hasActiveRunningStage = detail?.batches?.some((b) =>
+      b.stages.some((s) => s.state === "active") ||
+      b.progress.stageStatus === "in_progress" ||
+      b.progress.stageStatus === "paused"
+    );
 
+    // 如果目前正在設備中運作，則由中間的設備欄位呈現，不列入待處理洗衣車
+    if (hasActiveRunningStage) {
+      continue;
+    }
+
+    // b) 檢查是否處於階段交接（已結束消毒或清洗，正等待進入下一階段）
+    let isBetweenStages = false;
+    let justFinished = "";
+    let nextStage = "";
+    let nextTone: PendingCartItem["nextStageTone"] = "wash";
+
+    if (detail?.batches && detail.batches.length > 0) {
       for (const batch of detail.batches) {
         const activeStage = batch.stages.find((s) => s.state === "active");
         const currentStageOrder = activeStage?.stageOrder ?? batch.currentStageOrder ?? 1;
@@ -156,22 +172,70 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
           break;
         }
       }
+    }
 
-      if (isBetweenStages) {
-        pendingCarts.push({
-          id: order.id,
-          orderNumber: order.orderNumber,
-          cartNumber: order.cartNumber,
-          institutionName: order.institutionName,
-          receiptTime: formattedReceiptTime,
-          isPostStage: true,
-          justFinishedStage: justFinished,
-          nextStageName: nextStage,
-          nextStageTone: nextTone,
-        });
-      }
+    if (isBetweenStages) {
+      pushPendingCart({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        cartNumber: order.cartNumber,
+        institutionName: order.institutionName,
+        receiptTime: formattedReceiptTime,
+        isPostStage: true,
+        justFinishedStage: justFinished,
+        nextStageName: nextStage,
+        nextStageTone: nextTone,
+      });
+      continue;
+    }
+
+    // c) 分類後的洗衣車（已完成收單分類，等待進入消毒或清洗設備）
+    // 包含：order.status === "awaiting_cleaning"，或批次已建立但所有階段皆為 pending / 尚未開始
+    const isAllStagesPending =
+      !detail?.batches ||
+      detail.batches.length === 0 ||
+      detail.batches.every(
+        (b) =>
+          b.stages.every((s) => s.state === "pending") &&
+          b.progress.stageStatus !== "in_progress" &&
+          b.progress.stageStatus !== "paused"
+      );
+
+    if (order.status === "awaiting_cleaning" || isAllStagesPending) {
+      pushPendingCart({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        cartNumber: order.cartNumber,
+        institutionName: order.institutionName,
+        receiptTime: formattedReceiptTime,
+        isPostStage: true,
+        justFinishedStage: "分類完成",
+        nextStageName: isDisinfect ? "待消毒" : "待清洗",
+        nextStageTone: isDisinfect ? "disinfect" : "wash",
+      });
+      continue;
     }
   }
+
+  return pendingCarts;
+}
+
+export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveViewProps) {
+  // 建立 orderId -> order 與 orderNumber -> order 對照表
+  const orderByIdMap = new Map<string, WorkspaceOrder>();
+  const orderByNumberMap = new Map<string, WorkspaceOrder>();
+  for (const order of orders) {
+    orderByIdMap.set(order.id, order);
+    orderByNumberMap.set(order.orderNumber, order);
+  }
+
+  const orderDetailByIdMap = new Map<string, WorkspaceOrderDetail>();
+  for (const detail of orderDetails) {
+    orderDetailByIdMap.set(detail.orderId, detail);
+  }
+
+  // 1. 左側：待處理洗衣車列表
+  const pendingCarts = derivePendingCarts(orders, orderDetails);
 
   // 2. 右側：完成待取件的洗衣車列表 (ready_for_pickup)
   const readyCarts: ReadyCartItem[] = orders
@@ -445,15 +509,15 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
       </div>
 
       <div className={styles.liveViewGrid}>
-        {/* === 左側：待收件洗衣車 === */}
+        {/* === 左側：待處理洗衣車 === */}
         <div className={styles.liveViewCol}>
           <div className={styles.colHeader}>
-            <span className={styles.colTitle}>📥 待收件洗衣車</span>
+            <span className={styles.colTitle}>📥 待處理洗衣車</span>
             <span className={styles.colCount}>{pendingCarts.length}</span>
           </div>
           <div className={styles.cartList}>
             {pendingCarts.length === 0 ? (
-              <div className={styles.emptyState}>暫無待收件洗衣車</div>
+              <div className={styles.emptyState}>暫無待處理洗衣車</div>
             ) : (
               pendingCarts.map((item) => {
                 const nextBadgeClass =

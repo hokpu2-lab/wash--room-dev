@@ -423,7 +423,7 @@ export function LiveQueue({
 
   return (
     <section className={styles.liveQueueSection} aria-labelledby="live-queue-title">
-      {/* 簡易即時視圖 (待收件洗衣車 ➔ 設備即時動態 ➔ 完成待取件) */}
+      {/* 簡易即時視圖 (待處理洗衣車 ➔ 設備即時動態 ➔ 完成待取件) */}
       <QuickLiveView
         orders={orders}
         orderDetails={orderDetails}
