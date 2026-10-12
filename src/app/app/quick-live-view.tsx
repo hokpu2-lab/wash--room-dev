@@ -27,7 +27,8 @@ export interface PendingCartItem {
   orderNumber: string;
   cartNumber: string;
   institutionName: string;
-  receiptTime: string;
+  sendTime: string;
+  receiptTime: string | null;
   isPostStage: boolean;
   justFinishedStage: string | null;
   nextStageName: string;
@@ -39,6 +40,8 @@ export interface ReadyCartItem {
   orderNumber: string;
   cartNumber: string;
   institutionName: string;
+  sendTime: string;
+  receiptTime: string | null;
   readyTime: string;
 }
 
@@ -66,9 +69,9 @@ export function derivePendingCarts(
 
   // 1. 左側：待處理洗衣車列表
   // 包含：
-  // a) 初始進場待收件 (order.status === "awaiting_receipt")
-  // b) 階段交接中 (已結束消毒或清洗，正等待進入下一階段)
-  // c) 分類完成 (order.status === "awaiting_cleaning" 或批次已建立但第一階段尚未開始)
+  // a) 初始進場待收件 (order.status === "awaiting_receipt") - 顯示送件時間
+  // b) 階段交接中 (已結束消毒或清洗，正等待進入下一階段) - 保留送件時間並顯示收件時間
+  // c) 分類完成 (order.status === "awaiting_cleaning" 或批次已建立但第一階段尚未開始) - 保留送件時間並顯示收件時間
   const pendingCarts: PendingCartItem[] = [];
   const addedPendingOrderIds = new Set<string>();
 
@@ -85,8 +88,10 @@ export function derivePendingCarts(
     }
 
     const detail = orderDetailByIdMap.get(order.id);
-    const receiptIso = detail?.orderReceivedAt || detail?.orderCreatedAt || order.updatedAt;
-    const formattedReceiptTime = formatClockTime(receiptIso);
+    const sendIso = detail?.orderCreatedAt || order.updatedAt;
+    const formattedSendTime = formatClockTime(sendIso);
+    const receiptIso = detail?.orderReceivedAt;
+    const formattedReceiptTime = receiptIso ? formatClockTime(receiptIso) : null;
 
     const isDisinfect = Boolean(
       order.orderNumber === "MAIN-20261005-0004" ||
@@ -96,14 +101,15 @@ export function derivePendingCarts(
       detail?.batches?.some((b) => b.categoryName?.includes("消毒"))
     );
 
-    // a) 初始進場待收件單據（尚未收單分類）
+    // a) 初始進場待收件單據（尚未收單分類，單號下方僅顯示送件時間）
     if (order.status === "awaiting_receipt") {
       pushPendingCart({
         id: order.id,
         orderNumber: order.orderNumber,
         cartNumber: order.cartNumber,
         institutionName: order.institutionName,
-        receiptTime: formattedReceiptTime,
+        sendTime: formattedSendTime,
+        receiptTime: null,
         isPostStage: false,
         justFinishedStage: null,
         nextStageName: isDisinfect ? "待消毒" : "待分類",
@@ -180,7 +186,8 @@ export function derivePendingCarts(
         orderNumber: order.orderNumber,
         cartNumber: order.cartNumber,
         institutionName: order.institutionName,
-        receiptTime: formattedReceiptTime,
+        sendTime: formattedSendTime,
+        receiptTime: formattedReceiptTime || formattedSendTime,
         isPostStage: true,
         justFinishedStage: justFinished,
         nextStageName: nextStage,
@@ -207,7 +214,8 @@ export function derivePendingCarts(
         orderNumber: order.orderNumber,
         cartNumber: order.cartNumber,
         institutionName: order.institutionName,
-        receiptTime: formattedReceiptTime,
+        sendTime: formattedSendTime,
+        receiptTime: formattedReceiptTime || formattedSendTime,
         isPostStage: true,
         justFinishedStage: "分類完成",
         nextStageName: isDisinfect ? "待消毒" : "待清洗",
@@ -242,12 +250,16 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
     .filter((o) => o.status === "ready_for_pickup")
     .map((order) => {
       const detail = orderDetailByIdMap.get(order.id);
+      const sendIso = detail?.orderCreatedAt || order.updatedAt;
+      const receiptIso = detail?.orderReceivedAt || detail?.orderCreatedAt || order.updatedAt;
       const readyIso = detail?.orderReadyAt || order.updatedAt;
       return {
         id: order.id,
         orderNumber: order.orderNumber,
         cartNumber: order.cartNumber,
         institutionName: order.institutionName,
+        sendTime: formatClockTime(sendIso),
+        receiptTime: formatClockTime(receiptIso),
         readyTime: formatClockTime(readyIso),
       };
     });
@@ -547,12 +559,15 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
                       {item.nextStageName}
                     </span>
 
-                    {/* Hover 浮動提示機構名稱、單號、收單時間與下一階段 */}
+                    {/* Hover 浮動提示機構名稱、單號、送件時間、收件時間與下一階段 */}
                     <div className={styles.tooltipBox}>
                       <span className={styles.tooltipLabel}>機構名稱</span>
                       <span className={styles.tooltipValue}>{item.institutionName}</span>
                       <span className={styles.tooltipOrder}>單號 {item.orderNumber}</span>
-                      <span className={styles.tooltipTime}>收單時間：{item.receiptTime}</span>
+                      <span className={styles.tooltipTime}>送件時間：{item.sendTime}</span>
+                      {item.receiptTime ? (
+                        <span className={styles.tooltipTime}>收件時間：{item.receiptTime}</span>
+                      ) : null}
                       {item.isPostStage && item.justFinishedStage ? (
                         <span className={styles.tooltipNextStage}>
                           已完成：{item.justFinishedStage} ➔ 下一階段：{item.nextStageName}
@@ -647,12 +662,16 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
                     <span className={styles.cartIcon}>✨</span>
                     <strong className={styles.cartNumber}>{item.cartNumber}</strong>
                   </div>
-                  {/* Hover 浮動提示機構名稱、單號與結束時間 */}
+                  {/* Hover 浮動提示機構名稱、單號、送件時間、收件時間與完成時間 */}
                   <div className={styles.tooltipBox}>
                     <span className={styles.tooltipLabel}>洗烘完畢 · 待領回</span>
                     <span className={styles.tooltipValue}>{item.institutionName}</span>
                     <span className={styles.tooltipOrder}>單號 {item.orderNumber}</span>
-                    <span className={styles.tooltipTime}>結束時間：{item.readyTime}</span>
+                    <span className={styles.tooltipTime}>送件時間：{item.sendTime}</span>
+                    {item.receiptTime ? (
+                      <span className={styles.tooltipTime}>收件時間：{item.receiptTime}</span>
+                    ) : null}
+                    <span className={styles.tooltipTime}>完成時間：{item.readyTime}</span>
                   </div>
                 </div>
               ))

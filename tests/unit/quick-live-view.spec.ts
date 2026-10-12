@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   derivePendingCarts,
   formatClockTime,
+  type ReadyCartItem,
 } from "../../src/app/app/quick-live-view";
 import type {
   WorkspaceOrder,
@@ -68,7 +69,7 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
     expect(result).toMatch(/\d{2}\/\d{2} (上午|下午) \d{2}:\d{2}/);
   });
 
-  it("初始進場待收件單據（awaiting_receipt）應顯示待分類", () => {
+  it("初始進場待收件單據（awaiting_receipt）應顯示待分類，且僅有送件時間", () => {
     const orders: WorkspaceOrder[] = [
       {
         id: "order-1",
@@ -79,7 +80,12 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
         updatedAt: "2026-10-12T08:00:00.000Z",
       },
     ];
-    const details: WorkspaceOrderDetail[] = [];
+    const details: WorkspaceOrderDetail[] = [
+      makeDetail({
+        orderId: "order-1",
+        orderCreatedAt: "2026-10-12T08:00:00.000Z",
+      }),
+    ];
 
     const pending = derivePendingCarts(orders, details);
     expect(pending.length).toBe(1);
@@ -88,9 +94,11 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
     expect(pending[0].nextStageTone).toBe("wash");
     expect(pending[0].isPostStage).toBe(false);
     expect(pending[0].justFinishedStage).toBeNull();
+    expect(pending[0].sendTime).toBe(formatClockTime("2026-10-12T08:00:00.000Z"));
+    expect(pending[0].receiptTime).toBeNull();
   });
 
-  it("初始進場待收件之特殊消毒單據應顯示待消毒", () => {
+  it("初始進場待收件之特殊消毒單據應顯示待消毒，且僅有送件時間", () => {
     const orders: WorkspaceOrder[] = [
       {
         id: "order-disinfect-1",
@@ -109,9 +117,11 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
     expect(pending[0].nextStageName).toBe("待消毒");
     expect(pending[0].nextStageTone).toBe("disinfect");
     expect(pending[0].isPostStage).toBe(false);
+    expect(pending[0].sendTime).toBe(formatClockTime("2026-10-12T08:00:00.000Z"));
+    expect(pending[0].receiptTime).toBeNull();
   });
 
-  it("分類後的洗衣車（awaiting_cleaning）應納入待處理洗衣車，一般單顯示待清洗與分類完成", () => {
+  it("分類後的洗衣車（awaiting_cleaning）應保留送件時間並顯示收件時間，一般單顯示待清洗", () => {
     const orders: WorkspaceOrder[] = [
       {
         id: "order-classified-1",
@@ -145,9 +155,11 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
     expect(pending[0].justFinishedStage).toBe("分類完成");
     expect(pending[0].nextStageName).toBe("待清洗");
     expect(pending[0].nextStageTone).toBe("wash");
+    expect(pending[0].sendTime).toBe(formatClockTime("2026-10-12T08:00:00.000Z"));
+    expect(pending[0].receiptTime).toBe(formatClockTime("2026-10-12T08:30:00.000Z"));
   });
 
-  it("分類後的洗衣車（awaiting_cleaning）若為消毒分類，應顯示待消毒與分類完成", () => {
+  it("分類後的洗衣車（awaiting_cleaning）若為消毒分類，應保留送件時間與收件時間，顯示待消毒", () => {
     const orders: WorkspaceOrder[] = [
       {
         id: "order-classified-disinfect",
@@ -183,9 +195,11 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
     expect(pending[0].justFinishedStage).toBe("分類完成");
     expect(pending[0].nextStageName).toBe("待消毒");
     expect(pending[0].nextStageTone).toBe("disinfect");
+    expect(pending[0].sendTime).toBe(formatClockTime("2026-10-12T08:15:00.000Z"));
+    expect(pending[0].receiptTime).toBe(formatClockTime("2026-10-12T08:45:00.000Z"));
   });
 
-  it("消毒完成後正等待清洗的洗衣車，應標示消毒完畢並顯示下一階段為待清洗", () => {
+  it("消毒完成後正等待清洗的洗衣車，應標示消毒完畢並保留送件與收件時間", () => {
     const orders: WorkspaceOrder[] = [
       {
         id: "order-post-disinfect",
@@ -200,6 +214,7 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
       makeDetail({
         orderId: "order-post-disinfect",
         orderCreatedAt: "2026-10-12T08:00:00.000Z",
+        orderReceivedAt: "2026-10-12T08:30:00.000Z",
         batches: [
           makeBatch({
             categoryName: "消毒品",
@@ -221,9 +236,11 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
     expect(pending[0].justFinishedStage).toBe("消毒完畢");
     expect(pending[0].nextStageName).toBe("待清洗");
     expect(pending[0].nextStageTone).toBe("wash");
+    expect(pending[0].sendTime).toBe(formatClockTime("2026-10-12T08:00:00.000Z"));
+    expect(pending[0].receiptTime).toBe(formatClockTime("2026-10-12T08:30:00.000Z"));
   });
 
-  it("清洗完成後正等待烘乾的洗衣車，應標示清洗完畢並顯示下一階段為待烘乾", () => {
+  it("清洗完成後正等待烘乾的洗衣車，應標示清洗完畢並保留送件與收件時間", () => {
     const orders: WorkspaceOrder[] = [
       {
         id: "order-post-wash",
@@ -238,6 +255,7 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
       makeDetail({
         orderId: "order-post-wash",
         orderCreatedAt: "2026-10-12T08:00:00.000Z",
+        orderReceivedAt: "2026-10-12T08:25:00.000Z",
         batches: [
           makeBatch({
             currentStageOrder: 2,
@@ -257,6 +275,8 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
     expect(pending[0].justFinishedStage).toBe("清洗完畢");
     expect(pending[0].nextStageName).toBe("待烘乾");
     expect(pending[0].nextStageTone).toBe("dry");
+    expect(pending[0].sendTime).toBe(formatClockTime("2026-10-12T08:00:00.000Z"));
+    expect(pending[0].receiptTime).toBe(formatClockTime("2026-10-12T08:25:00.000Z"));
   });
 
   it("設備中正在運作的洗衣車（active 或 in_progress）不應列入待處理洗衣車", () => {
@@ -323,5 +343,36 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
 
     const pending = derivePendingCarts(orders, details);
     expect(pending.length).toBe(0);
+  });
+
+  it("待取件洗衣車應同時包含送件時間、收件時間與完成時間", () => {
+    const order: WorkspaceOrder = {
+      id: "order-ready-full",
+      orderNumber: "MAIN-20261012-0009",
+      cartNumber: "2D-3",
+      institutionName: "安康樓",
+      status: "ready_for_pickup",
+      updatedAt: "2026-10-12T11:00:00.000Z",
+    };
+    const detail: WorkspaceOrderDetail = makeDetail({
+      orderId: "order-ready-full",
+      orderCreatedAt: "2026-10-12T08:00:00.000Z",
+      orderReceivedAt: "2026-10-12T08:30:00.000Z",
+      orderReadyAt: "2026-10-12T11:00:00.000Z",
+    });
+
+    const readyItem: ReadyCartItem = {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      cartNumber: order.cartNumber,
+      institutionName: order.institutionName,
+      sendTime: formatClockTime(detail.orderCreatedAt),
+      receiptTime: formatClockTime(detail.orderReceivedAt),
+      readyTime: formatClockTime(detail.orderReadyAt),
+    };
+
+    expect(readyItem.sendTime).toBe(formatClockTime("2026-10-12T08:00:00.000Z"));
+    expect(readyItem.receiptTime).toBe(formatClockTime("2026-10-12T08:30:00.000Z"));
+    expect(readyItem.readyTime).toBe(formatClockTime("2026-10-12T11:00:00.000Z"));
   });
 });

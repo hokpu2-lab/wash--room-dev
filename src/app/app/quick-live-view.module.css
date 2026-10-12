@@ -178,40 +178,45 @@
   letter-spacing: 0.03em;
 }
 
-/* 下一階段標籤 Next Stage Badge */
+/* 下一階段標籤 Next Stage Badge - 文字淺色，底部深色 */
 .nextStageBadge {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 0.76rem;
-  font-weight: 800;
-  padding: 2px 8px;
+  font-size: 0.74rem;
+  font-weight: 850;
+  padding: 3px 8px;
   border-radius: var(--lv-chip-radius, 6px);
   white-space: nowrap;
+  letter-spacing: 0.02em;
 }
 
 .nextStageDisinfect {
-  background: rgba(236, 72, 153, 0.16);
-  color: #f472b6;
-  border: 1px solid rgba(236, 72, 153, 0.35);
+  background: #831843;
+  color: #fdf2f8;
+  border: 1px solid #f472b6;
+  box-shadow: 0 1px 4px rgba(131, 24, 67, 0.45);
 }
 
 .nextStageWash {
-  background: rgba(56, 189, 248, 0.16);
-  color: #38bdf8;
-  border: 1px solid rgba(56, 189, 248, 0.35);
+  background: #0369a1;
+  color: #f0f9ff;
+  border: 1px solid #38bdf8;
+  box-shadow: 0 1px 4px rgba(3, 105, 161, 0.45);
 }
 
 .nextStageDry {
-  background: rgba(245, 158, 11, 0.16);
-  color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: #b45309;
+  color: #fffbeb;
+  border: 1px solid #fbbf24;
+  box-shadow: 0 1px 4px rgba(180, 83, 9, 0.45);
 }
 
 .nextStagePickup {
-  background: rgba(16, 185, 129, 0.16);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: #047857;
+  color: #ecfdf5;
+  border: 1px solid #34d399;
+  box-shadow: 0 1px 4px rgba(4, 120, 87, 0.45);
 }
 
 .cartChipReady {
@@ -290,12 +295,16 @@
 }
 
 .tooltipNextStage {
-  font-size: 0.76rem;
-  color: #fbbf24;
-  font-weight: 800;
-  margin-top: 2px;
-  padding-top: 2px;
-  border-top: 1px dashed rgba(255, 255, 255, 0.15);
+  font-size: 0.74rem;
+  color: #fffbeb;
+  background: #78350f;
+  border: 1px solid #fbbf24;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-weight: 850;
+  margin-top: 4px;
+  display: inline-block;
+  white-space: nowrap;
 }
 
 /* 依序並排顯示：消毒鍋 ➔ 洗衣機 ➔ 烘衣機 三大機器分組列 */
@@ -433,43 +442,55 @@
 }
 
 .eqStatusBadge {
-  font-size: 0.78rem;
-  font-weight: 800;
-  padding: 2px 7px;
+  font-size: 0.76rem;
+  font-weight: 850;
+  padding: 3px 8px;
   border-radius: 5px;
-  background: var(--lv-badge-bg, rgba(255, 255, 255, 0.1));
-  color: var(--lv-title, #f8fafc);
+  background: #1e293b;
+  color: #f8fafc;
   white-space: nowrap;
+  letter-spacing: 0.02em;
 }
 
 .eqDisinfecting .eqStatusBadge {
-  background: rgba(236, 72, 153, 0.25);
-  color: #f472b6;
-  border: 1px solid rgba(236, 72, 153, 0.5);
+  background: #831843;
+  color: #fdf2f8;
+  border: 1px solid #f472b6;
+  box-shadow: 0 1px 4px rgba(131, 24, 67, 0.45);
 }
 
 .eqWashing .eqStatusBadge {
-  background: rgba(56, 189, 248, 0.25);
-  color: #38bdf8;
-  border: 1px solid rgba(56, 189, 248, 0.5);
+  background: #0369a1;
+  color: #f0f9ff;
+  border: 1px solid #38bdf8;
+  box-shadow: 0 1px 4px rgba(3, 105, 161, 0.45);
 }
 
 .eqDrying .eqStatusBadge {
-  background: rgba(245, 158, 11, 0.25);
-  color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.5);
+  background: #b45309;
+  color: #fffbeb;
+  border: 1px solid #fbbf24;
+  box-shadow: 0 1px 4px rgba(180, 83, 9, 0.45);
 }
 
 .eqCompleted .eqStatusBadge {
-  background: rgba(16, 185, 129, 0.25);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.5);
+  background: #047857;
+  color: #ecfdf5;
+  border: 1px solid #34d399;
+  box-shadow: 0 1px 4px rgba(4, 120, 87, 0.45);
 }
 
 .eqPaused .eqStatusBadge {
-  background: rgba(239, 68, 68, 0.25);
-  color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.5);
+  background: #991b1b;
+  color: #fef2f2;
+  border: 1px solid #f87171;
+  box-shadow: 0 1px 4px rgba(153, 27, 27, 0.45);
+}
+
+.eqIdle .eqStatusBadge {
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .eqDetailRow {
