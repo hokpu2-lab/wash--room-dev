@@ -16,6 +16,13 @@
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
 
+- **移除操作控制台設備手動切換下拉選單（/app/operations/drying, /app/operations/washing）**：
+  - **移除手動選單**：全面移除烘乾控制台之「選擇使用的烘衣設備：」及清洗控制台之「選擇使用的洗衣設備：」下拉選單。
+  - **維持設備載入一致性**：流程嚴格依據頂端已掃描載入之設備（`🖥️ 已載入烘衣機 / 洗衣機：...`）或同據點設備進行綁定，排除多餘手動干擾與混淆。
+  - **單元測試與建置覆核**：
+    - `tests/unit/operations-control.spec.ts` 驗證智慧設備推導優先選取同據點未占用設備。
+    - 全專案 37 個測試檔、169 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
 - **洗衣設備倒數結束後洗衣車自動退出設備並回到待處理洗衣車（/app/dashboard）**：
   - **設備端自動退出與回復閒置待機**：
     - 當「洗衣設備運作動態」中任何設備倒數計時結束歸零（`remainingSeconds <= 0`）時，設備立即停止運作並清空卡片中的車號與機構名稱（`activeCartNumber: null`, `activeInstitutionName: null`），狀態轉為「閒置待機」（`statusTone: "idle"`、`statusLabel: "閒置待機"`、`remainingSeconds: null`），卡片內清晰顯示「設備待命中」，洗衣車立即脫離並退出使用的設備。
