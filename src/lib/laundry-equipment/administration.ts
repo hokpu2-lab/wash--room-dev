@@ -7,6 +7,7 @@ import { requireRole } from "@/lib/auth/principal";
 import { resolveWorkspaceScope } from "@/lib/auth/workspace-scope";
 import { renderFixedAssetQrSvg } from "@/lib/fixed-asset-qr";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { parseCleaningDurationConfig } from "./duration-config";
 
 const namedSiteSchema = z.object({ code: z.string(), name: z.string() });
 const equipmentSchema = z.object({
@@ -15,6 +16,7 @@ const equipmentSchema = z.object({
   equipment_type: z.enum(["disinfection_tank", "washer", "dryer"]),
   capacity_kg: z.coerce.number().int().nullable().optional(),
   cleaning_duration_minutes: z.coerce.number().int().min(1).max(1440).optional().default(60),
+  cleaning_duration_config: z.record(z.string(), z.coerce.number().int().min(1).max(1440)).optional().default({ default: 60 }),
   status: z.enum(["normal", "inactive", "abnormal", "maintenance"]),
   occupied: z.boolean().optional().default(false),
   current_qr_version: z.number().int().positive(),
@@ -72,12 +74,14 @@ const registerInput = z.object({
   name: z.string().trim().min(1).max(80), siteCode: z.string().trim().min(1).max(40),
   equipmentType: z.enum(["disinfection_tank", "washer", "dryer"]), capacityKg: z.number().int().min(1).max(20).nullable(),
   cleaningDurationMinutes: z.coerce.number().int().min(1).max(1440).optional().default(60),
+  cleaningDurationConfig: z.record(z.string(), z.coerce.number().int().min(1).max(1440)).optional(),
   categoryCodes: z.array(z.string().trim().min(1)).max(30), procedureTemplateIds: z.array(z.uuid()).max(30),
   requestId: z.uuid(), reason: z.string().trim().min(1).max(500),
 });
 const updateInput = z.object({
   equipmentId: z.uuid(), name: z.string().trim().min(1).max(80), capacityKg: z.number().int().min(1).max(20).nullable(),
   cleaningDurationMinutes: z.coerce.number().int().min(1).max(1440).optional().default(60),
+  cleaningDurationConfig: z.record(z.string(), z.coerce.number().int().min(1).max(1440)).optional(),
   status: z.enum(["normal", "inactive", "abnormal", "maintenance"]), categoryCodes: z.array(z.string()).max(30), procedureTemplateIds: z.array(z.uuid()).max(30), requestId: z.uuid(), reason: z.string().trim().min(1).max(500),
 });
 const reissueInput = z.object({ equipmentId: z.uuid(), requestId: z.uuid(), reason: z.string().trim().min(1).max(500), confirmed: z.literal(true) });
@@ -272,27 +276,52 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
     operating_site_id?: string;
     operating_sites?: { code: string; name: string } | Array<{ code: string; name: string }>;
     cleaning_duration_minutes?: number;
+    cleaning_duration_config?: Record<string, number>;
   };
 
   let equipmentRows = (equipmentResult.data ?? []) as EquipmentDbRow[];
 
-  // 彈性回補：若資料庫已遷移 cleaning_duration_minutes 欄位則動態讀取，否則預設 60 分鐘
+  // 彈性回補：若資料庫已遷移 cleaning_duration_minutes 或 cleaning_duration_config 欄位則動態讀取，否則預設 60 分鐘
   try {
-    const durationRes = await supabase
+    let durationRows: Array<{ id: string; cleaning_duration_minutes?: number; cleaning_duration_config?: unknown }> | null = null;
+    const fullRes = await supabase
       .from("laundry_equipment")
-      .select("id, cleaning_duration_minutes")
+      .select("id, cleaning_duration_minutes, cleaning_duration_config")
       .in("operating_site_id", siteIds);
-    if (durationRes.data && !durationRes.error) {
+    if (fullRes.data && !fullRes.error) {
+      durationRows = fullRes.data as Array<{ id: string; cleaning_duration_minutes?: number; cleaning_duration_config?: unknown }>;
+    } else {
+      const simpleRes = await supabase
+        .from("laundry_equipment")
+        .select("id, cleaning_duration_minutes")
+        .in("operating_site_id", siteIds);
+      if (simpleRes.data && !simpleRes.error) {
+        durationRows = simpleRes.data as Array<{ id: string; cleaning_duration_minutes?: number }>;
+      }
+    }
+
+    if (durationRows) {
       const durMap = new Map<string, number>();
-      for (const row of durationRes.data) {
-        if (row.id && typeof row.cleaning_duration_minutes === "number") {
-          durMap.set(row.id, row.cleaning_duration_minutes);
+      const configMap = new Map<string, Record<string, number>>();
+      for (const row of durationRows) {
+        if (row.id) {
+          if (typeof row.cleaning_duration_minutes === "number") {
+            durMap.set(row.id, row.cleaning_duration_minutes);
+          }
+          if (row.cleaning_duration_config) {
+            configMap.set(row.id, parseCleaningDurationConfig(row.cleaning_duration_config, row.cleaning_duration_minutes ?? 60));
+          }
         }
       }
-      equipmentRows = equipmentRows.map((item) => ({
-        ...item,
-        cleaning_duration_minutes: durMap.get(item.id) ?? 60,
-      }));
+      equipmentRows = equipmentRows.map((item) => {
+        const mins = durMap.get(item.id) ?? 60;
+        const conf = configMap.get(item.id) ?? { default: mins };
+        return {
+          ...item,
+          cleaning_duration_minutes: mins,
+          cleaning_duration_config: conf,
+        };
+      });
     }
   } catch {
     // 遠端資料庫未遷移該欄位時不拋錯，平滑保留預設值 60
@@ -302,11 +331,13 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
     equipment: equipmentRows.map((item) => {
       const usage = equipmentUsageMap.get(item.id);
       const isOccupied = Boolean(item.occupied || (usage && usage.cartCount > 0));
+      const config = item.cleaning_duration_config ?? { default: item.cleaning_duration_minutes ?? 60 };
       return {
         ...item,
         occupied: isOccupied,
         capacity_kg: 1,
-        cleaning_duration_minutes: item.cleaning_duration_minutes ?? 60,
+        cleaning_duration_minutes: item.cleaning_duration_minutes ?? config.default ?? 60,
+        cleaning_duration_config: config,
         category_codes: categoryCaps.get(item.id) ?? [],
         procedure_template_ids: procedureCaps.get(item.id) ?? [],
         active_institutions: usage && usage.institutions.size > 0 ? Array.from(usage.institutions) : [],
@@ -361,6 +392,17 @@ export async function registerLaundryEquipment(input: unknown): Promise<Equipmen
   }
   const result = changeSchema.safeParse(data); if (error || !result.success || result.data.length !== 1) return { kind: "failed" };
   const change = result.data[0]; if (change.outcome === "denied") return { kind: "denied" }; if (!change.laundry_equipment_id || change.qr_version === null) return { kind: "failed" };
+  if (parsed.data.cleaningDurationConfig && change.laundry_equipment_id) {
+    try {
+      await supabase
+        .from("laundry_equipment")
+        .update({
+          cleaning_duration_config: parsed.data.cleaningDurationConfig,
+          cleaning_duration_minutes: parsed.data.cleaningDurationConfig.default ?? parsed.data.cleaningDurationMinutes ?? 60,
+        })
+        .eq("id", change.laundry_equipment_id);
+    } catch {}
+  }
   return { kind: change.already_applied ? "already-applied" : "applied", equipmentId: change.laundry_equipment_id, qrVersion: change.qr_version };
 }
 
@@ -393,6 +435,17 @@ export async function updateLaundryEquipment(input: unknown): Promise<EquipmentC
     error = fallback.error;
   }
   const result = changeSchema.safeParse(data); if (error || !result.success || result.data.length !== 1) return { kind: "failed" }; const change = result.data[0]; if (change.outcome === "denied") return { kind: "denied" }; if (!change.laundry_equipment_id || change.qr_version === null) return { kind: "failed" };
+  if (parsed.data.cleaningDurationConfig && change.laundry_equipment_id) {
+    try {
+      await supabase
+        .from("laundry_equipment")
+        .update({
+          cleaning_duration_config: parsed.data.cleaningDurationConfig,
+          cleaning_duration_minutes: parsed.data.cleaningDurationConfig.default ?? parsed.data.cleaningDurationMinutes ?? 60,
+        })
+        .eq("id", change.laundry_equipment_id);
+    } catch {}
+  }
   return { kind: change.already_applied ? "already-applied" : "applied", equipmentId: change.laundry_equipment_id, qrVersion: change.qr_version };
 }
 

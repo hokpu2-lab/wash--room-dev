@@ -224,6 +224,7 @@ const defaultLaundryEquipment = [
     equipment_type: "washer",
     capacity_kg: 1,
     cleaning_duration_minutes: 60,
+    cleaning_duration_config: { default: 60 },
     status: "normal",
     occupied: false,
     current_qr_version: 1,
@@ -236,6 +237,7 @@ const defaultLaundryEquipment = [
     equipment_type: "dryer",
     capacity_kg: 1,
     cleaning_duration_minutes: 60,
+    cleaning_duration_config: { default: 60 },
     status: "normal",
     occupied: false,
     current_qr_version: 1,
@@ -248,6 +250,7 @@ const defaultLaundryEquipment = [
     equipment_type: "washer",
     capacity_kg: 1,
     cleaning_duration_minutes: 60,
+    cleaning_duration_config: { default: 60 },
     status: "normal",
     occupied: false,
     current_qr_version: 1,
@@ -260,6 +263,7 @@ const defaultLaundryEquipment = [
     equipment_type: "dryer",
     capacity_kg: 1,
     cleaning_duration_minutes: 60,
+    cleaning_duration_config: { default: 60 },
     status: "normal",
     occupied: false,
     current_qr_version: 1,
@@ -272,6 +276,7 @@ const defaultLaundryEquipment = [
     equipment_type: "disinfection_tank",
     capacity_kg: 1,
     cleaning_duration_minutes: 60,
+    cleaning_duration_config: { default: 60 },
     status: "normal",
     occupied: false,
     current_qr_version: 1,
@@ -966,6 +971,7 @@ const server = createServer(async (request, response) => {
         status: item.status,
         occupied: item.occupied,
         cleaning_duration_minutes: item.cleaning_duration_minutes ?? 60,
+        cleaning_duration_config: item.cleaning_duration_config ?? { default: item.cleaning_duration_minutes ?? 60 },
       })),
       incidents: [],
       generated_at: "2026-08-18T00:00:00.000Z",
@@ -2166,7 +2172,7 @@ const server = createServer(async (request, response) => {
       return;
     }
     const site = organizationSites.find((candidate) => candidate.code === change.target_site_code);
-    const equipment = { id: randomUUID(), name: change.requested_name, equipment_type: change.target_equipment_type, capacity_kg: change.target_capacity_kg, cleaning_duration_minutes: Number(change.target_cleaning_duration_minutes) || 60, status: "normal", occupied: false, current_qr_version: 1, operating_site_id: site.id, operating_sites: { code: site.code, name: site.name } };
+    const equipment = { id: randomUUID(), name: change.requested_name, equipment_type: change.target_equipment_type, capacity_kg: change.target_capacity_kg, cleaning_duration_minutes: Number(change.target_cleaning_duration_minutes) || 60, cleaning_duration_config: change.target_cleaning_duration_config ?? { default: Number(change.target_cleaning_duration_minutes) || 60 }, status: "normal", occupied: false, current_qr_version: 1, operating_site_id: site.id, operating_sites: { code: site.code, name: site.name } };
     laundryEquipment.push(equipment);
     laundryEquipmentCredentials.set(equipment.id, { version: 1, token: fakeLaundryCartQrToken(laundryEquipment.length + 90) });
     laundryEquipmentChangeRequests.set(change.change_request_id, { payload, equipmentId: equipment.id, qrVersion: 1 });
@@ -2353,6 +2359,9 @@ const server = createServer(async (request, response) => {
     equipment.capacity_kg = change.target_capacity_kg;
     equipment.status = change.target_status;
     equipment.cleaning_duration_minutes = Number(change.target_cleaning_duration_minutes) || 60;
+    if (change.target_cleaning_duration_config) {
+      equipment.cleaning_duration_config = change.target_cleaning_duration_config;
+    }
     laundryEquipmentChangeRequests.set(change.change_request_id, { payload, equipmentId: equipment.id, qrVersion: equipment.current_qr_version });
     json(response, 200, [{ laundry_equipment_id: equipment.id, qr_version: equipment.current_qr_version, already_applied: false, outcome: "applied" }]);
     return;

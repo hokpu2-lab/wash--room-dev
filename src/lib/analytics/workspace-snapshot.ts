@@ -118,6 +118,7 @@ export const snapshotRpcSchema = z.object({
     status: z.enum(["normal", "inactive", "abnormal", "maintenance"]),
     occupied: z.boolean(),
     cleaning_duration_minutes: z.coerce.number().int().positive().optional().default(60),
+    cleaning_duration_config: z.record(z.string(), z.coerce.number().int().positive()).optional(),
   })),
   incidents: z.array(z.object({
     id: z.uuid(),
@@ -242,6 +243,7 @@ export type WorkspaceEquipment = {
   status: "normal" | "inactive" | "abnormal" | "maintenance";
   occupied: boolean;
   cleaningDurationMinutes?: number;
+  cleaningDurationConfig?: Record<string, number>;
 };
 
 export type WorkspaceSnapshot = {
@@ -342,6 +344,7 @@ export function parseWorkspaceSnapshot(
       status: row.status,
       occupied: row.occupied,
       cleaningDurationMinutes: row.cleaning_duration_minutes ?? 60,
+      cleaningDurationConfig: row.cleaning_duration_config ?? { default: row.cleaning_duration_minutes ?? 60 },
     })),
     orderTotal: parsed.data.queue.total,
     page,

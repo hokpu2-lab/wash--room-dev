@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
+import { resolveEquipmentDurationFromConfig } from "../../lib/laundry-equipment/duration-config";
 import type {
   WorkspaceEquipment,
   WorkspaceOrder,
@@ -393,6 +394,8 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
     activeEquipmentName: string | null;
     startedAt: string | null;
     batchStatus: string;
+    categoryName: string | null;
+    categoryCode: string | null;
   }
 
   const activeRuns: ActiveRunInfo[] = [];
@@ -424,6 +427,8 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
           activeEquipmentName: batch.activeEquipmentName,
           startedAt: currentStage.startedAt || batch.progress.estimatedStageCompletedAt || null,
           batchStatus: batch.status,
+          categoryName: batch.categoryName || null,
+          categoryCode: batch.categoryCode || null,
         });
       }
     }
@@ -442,7 +447,6 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
   );
 
   const getEquipmentLiveStatus = (eq: WorkspaceEquipment): EquipmentLiveStatus => {
-    const cleaningDurationMinutes = eq.cleaningDurationMinutes ?? 60;
     const isCompletedLocally =
       completedEquipIds.has(eq.id) || completedEquipNames.has(eq.name);
 
@@ -467,8 +471,17 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
         activeEquipmentName: eq.name,
         startedAt: null,
         batchStatus: "in_progress",
+        categoryName: "消毒品",
+        categoryCode: "DISINFECT",
       };
     }
+
+    const matchCategory = match?.categoryName || match?.categoryCode || null;
+    const cleaningDurationMinutes = resolveEquipmentDurationFromConfig(
+      eq.cleaningDurationConfig,
+      matchCategory,
+      eq.cleaningDurationMinutes ?? 60
+    );
 
     if (isCompletedLocally) {
       const doneLabel =

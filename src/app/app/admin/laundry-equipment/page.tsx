@@ -5,6 +5,7 @@ import { getLaundryEquipmentWorkspace } from "@/lib/laundry-equipment/administra
 import { ModuleTabs } from "../../module-tabs";
 import styles from "../../workspace.module.css";
 import { createLaundryEquipment, deleteLaundryEquipment, saveLaundryEquipment } from "./actions";
+import { EquipmentCreateForm } from "./equipment-create-form";
 import { EquipmentDeleteForm } from "./equipment-delete-form";
 import { EquipmentEditForm } from "./equipment-edit-form";
 
@@ -68,70 +69,26 @@ export default async function LaundryEquipmentPage({
         <section className={styles.managementSection} aria-labelledby="create-equipment-title">
           <div className={styles.sectionHeading}>
             <h2 id="create-equipment-title">登錄洗衣設備</h2>
-            <p>設備類型與據點建立後固定；適用分類未勾選代表同據點不限制。</p>
+            <p>設備類型與據點建立後固定；可依勾選之洗滌分類自訂預設清洗時間（JSON 結構），未勾選代表適用基準時間。</p>
           </div>
           <form action={createLaundryEquipment} className={styles.accessForm}>
-            <input name="change_request_id" type="hidden" value={randomUUID()} />
-            <label>
-              設備名稱
-              <input name="name" maxLength={80} required />
-            </label>
-            <label>
-              設備類型
-              <select name="equipment_type" defaultValue="washer">
-                <option value="disinfection_tank">消毒鍋</option>
-                <option value="washer">洗衣機</option>
-                <option value="dryer">烘衣機</option>
-              </select>
-            </label>
-            <label>
-              作業據點代碼
-              <select name="site_code" defaultValue={workspace.sites[0]?.code ?? "MAIN"} required>
-                {workspace.sites.map((site) => (
-                  <option key={site.id} value={site.code}>
-                    {site.name} · {site.code}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              可容納洗衣車（台）
-              <input name="capacity_kg" type="number" min={1} max={20} defaultValue={1} />
-            </label>
-            <label>
-              清洗時間（分鐘）
-              <input name="cleaning_duration_minutes" type="number" min={1} max={1440} defaultValue={60} required />
-            </label>
-            <fieldset className={styles.compatList}>
-              <legend>適用分類</legend>
-              {workspace.categories.map((category) => (
-                <label className={styles.checkboxLabel} key={`create-${category.code}`}>
-                  <input type="checkbox" name="category_codes" value={category.code} />
-                  {category.name}
-                </label>
-              ))}
-            </fieldset>
-            <fieldset className={styles.compatList}>
-              <legend>相容程序</legend>
-              {workspace.procedures.map((procedure) => (
-                <label className={styles.checkboxLabel} key={`create-${procedure.id}`}>
-                  <input type="checkbox" name="procedure_template_ids" value={procedure.id} />
-                  {procedureLabel(procedure)}
-                </label>
-              ))}
-            </fieldset>
-            <label>
-              登錄理由
-              <input name="change_reason" maxLength={500} required />
-            </label>
-            <button type="submit">登錄設備</button>
+            <EquipmentCreateForm
+              sites={workspace.sites}
+              categories={workspace.categories}
+              procedures={workspace.procedures.map((procedure) => ({
+                id: procedure.id,
+                operating_site_id: procedure.operating_site_id,
+                label: procedureLabel(procedure),
+              }))}
+              requestId={randomUUID()}
+            />
           </form>
         </section>
 
         <section className={styles.managementSection} aria-labelledby="edit-equipment-title">
           <div className={styles.sectionHeading}>
             <h2 id="edit-equipment-title">修改設備資料</h2>
-            <p>可改名稱、可容納洗衣車數、清洗時間、狀態與適用分類。設備類型與據點不可改。</p>
+            <p>可改名稱、可容納洗衣車數、清洗時間（JSON 格式）、狀態與適用分類。設備類型與據點不可改。</p>
           </div>
           <form action={saveLaundryEquipment} className={styles.accessForm} aria-label="修改設備資料">
             <EquipmentEditForm
@@ -140,6 +97,7 @@ export default async function LaundryEquipmentPage({
                 name: item.name,
                 capacity_kg: item.capacity_kg,
                 cleaning_duration_minutes: item.cleaning_duration_minutes,
+                cleaning_duration_config: item.cleaning_duration_config,
                 status: item.status,
                 operating_site_id: item.operating_site_id,
                 category_codes: item.category_codes,
@@ -212,8 +170,38 @@ export default async function LaundryEquipmentPage({
                           {equipment.operating_sites.code} · {equipment.operating_sites.name}
                         </td>
                         <td>1 台</td>
-                        <td>{equipment.cleaning_duration_minutes ?? 60} 分鐘</td>
-                        <td>{isOccupied ? "使用中" : statusLabels[equipment.status]}</td>
+                        <td>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
+                            <span>
+                              {equipment.cleaning_duration_minutes ?? equipment.cleaning_duration_config?.default ?? 60} 分鐘
+                            </span>
+                            {equipment.cleaning_duration_config &&
+                              Object.keys(equipment.cleaning_duration_config).filter((k) => k !== "default").length > 0 && (
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem", fontSize: "0.78rem" }}>
+                                  {Object.entries(equipment.cleaning_duration_config)
+                                    .filter(([k]) => k !== "default")
+                                    .map(([k, v]) => {
+                                      const cat = workspace.categories.find((c) => c.code === k);
+                                      return (
+                                        <span
+                                          key={k}
+                                          style={{
+                                            padding: "0.05rem 0.35rem",
+                                            borderRadius: "4px",
+                                            background: "rgba(255, 255, 255, 0.06)",
+                                            color: "var(--foreground-muted, #94a3b8)",
+                                            whiteSpace: "nowrap",
+                                          }}
+                                          title={`分類 ${k}: ${v} 分鐘`}
+                                        >
+                                          {cat?.name ?? k}: {v}分
+                                        </span>
+                                      );
+                                    })}
+                                </div>
+                              )}
+                          </div>
+                        </td>
                         <td>{institutionText}</td>
                         <td>{cartNumberText}</td>
                         <td>

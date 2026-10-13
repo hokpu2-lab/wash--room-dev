@@ -24,7 +24,36 @@
 - 頂級角色與權限防護：`system_administrator`（系統管理員）具備最高優先權，預設導向 `/app/admin`；`src/lib/auth/principal.ts` 之
   `principalSatisfiesRole` 確保系統管理員完全滿足 `laundry_supervisor` 之檢查，徹底杜絕無窮重定向死循環。
 
-## 2026-10-12 最新接手快照
+## 2026-10-13 最新接手快照
+
+- **以 JSON 格式配置設備清洗時間，並依勾選分類自動帶入預設時間（/app/admin/laundry-equipment, /app/dashboard）**：
+  - **分類專屬清洗時間與 JSON 配置模型（`src/lib/laundry-equipment/duration-config.ts`）**：
+    - 定義 `DEFAULT_CATEGORY_DURATIONS` 與 `getDefaultDurationForCategory`：
+      - 消毒品（`DISINFECT`）：預設 90 分鐘。
+      - 汙衣（`SOILED`）：預設 75 分鐘。
+      - 圍兜（`BIB`）：預設 45 分鐘。
+      - 床簾（`CURTAIN`）：預設 60 分鐘。
+      - 其他 / 一般（`OTHER` / `NORM`）：預設 60 分鐘。
+      - 基準時間（`default`）：預設 60 分鐘。
+    - 提供 `parseCleaningDurationConfig` 解析、驗證並正規化 JSON 格式之分鐘數配置，支援 1~1440 分鐘數值約束。
+    - 提供 `resolveEquipmentDurationFromConfig` 支援精準代碼與中文語意模糊比對，根據當前洗滌批次之分類動態獲取該設備對應之清洗時間。
+  - **後台設備管理介面升級（`DurationConfigEditor`、`EquipmentEditForm`、`EquipmentCreateForm`、`page.tsx`）**：
+    - 新增通用客戶端元件 `DurationConfigEditor`，在「登錄洗衣設備」與「修改設備資料」中：
+      - 勾選適用分類時，動態帶出已勾選分類專屬清洗時間輸入列，自動預設專屬分鐘數並支援手動微調。
+      - 未勾選特定分類時，自動提示適用基準預設時間。
+      - 即時呈現產生的 JSON 配置代碼區塊（`<pre>`），並自動以 `cleaning_duration_json` 提交。
+    - 設備清單表格欄位升級：完整展示基準清洗時間，並以緊湊標籤展示各分類自訂分鐘數（如 `消毒品: 90分 · 汙衣: 75分`）。
+  - **即時洗衣車與設備流轉動態精準倒數（`QuickLiveView`）**：
+    - 運作中設備依據當前運作中批次之分類（`categoryName` / `categoryCode`），自動調用 `resolveEquipmentDurationFromConfig` 解析精準分鐘數倒數，確保消毒品倒數 90 分鐘、汙衣倒數 75 分鐘等各別設定精準生效。
+  - **資料庫遷移、後端模型與相容性維護（`20261013140000_add_cleaning_duration_config_to_laundry_equipment.sql`、`administration.ts`、`workspace-snapshot.ts`）**：
+    - 資料表 `public.laundry_equipment` 新增欄位 `cleaning_duration_config jsonb not null default '{"default": 60}'::jsonb`。
+    - `get_workspace_snapshot` 與快照 DTO `WorkspaceEquipment` 支援 `cleaningDurationConfig?: Record<string, number>`。
+    - `getLaundryEquipmentWorkspace` 具備雙層防禦回補讀取，遠端未遷移時平滑降級，確保設備清單絕不空白。
+  - **測試與建置覆核**：
+    - 新增 `tests/unit/duration-config.spec.ts` 驗證分類預設值、JSON 解析與動態推導。
+    - 全專案 37 個測試檔、165 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
+## 2026-10-12 歷史交付快照
 
 - **即時洗衣車流轉動態分類標籤、設備倒數計時與設備清洗時間設定（/app/dashboard, /app/admin/laundry-equipment）**：
   - **洗衣車分類標籤即時展示（`src/app/app/quick-live-view.tsx`、`quick-live-view.module.css`）**：
