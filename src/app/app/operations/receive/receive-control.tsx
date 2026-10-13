@@ -22,17 +22,17 @@ export type AvailableEquipment = {
 
 const categoryEquipmentMap: Record<string, string[]> = {
   DISINFECT: ["消毒鍋", "洗衣機", "烘衣機"],
-  BIB: ["洗衣機", "烘衣機"],
+  BIB: ["烘衣機"],
   SOILED: ["洗衣機", "烘衣機"],
-  CURTAIN: ["洗衣機", "烘衣機"],
+  CURTAIN: ["洗衣機"],
   OTHER: ["洗衣機", "烘衣機"],
 };
 
 const categoryEquipmentTypeMap: Record<string, string[]> = {
   DISINFECT: ["disinfection_tank", "washer", "dryer"],
-  BIB: ["washer", "dryer"],
+  BIB: ["dryer"],
   SOILED: ["washer", "dryer"],
-  CURTAIN: ["washer", "dryer"],
+  CURTAIN: ["washer"],
   OTHER: ["washer", "dryer"],
 };
 

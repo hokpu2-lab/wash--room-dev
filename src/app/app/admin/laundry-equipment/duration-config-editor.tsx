@@ -13,6 +13,7 @@ export function DurationConfigEditor({
   onDefaultMinutesChange,
   categoryDurations,
   onCategoryDurationChange,
+  equipmentType,
   fieldName = "category_codes",
 }: {
   categories: CategoryOption[];
@@ -22,13 +23,14 @@ export function DurationConfigEditor({
   onDefaultMinutesChange: (val: number) => void;
   categoryDurations: Record<string, number>;
   onCategoryDurationChange: (code: string, val: number) => void;
+  equipmentType?: string | null;
   fieldName?: string;
 }) {
   const activeJson: Record<string, number> = {
     default: defaultMinutes,
   };
   for (const code of selectedCategoryCodes) {
-    activeJson[code] = categoryDurations[code] ?? getDefaultDurationForCategory(code);
+    activeJson[code] = categoryDurations[code] ?? getDefaultDurationForCategory(code, equipmentType);
   }
 
   return (
@@ -95,7 +97,7 @@ export function DurationConfigEditor({
             {selectedCategoryCodes.map((code) => {
               const cat = categories.find((c) => c.code === code);
               const catName = cat?.name ?? code;
-              const presetVal = getDefaultDurationForCategory(code);
+              const presetVal = getDefaultDurationForCategory(code, equipmentType);
               const currentVal = categoryDurations[code] ?? presetVal;
               return (
                 <div

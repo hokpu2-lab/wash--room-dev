@@ -9,6 +9,7 @@ import styles from "../../workspace.module.css";
 type EquipmentOption = {
   id: string;
   name: string;
+  equipment_type?: "disinfection_tank" | "washer" | "dryer";
   capacity_kg?: number | null;
   cleaning_duration_minutes?: number;
   cleaning_duration_config?: Record<string, number>;
@@ -72,7 +73,7 @@ export function EquipmentEditForm({
       nextDurations.default = nextDefault;
       for (const code of next.category_codes) {
         if (typeof nextDurations[code] !== "number") {
-          nextDurations[code] = getDefaultDurationForCategory(code);
+          nextDurations[code] = getDefaultDurationForCategory(code, next.equipment_type);
         }
       }
       setCategoryDurations(nextDurations);
@@ -85,7 +86,7 @@ export function EquipmentEditForm({
       setCategoryDurations((prev) => {
         const next = { ...prev };
         if (typeof next[code] !== "number") {
-          next[code] = getDefaultDurationForCategory(code);
+          next[code] = getDefaultDurationForCategory(code, selected?.equipment_type);
         }
         return next;
       });
@@ -178,6 +179,7 @@ export function EquipmentEditForm({
         onDefaultMinutesChange={setDefaultMinutes}
         categoryDurations={categoryDurations}
         onCategoryDurationChange={handleCategoryDurationChange}
+        equipmentType={selected?.equipment_type}
         fieldName="category_codes"
       />
 

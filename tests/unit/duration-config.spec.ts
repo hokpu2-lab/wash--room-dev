@@ -8,23 +8,24 @@ import {
 
 describe("duration-config", () => {
   it("getDefaultDurationForCategory returns accurate defaults", () => {
-    expect(getDefaultDurationForCategory("DISINFECT")).toBe(90);
-    expect(getDefaultDurationForCategory("消毒品")).toBe(90);
-    expect(getDefaultDurationForCategory("感染污物")).toBe(90);
+    expect(getDefaultDurationForCategory("DISINFECT", "disinfection_tank")).toBe(30);
+    expect(getDefaultDurationForCategory("消毒品", "washer")).toBe(60);
+    expect(getDefaultDurationForCategory("感染污物", "dryer")).toBe(60);
 
-    expect(getDefaultDurationForCategory("SOILED")).toBe(75);
-    expect(getDefaultDurationForCategory("汙衣")).toBe(75);
-    expect(getDefaultDurationForCategory("污衣類")).toBe(75);
+    expect(getDefaultDurationForCategory("SOILED")).toBe(60);
+    expect(getDefaultDurationForCategory("汙衣")).toBe(60);
+    expect(getDefaultDurationForCategory("污衣類")).toBe(60);
 
-    expect(getDefaultDurationForCategory("BIB")).toBe(45);
-    expect(getDefaultDurationForCategory("圍兜")).toBe(45);
+    expect(getDefaultDurationForCategory("BIB")).toBe(20);
+    expect(getDefaultDurationForCategory("圍兜")).toBe(20);
 
-    expect(getDefaultDurationForCategory("CURTAIN")).toBe(60);
-    expect(getDefaultDurationForCategory("床簾")).toBe(60);
+    expect(getDefaultDurationForCategory("CURTAIN")).toBe(40);
+    expect(getDefaultDurationForCategory("床簾")).toBe(40);
 
     expect(getDefaultDurationForCategory("OTHER")).toBe(60);
     expect(getDefaultDurationForCategory("一般")).toBe(60);
     expect(getDefaultDurationForCategory("")).toBe(60);
+    expect(getDefaultDurationForCategory("", "disinfection_tank")).toBe(30);
   });
 
   it("parseCleaningDurationConfig handles valid and invalid inputs", () => {
@@ -78,11 +79,12 @@ describe("duration-config", () => {
     expect(resolveEquipmentDurationFromConfig(config, "圍兜")).toBe(45);
 
     // Unconfigured category falls back to default
-    expect(resolveEquipmentDurationFromConfig(config, "CURTAIN")).toBe(60);
+    expect(resolveEquipmentDurationFromConfig(config, "CURTAIN")).toBe(40);
     expect(resolveEquipmentDurationFromConfig(config, "一般")).toBe(60);
     expect(resolveEquipmentDurationFromConfig(config, null)).toBe(60);
 
     // Null config falls back to fallback parameter
-    expect(resolveEquipmentDurationFromConfig(null, "DISINFECT", 45)).toBe(45);
+    expect(resolveEquipmentDurationFromConfig(null, "OTHER", 45)).toBe(45);
+    expect(resolveEquipmentDurationFromConfig(null, null, 45)).toBe(45);
   });
 });

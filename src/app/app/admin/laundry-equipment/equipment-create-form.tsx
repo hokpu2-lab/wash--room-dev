@@ -21,17 +21,31 @@ export function EquipmentCreateForm({
   requestId: string;
 }) {
   const [selectedSiteCode, setSelectedSiteCode] = useState(sites[0]?.code ?? "MAIN");
+  const [equipmentType, setEquipmentType] = useState("washer");
   const [defaultMinutes, setDefaultMinutes] = useState(60);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [categoryDurations, setCategoryDurations] = useState<Record<string, number>>({});
+
+  const handleTypeChange = (nextType: string) => {
+    setEquipmentType(nextType);
+    const nextDefault = nextType === "disinfection_tank" ? 30 : 60;
+    setDefaultMinutes(nextDefault);
+    setCategoryDurations((prev) => {
+      const next: Record<string, number> = { ...prev, default: nextDefault };
+      for (const code of selectedCategories) {
+        next[code] = getDefaultDurationForCategory(code, nextType);
+      }
+      return next;
+    });
+  };
 
   const handleCategoryToggle = (code: string, checked: boolean) => {
     if (checked) {
       setSelectedCategories((prev) => (prev.includes(code) ? prev : [...prev, code]));
       setCategoryDurations((prev) => {
-        const next = { ...prev };
+        const next: Record<string, number> = { ...prev };
         if (typeof next[code] !== "number") {
-          next[code] = getDefaultDurationForCategory(code);
+          next[code] = getDefaultDurationForCategory(code, equipmentType);
         }
         return next;
       });
@@ -61,7 +75,11 @@ export function EquipmentCreateForm({
       </label>
       <label>
         設備類型
-        <select name="equipment_type" defaultValue="washer">
+        <select
+          name="equipment_type"
+          value={equipmentType}
+          onChange={(event) => handleTypeChange(event.target.value)}
+        >
           <option value="disinfection_tank">消毒鍋</option>
           <option value="washer">洗衣機</option>
           <option value="dryer">烘衣機</option>
@@ -95,6 +113,7 @@ export function EquipmentCreateForm({
         onDefaultMinutesChange={setDefaultMinutes}
         categoryDurations={categoryDurations}
         onCategoryDurationChange={handleCategoryDurationChange}
+        equipmentType={equipmentType}
         fieldName="category_codes"
       />
 

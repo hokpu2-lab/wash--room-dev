@@ -64,7 +64,7 @@ begin
               {
                 "stage_order": 2,
                 "name": "清洗",
-                "standard_minutes": 45,
+                "standard_minutes": 60,
                 "equipment_type": "washer",
                 "compatibility_conditions": {"category_codes": ["DISINFECT"]},
                 "transition_mode": "manual",
@@ -73,7 +73,7 @@ begin
               {
                 "stage_order": 3,
                 "name": "烘乾",
-                "standard_minutes": 35,
+                "standard_minutes": 60,
                 "equipment_type": "dryer",
                 "compatibility_conditions": {"category_codes": ["DISINFECT"]},
                 "transition_mode": "manual",
@@ -83,21 +83,12 @@ begin
           ),
           (
             'BIB',
-            '標準洗烘',
+            '圍兜專用烘乾',
             '[
               {
                 "stage_order": 1,
-                "name": "清洗",
-                "standard_minutes": 45,
-                "equipment_type": "washer",
-                "compatibility_conditions": {"category_codes": ["BIB"]},
-                "transition_mode": "manual",
-                "requires_operator_confirmation": true
-              },
-              {
-                "stage_order": 2,
                 "name": "烘乾",
-                "standard_minutes": 30,
+                "standard_minutes": 20,
                 "equipment_type": "dryer",
                 "compatibility_conditions": {"category_codes": ["BIB"]},
                 "transition_mode": "manual",
@@ -107,7 +98,7 @@ begin
           ),
           (
             'SOILED',
-            '加強洗烘',
+            '汙衣洗烘',
             '[
               {
                 "stage_order": 1,
@@ -121,7 +112,7 @@ begin
               {
                 "stage_order": 2,
                 "name": "烘乾",
-                "standard_minutes": 40,
+                "standard_minutes": 60,
                 "equipment_type": "dryer",
                 "compatibility_conditions": {"category_codes": ["SOILED"]},
                 "transition_mode": "manual",
@@ -131,22 +122,13 @@ begin
           ),
           (
             'CURTAIN',
-            '大型織品洗烘',
+            '床簾專用清洗',
             '[
               {
                 "stage_order": 1,
                 "name": "清洗",
-                "standard_minutes": 60,
+                "standard_minutes": 40,
                 "equipment_type": "washer",
-                "compatibility_conditions": {"category_codes": ["CURTAIN"]},
-                "transition_mode": "manual",
-                "requires_operator_confirmation": true
-              },
-              {
-                "stage_order": 2,
-                "name": "烘乾",
-                "standard_minutes": 50,
-                "equipment_type": "dryer",
                 "compatibility_conditions": {"category_codes": ["CURTAIN"]},
                 "transition_mode": "manual",
                 "requires_operator_confirmation": true
@@ -155,12 +137,12 @@ begin
           ),
           (
             'OTHER',
-            '標準洗烘',
+            '一般洗烘',
             '[
               {
                 "stage_order": 1,
                 "name": "清洗",
-                "standard_minutes": 45,
+                "standard_minutes": 60,
                 "equipment_type": "washer",
                 "compatibility_conditions": {"category_codes": ["OTHER"]},
                 "transition_mode": "manual",
@@ -169,7 +151,7 @@ begin
               {
                 "stage_order": 2,
                 "name": "烘乾",
-                "standard_minutes": 30,
+                "standard_minutes": 60,
                 "equipment_type": "dryer",
                 "compatibility_conditions": {"category_codes": ["OTHER"]},
                 "transition_mode": "manual",

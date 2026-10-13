@@ -95,6 +95,7 @@ export default async function LaundryEquipmentPage({
               equipment={workspace.equipment.map((item) => ({
                 id: item.id,
                 name: item.name,
+                equipment_type: item.equipment_type,
                 capacity_kg: item.capacity_kg,
                 cleaning_duration_minutes: item.cleaning_duration_minutes,
                 cleaning_duration_config: item.cleaning_duration_config,

@@ -26,32 +26,41 @@
 
 ## 2026-10-13 最新接手快照
 
+- **依分類專屬流程與自訂清洗時間全面調整（/app/dashboard, /app/operations/receive, /app/admin/laundry-equipment）**：
+  - **五大洗滌分類專屬流轉流程與清洗時間規則（`src/lib/laundry-equipment/duration-config.ts`、`receive-control.tsx`、`quick-live-view.tsx`）**：
+    1. **消毒品（DISINFECT）**：
+       - 完整三階段流轉：消毒鍋 (30分鐘) ➔ 洗衣機 (60分鐘) ➔ 烘衣機 (60分鐘) ➔ 待取件。
+       - 消毒鍋預設時間 30 分鐘，洗衣機 60 分鐘，烘衣機 60 分鐘。
+    2. **圍兜（BIB）**：
+       - 不須消毒 ➔ 不須清洗 ➔ 直接烘衣機 (20分鐘)。
+       - 現場收單分類完成後，直接流轉進入「待處理洗衣車」的「待烘乾」階段（標記橙黃色烘乾徽章），不須進入消毒或清洗流程。
+       - 烘衣機運作倒數 20 分鐘，烘完直接脫離設備推進至「待取件 (洗烘完畢)」。
+    3. **汙衣（SOILED）**：
+       - 不須消毒 ➔ 洗衣機 (60分鐘) ➔ 烘衣機 (60分鐘) ➔ 待取件。
+    4. **床簾（CURTAIN）**：
+       - 不須消毒 ➔ 洗衣機 (40分鐘) ➔ 不須烘衣。
+       - 現場收單分類完成後進入「待清洗」；洗衣機清洗 40 分鐘結束後，因不須烘衣，全洗程結束，自動直接流轉推進至右側「待取件 (洗烘完畢)」，絕不進入待烘乾。
+    5. **其他 / 一般（OTHER / NORM）**：
+       - 不須消毒 ➔ 洗衣機 (60分鐘) ➔ 烘衣機 (60分鐘) ➔ 待取件。
+  - **後台設備登錄與編輯預設時間連動機型（`DurationConfigEditor`、`EquipmentCreateForm`、`EquipmentEditForm`）**：
+    - 切換或設定設備機型（消毒鍋、洗衣機、烘衣機）時，分類時間輸入列與基準時間精準連動：消毒鍋預設 30 分鐘，洗衣機與烘衣機預設 60 分鐘，圍兜帶入 20 分鐘，床簾帶入 40 分鐘。
+  - **資料庫遷移與初始化程序更新（`20261013150000_update_category_procedure_and_durations.sql`、`docs/runbooks/bootstrap-default-procedures.sql`）**：
+    - 更新預設洗滌程序範本規格：消毒品（30分浸泡/60分清洗/60分烘乾）、圍兜（20分烘乾）、汙衣（60分清洗/60分烘乾）、床簾（40分清洗）、其他（60分清洗/60分烘乾）。
+    - 遷移自動校正現有消毒鍋設備之基準時間至 30 分鐘。
+  - **測試與建置覆核**：
+    - 單元測試 `tests/unit/duration-config.spec.ts` 與 `tests/unit/quick-live-view.spec.ts` 覆核 30/20/40/60 分鐘計算、圍兜分類後待烘乾 (20分)、床簾清洗完後跳過烘乾直達待取件之流轉邏輯。
+    - 全專案 37 個測試檔、167 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
 - **以 JSON 格式配置設備清洗時間，並依勾選分類自動帶入預設時間（/app/admin/laundry-equipment, /app/dashboard）**：
   - **分類專屬清洗時間與 JSON 配置模型（`src/lib/laundry-equipment/duration-config.ts`）**：
-    - 定義 `DEFAULT_CATEGORY_DURATIONS` 與 `getDefaultDurationForCategory`：
-      - 消毒品（`DISINFECT`）：預設 90 分鐘。
-      - 汙衣（`SOILED`）：預設 75 分鐘。
-      - 圍兜（`BIB`）：預設 45 分鐘。
-      - 床簾（`CURTAIN`）：預設 60 分鐘。
-      - 其他 / 一般（`OTHER` / `NORM`）：預設 60 分鐘。
-      - 基準時間（`default`）：預設 60 分鐘。
     - 提供 `parseCleaningDurationConfig` 解析、驗證並正規化 JSON 格式之分鐘數配置，支援 1~1440 分鐘數值約束。
     - 提供 `resolveEquipmentDurationFromConfig` 支援精準代碼與中文語意模糊比對，根據當前洗滌批次之分類動態獲取該設備對應之清洗時間。
   - **後台設備管理介面升級（`DurationConfigEditor`、`EquipmentEditForm`、`EquipmentCreateForm`、`page.tsx`）**：
-    - 新增通用客戶端元件 `DurationConfigEditor`，在「登錄洗衣設備」與「修改設備資料」中：
-      - 勾選適用分類時，動態帶出已勾選分類專屬清洗時間輸入列，自動預設專屬分鐘數並支援手動微調。
-      - 未勾選特定分類時，自動提示適用基準預設時間。
-      - 即時呈現產生的 JSON 配置代碼區塊（`<pre>`），並自動以 `cleaning_duration_json` 提交。
-    - 設備清單表格欄位升級：完整展示基準清洗時間，並以緊湊標籤展示各分類自訂分鐘數（如 `消毒品: 90分 · 汙衣: 75分`）。
+    - 新增通用客戶端元件 `DurationConfigEditor`，勾選適用分類時動態帶出已勾選分類專屬清洗時間輸入列，即時呈現 JSON 配置代碼。
   - **即時洗衣車與設備流轉動態精準倒數（`QuickLiveView`）**：
-    - 運作中設備依據當前運作中批次之分類（`categoryName` / `categoryCode`），自動調用 `resolveEquipmentDurationFromConfig` 解析精準分鐘數倒數，確保消毒品倒數 90 分鐘、汙衣倒數 75 分鐘等各別設定精準生效。
+    - 運作中設備依據當前運作中批次之分類（`categoryName` / `categoryCode`），自動調用 `resolveEquipmentDurationFromConfig` 解析精準分鐘數倒數。
   - **資料庫遷移、後端模型與相容性維護（`20261013140000_add_cleaning_duration_config_to_laundry_equipment.sql`、`administration.ts`、`workspace-snapshot.ts`）**：
     - 資料表 `public.laundry_equipment` 新增欄位 `cleaning_duration_config jsonb not null default '{"default": 60}'::jsonb`。
-    - `get_workspace_snapshot` 與快照 DTO `WorkspaceEquipment` 支援 `cleaningDurationConfig?: Record<string, number>`。
-    - `getLaundryEquipmentWorkspace` 具備雙層防禦回補讀取，遠端未遷移時平滑降級，確保設備清單絕不空白。
-  - **測試與建置覆核**：
-    - 新增 `tests/unit/duration-config.spec.ts` 驗證分類預設值、JSON 解析與動態推導。
-    - 全專案 37 個測試檔、165 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
 
 ## 2026-10-12 歷史交付快照
 

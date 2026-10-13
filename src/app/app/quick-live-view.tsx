@@ -26,6 +26,8 @@ export interface EquipmentLiveStatus {
   remainingSeconds: number | null;
   formattedCountdown: string | null;
   activeBatchId: string | null;
+  activeCategoryName?: string | null;
+  activeCategoryCode?: string | null;
 }
 
 export interface PendingCartItem {
@@ -141,7 +143,7 @@ export function derivePendingCarts(
       order.orderNumber === "MAIN-20261008-0001" ||
       order.cartNumber?.toUpperCase() === "8D-1" ||
       order.cartNumber?.toUpperCase() === "2C-6" ||
-      detail?.batches?.some((b) => b.categoryName?.includes("消毒"))
+      detail?.batches?.some((b) => b.categoryName?.includes("消毒") || b.categoryCode === "DISINFECT")
     );
 
     // 取得被分類的標籤（若已完成收單分類）
@@ -152,6 +154,16 @@ export function derivePendingCarts(
       uniqueCategories.length > 0
         ? uniqueCategories
         : [isDisinfect ? "消毒品" : "一般"];
+
+    const isBib = Boolean(
+      detail?.batches?.some((b) => b.categoryName?.includes("圍兜") || b.categoryCode === "BIB") ||
+      uniqueCategories.some((c) => c.includes("圍兜") || c === "BIB")
+    );
+
+    const isCurtain = Boolean(
+      detail?.batches?.some((b) => b.categoryName?.includes("床簾") || b.categoryCode === "CURTAIN") ||
+      uniqueCategories.some((c) => c.includes("床簾") || c === "CURTAIN")
+    );
 
     // a) 初始進場待收件單據（尚未收單分類，單號下方僅顯示送件時間，不顯示分類標籤）
     if (order.status === "awaiting_receipt") {
@@ -164,8 +176,8 @@ export function derivePendingCarts(
         receiptTime: null,
         isPostStage: false,
         justFinishedStage: null,
-        nextStageName: isDisinfect ? "待消毒" : "待分類",
-        nextStageTone: isDisinfect ? "disinfect" : "wash",
+        nextStageName: isDisinfect ? "待消毒" : isBib ? "待烘乾" : "待分類",
+        nextStageTone: isDisinfect ? "disinfect" : isBib ? "dry" : "wash",
         categoryNames: undefined,
       });
       continue;
@@ -235,12 +247,19 @@ export function derivePendingCarts(
           nextStage = "待清洗";
           nextTone = "wash";
           break;
-        } else if (isWashingCompleted && !isDryingStarted && currentStageOrder <= (isDisinfect ? 3 : 2)) {
-          isBetweenStages = true;
-          justFinished = "清洗完畢";
-          nextStage = "待烘乾";
-          nextTone = "dry";
-          break;
+        } else if (isWashingCompleted && !isDryingStarted) {
+          // 床簾規則：不須烘衣！清洗完畢即全流程結束，直接進入洗烘完畢/待取件，不進待烘乾
+          if (isCurtain) {
+            isBetweenStages = false;
+            break;
+          }
+          if (currentStageOrder <= (isDisinfect ? 3 : 2)) {
+            isBetweenStages = true;
+            justFinished = "清洗完畢";
+            nextStage = "待烘乾";
+            nextTone = "dry";
+            break;
+          }
         }
       }
     }
@@ -262,7 +281,7 @@ export function derivePendingCarts(
       continue;
     }
 
-    // c) 分類後的洗衣車（已完成收單分類，等待進入消毒或清洗設備）
+    // c) 分類後的洗衣車（已完成收單分類，等待進入對應之首個程序設備）
     // 包含：order.status === "awaiting_cleaning"，或批次已建立但所有階段皆為 pending / 尚未開始
     const isAllStagesPending =
       !detail?.batches ||
@@ -275,6 +294,17 @@ export function derivePendingCarts(
       );
 
     if (order.status === "awaiting_cleaning" || isAllStagesPending) {
+      const nextStageName = isDisinfect
+        ? "待消毒"
+        : isBib
+        ? "待烘乾"
+        : "待清洗";
+      const nextStageTone: PendingCartItem["nextStageTone"] = isDisinfect
+        ? "disinfect"
+        : isBib
+        ? "dry"
+        : "wash";
+
       pushPendingCart({
         id: order.id,
         orderNumber: order.orderNumber,
@@ -284,8 +314,8 @@ export function derivePendingCarts(
         receiptTime: formattedReceiptTime || formattedSendTime,
         isPostStage: true,
         justFinishedStage: "分類完成",
-        nextStageName: isDisinfect ? "待消毒" : "待清洗",
-        nextStageTone: isDisinfect ? "disinfect" : "wash",
+        nextStageName,
+        nextStageTone,
         categoryNames,
       });
       continue;
@@ -336,11 +366,28 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
     completedEquipmentIds: completedEquipIds,
   });
 
-  // 2. 右側：完成待取件的洗衣車列表 (ready_for_pickup + 烘乾倒數結束的洗衣車)
+  // 2. 右側：完成待取件的洗衣車列表 (ready_for_pickup + 烘乾倒數結束/床簾清洗結束的洗衣車)
   const readyOrdersMap = new Map<string, WorkspaceOrder>();
   for (const order of orders) {
     if (order.status === "ready_for_pickup") {
       readyOrdersMap.set(order.id, order);
+      continue;
+    }
+    // 床簾特殊檢查：若為床簾且洗衣機已完成，因為不須烘衣，視為已洗烘完畢/待取件
+    const detail = orderDetailByIdMap.get(order.id);
+    const isCurtain = Boolean(
+      detail?.batches?.some((b) => b.categoryName?.includes("床簾") || b.categoryCode === "CURTAIN")
+    );
+    if (isCurtain && detail?.batches) {
+      const washerStage = detail.batches.flatMap((b) => b.stages).find((s) => s.equipmentType === "washer");
+      const isWasherDone =
+        washerStage?.state === "completed" ||
+        detail.batches.some(
+          (b) => b.activeEquipmentName && completedEquipNames.has(b.activeEquipmentName)
+        );
+      if (isWasherDone) {
+        readyOrdersMap.set(order.id, order);
+      }
     }
   }
   for (const completedOrder of completedDryerOrders) {
@@ -477,10 +524,13 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
     }
 
     const matchCategory = match?.categoryName || match?.categoryCode || null;
+    const defaultDuration =
+      eq.cleaningDurationMinutes ?? (eq.equipmentType === "disinfection_tank" ? 30 : 60);
     const cleaningDurationMinutes = resolveEquipmentDurationFromConfig(
       eq.cleaningDurationConfig,
       matchCategory,
-      eq.cleaningDurationMinutes ?? 60
+      defaultDuration,
+      eq.equipmentType
     );
 
     if (isCompletedLocally) {
@@ -501,6 +551,8 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
         remainingSeconds: 0,
         formattedCountdown: "00:00",
         activeBatchId: match?.batchId || null,
+        activeCategoryName: match?.categoryName || null,
+        activeCategoryCode: match?.categoryCode || null,
       };
     }
 
@@ -576,6 +628,8 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
         remainingSeconds,
         formattedCountdown,
         activeBatchId: match.batchId || null,
+        activeCategoryName: match.categoryName || null,
+        activeCategoryCode: match.categoryCode || null,
       };
     }
 
@@ -667,8 +721,16 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
         setCompletedEquipIds((prev) => new Set([...prev, item.equipment.id]));
         setCompletedEquipNames((prev) => new Set([...prev, item.equipment.name]));
 
-        // 2. 若為烘衣機結束，洗衣車進入「待取件」清單
-        if (item.equipment.equipmentType === "dryer" && item.activeCartNumber) {
+        // 2. 若為烘衣機結束，或床簾在洗衣機清洗結束（不須烘衣），洗衣車進入「待取件」清單
+        const isCurtainWasherComplete =
+          item.equipment.equipmentType === "washer" &&
+          item.activeCartNumber &&
+          (item.activeCategoryName?.includes("床簾") || item.activeCategoryCode === "CURTAIN");
+
+        if (
+          (item.equipment.equipmentType === "dryer" || isCurtainWasherComplete) &&
+          item.activeCartNumber
+        ) {
           const matchedOrder = orders.find(
             (o) => o.cartNumber === item.activeCartNumber
           );

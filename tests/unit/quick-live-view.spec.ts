@@ -503,4 +503,73 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
     expect(afterDone[0].nextStageName).toBe("待清洗");
     expect(afterDone[0].categoryNames).toEqual(["消毒品"]);
   });
+
+  it("圍兜（BIB）收單分類後不須消毒與清洗，直接進入「待烘乾」", () => {
+    const bibOrder: WorkspaceOrder = {
+      id: "order-bib-1",
+      orderNumber: "MAIN-20261013-0001",
+      cartNumber: "3C-1",
+      institutionName: "仁愛院",
+      status: "awaiting_cleaning",
+      updatedAt: "2026-10-13T09:00:00.000Z",
+    };
+
+    const details: WorkspaceOrderDetail[] = [
+      makeDetail({
+        orderId: "order-bib-1",
+        orderReceivedAt: "2026-10-13T09:00:00.000Z",
+        batches: [
+          makeBatch({
+            categoryCode: "BIB",
+            categoryName: "圍兜",
+            stages: [
+              makeStage({ stageOrder: 1, name: "烘乾", equipmentType: "dryer", state: "pending" }),
+            ],
+          }),
+        ],
+      }),
+    ];
+
+    const pending = derivePendingCarts([bibOrder], details);
+    expect(pending.length).toBe(1);
+    expect(pending[0].cartNumber).toBe("3C-1");
+    expect(pending[0].nextStageName).toBe("待烘乾");
+    expect(pending[0].nextStageTone).toBe("dry");
+    expect(pending[0].categoryNames).toEqual(["圍兜"]);
+  });
+
+  it("床簾（CURTAIN）在洗衣機清洗完畢後不須烘衣，不應進入待烘乾階段", () => {
+    const curtainOrder: WorkspaceOrder = {
+      id: "order-curtain-1",
+      orderNumber: "MAIN-20261013-0002",
+      cartNumber: "4D-2",
+      institutionName: "博愛護理之家",
+      status: "in_process",
+      updatedAt: "2026-10-13T09:30:00.000Z",
+    };
+
+    const details: WorkspaceOrderDetail[] = [
+      makeDetail({
+        orderId: "order-curtain-1",
+        batches: [
+          makeBatch({
+            categoryCode: "CURTAIN",
+            categoryName: "床簾",
+            activeEquipmentName: "1號大型洗衣機",
+            currentStageOrder: 1,
+            stages: [
+              makeStage({ stageOrder: 1, name: "清洗", equipmentType: "washer", state: "completed" }),
+            ],
+          }),
+        ],
+      }),
+    ];
+
+    // 清洗完成後，因為不需烘衣，derivePendingCarts 不應再排出待烘乾
+    const pending = derivePendingCarts([curtainOrder], details, {
+      completedEquipmentNames: new Set(["1號大型洗衣機"]),
+    });
+    expect(pending.length).toBe(0);
+  });
 });
+
