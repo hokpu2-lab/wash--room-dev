@@ -692,6 +692,163 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
     expect(w1?.remainingSeconds).not.toBe(w2?.remainingSeconds);
     expect(w1?.activeCartNumber).not.toBe(w2?.activeCartNumber);
   });
+
+  it("洗衣設備倒數結束時，洗衣車退出設備（設備回復閒置），且洗衣車回到「待處理洗衣車」等待下一階段", () => {
+    const baseNow = new Date("2026-10-13T12:00:00.000Z").getTime();
+    const equipment: WorkspaceEquipment[] = [
+      {
+        id: "eq-washer-1",
+        name: "1號大型洗衣機",
+        equipmentType: "washer",
+        status: "normal",
+        occupied: true,
+        cleaningDurationMinutes: 60,
+      },
+      {
+        id: "eq-tank-1",
+        name: "本館消毒鍋",
+        equipmentType: "disinfection_tank",
+        status: "normal",
+        occupied: true,
+        cleaningDurationMinutes: 30,
+      },
+    ];
+
+    const orders: WorkspaceOrder[] = [
+      {
+        id: "order-wash-1",
+        orderNumber: "MAIN-20261013-0001",
+        cartNumber: "1A-1",
+        institutionName: "仁愛院",
+        status: "in_process",
+        updatedAt: "2026-10-13T11:00:00.000Z",
+      },
+      {
+        id: "order-tank-1",
+        orderNumber: "MAIN-20261013-0002",
+        cartNumber: "2B-2",
+        institutionName: "博愛家",
+        status: "in_process",
+        updatedAt: "2026-10-13T11:00:00.000Z",
+      },
+    ];
+
+    const details: WorkspaceOrderDetail[] = [
+      makeDetail({
+        orderId: "order-wash-1",
+        batches: [
+          makeBatch({
+            id: "batch-1",
+            categoryName: "一般被服",
+            categoryCode: "NORM",
+            activeEquipmentName: "1號大型洗衣機",
+            status: "in_progress",
+            stages: [
+              makeStage({
+                stageOrder: 1,
+                name: "主洗",
+                equipmentType: "washer",
+                state: "active",
+                startedAt: "2026-10-13T11:00:00.000Z",
+              }),
+            ],
+          }),
+        ],
+      }),
+      makeDetail({
+        orderId: "order-tank-1",
+        batches: [
+          makeBatch({
+            id: "batch-2",
+            categoryName: "消毒品",
+            categoryCode: "DISINFECT",
+            activeEquipmentName: "本館消毒鍋",
+            status: "in_progress",
+            stages: [
+              makeStage({
+                stageOrder: 1,
+                name: "浸泡消毒",
+                equipmentType: "disinfection_tank",
+                state: "active",
+                startedAt: "2026-10-13T11:00:00.000Z",
+              }),
+            ],
+          }),
+        ],
+      }),
+    ];
+
+    // 1. 驗證設備倒數結束並完成後（傳入 completedEquipNames / completedEquipIds）：
+    // 設備卡片清空車號與機構標籤，狀態轉為「閒置待機」，即「洗衣車退出使用的設備」
+    const { washingEquipment, disinfectionEquipment } = deriveEquipmentLiveStatuses(
+      equipment,
+      orders,
+      details,
+      {
+        nowMs: baseNow,
+        completedEquipIds: new Set(["eq-washer-1", "eq-tank-1"]),
+        completedEquipNames: new Set(["1號大型洗衣機", "本館消毒鍋"]),
+      }
+    );
+
+    const washer = washingEquipment.find((w) => w.equipment.id === "eq-washer-1");
+    expect(washer).toBeDefined();
+    expect(washer?.activeCartNumber).toBeNull();
+    expect(washer?.activeInstitutionName).toBeNull();
+    expect(washer?.statusTone).toBe("idle");
+    expect(washer?.statusLabel).toBe("閒置待機");
+    expect(washer?.remainingSeconds).toBeNull();
+
+    const tank = disinfectionEquipment.find((t) => t.equipment.id === "eq-tank-1");
+    expect(tank).toBeDefined();
+    expect(tank?.activeCartNumber).toBeNull();
+    expect(tank?.activeInstitutionName).toBeNull();
+    expect(tank?.statusTone).toBe("idle");
+    expect(tank?.statusLabel).toBe("閒置待機");
+    expect(tank?.remainingSeconds).toBeNull();
+
+    // 2. 驗證洗衣車退出設備後回到「待處理洗衣車」：
+    // - 消毒鍋結束：洗衣車回到待處理洗衣車，標記「已完成：消毒完畢 ➔ 下一階段：待清洗」
+    // - 洗衣機結束：洗衣車回到待處理洗衣車，標記「已完成：清洗完畢 ➔ 下一階段：待烘乾」
+    const pendingCarts = derivePendingCarts(orders, details, {
+      completedEquipmentNames: new Set(["1號大型洗衣機", "本館消毒鍋"]),
+      completedEquipmentIds: new Set(["eq-washer-1", "eq-tank-1"]),
+      completedStageCarts: new Map([
+        [
+          "1A-1",
+          {
+            justFinished: "清洗完畢",
+            nextStage: "待烘乾",
+            nextTone: "dry",
+          },
+        ],
+        [
+          "2B-2",
+          {
+            justFinished: "消毒完畢",
+            nextStage: "待清洗",
+            nextTone: "wash",
+          },
+        ],
+      ]),
+    });
+
+    expect(pendingCarts.length).toBe(2);
+
+    const pendingWasherCart = pendingCarts.find((c) => c.cartNumber === "1A-1");
+    expect(pendingWasherCart).toBeDefined();
+    expect(pendingWasherCart?.isPostStage).toBe(true);
+    expect(pendingWasherCart?.justFinishedStage).toBe("清洗完畢");
+    expect(pendingWasherCart?.nextStageName).toBe("待烘乾");
+    expect(pendingWasherCart?.nextStageTone).toBe("dry");
+
+    const pendingTankCart = pendingCarts.find((c) => c.cartNumber === "2B-2");
+    expect(pendingTankCart).toBeDefined();
+    expect(pendingTankCart?.isPostStage).toBe(true);
+    expect(pendingTankCart?.justFinishedStage).toBe("消毒完畢");
+    expect(pendingTankCart?.nextStageName).toBe("待清洗");
+    expect(pendingTankCart?.nextStageTone).toBe("wash");
+  });
 });
 
 
