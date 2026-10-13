@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateEquipmentRemainingSeconds,
+  deriveEquipmentLiveStatuses,
   derivePendingCarts,
   formatClockTime,
   formatCountdown,
   type ReadyCartItem,
 } from "../../src/app/app/quick-live-view";
 import type {
+  WorkspaceEquipment,
   WorkspaceOrder,
   WorkspaceOrderDetail,
 } from "../../src/lib/analytics/workspace-snapshot";
@@ -571,5 +573,125 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
     });
     expect(pending.length).toBe(0);
   });
+
+  it("多台設備同時運作時，各設備倒數計時與進行狀態各自獨立，不互相干擾或同步重置", () => {
+    const baseNow = new Date("2026-10-13T10:00:00.000Z").getTime();
+    const twentyMinAgo = new Date("2026-10-13T09:40:00.000Z").toISOString();
+    const justStarted = new Date("2026-10-13T10:00:00.000Z").toISOString();
+
+    const equipment: WorkspaceEquipment[] = [
+      {
+        id: "washer-1",
+        name: "1號大型洗衣機",
+        equipmentType: "washer",
+        status: "normal",
+        occupied: true,
+        cleaningDurationMinutes: 60,
+      },
+      {
+        id: "washer-2",
+        name: "2號洗衣機",
+        equipmentType: "washer",
+        status: "normal",
+        occupied: true,
+        cleaningDurationMinutes: 60,
+      },
+    ];
+
+    const orders: WorkspaceOrder[] = [
+      {
+        id: "order-1",
+        orderNumber: "MAIN-20261013-0001",
+        cartNumber: "1A-1",
+        institutionName: "仁愛院",
+        status: "in_process",
+        updatedAt: twentyMinAgo,
+      },
+      {
+        id: "order-2",
+        orderNumber: "MAIN-20261013-0002",
+        cartNumber: "2B-2",
+        institutionName: "博愛家",
+        status: "in_process",
+        updatedAt: justStarted,
+      },
+    ];
+
+    const details: WorkspaceOrderDetail[] = [
+      makeDetail({
+        orderId: "order-1",
+        batches: [
+          makeBatch({
+            id: "batch-1",
+            categoryName: "一般被服",
+            categoryCode: "OTHER",
+            activeEquipmentName: "1號大型洗衣機",
+            status: "in_progress",
+            stages: [
+              makeStage({
+                stageOrder: 1,
+                name: "主洗",
+                equipmentType: "washer",
+                state: "active",
+                startedAt: twentyMinAgo,
+              }),
+            ],
+          }),
+        ],
+      }),
+      makeDetail({
+        orderId: "order-2",
+        batches: [
+          makeBatch({
+            id: "batch-2",
+            categoryName: "一般被服",
+            categoryCode: "OTHER",
+            activeEquipmentName: "2號洗衣機",
+            status: "in_progress",
+            stages: [
+              makeStage({
+                stageOrder: 1,
+                name: "主洗",
+                equipmentType: "washer",
+                state: "active",
+                startedAt: justStarted,
+              }),
+            ],
+          }),
+        ],
+      }),
+    ];
+
+    const { washingEquipment } = deriveEquipmentLiveStatuses(
+      equipment,
+      orders,
+      details,
+      { nowMs: baseNow }
+    );
+
+    expect(washingEquipment.length).toBe(2);
+
+    const w1 = washingEquipment.find((w) => w.equipment.name === "1號大型洗衣機");
+    const w2 = washingEquipment.find((w) => w.equipment.name === "2號洗衣機");
+
+    // 1號洗衣機：20分鐘前開始，60分鐘洗程，剩餘40分鐘 (2400秒)
+    expect(w1).toBeDefined();
+    expect(w1?.activeCartNumber).toBe("1A-1");
+    expect(w1?.statusTone).toBe("washing");
+    expect(w1?.remainingSeconds).toBe(2400);
+    expect(w1?.formattedCountdown).toBe("40:00");
+
+    // 2號洗衣機：剛剛開始，60分鐘洗程，剩餘60分鐘 (3600秒)
+    expect(w2).toBeDefined();
+    expect(w2?.activeCartNumber).toBe("2B-2");
+    expect(w2?.statusTone).toBe("washing");
+    expect(w2?.remainingSeconds).toBe(3600);
+    expect(w2?.formattedCountdown).toBe("1:00:00");
+
+    // 兩台設備倒數時間與車號互不影響、絕不同步或重置
+    expect(w1?.remainingSeconds).not.toBe(w2?.remainingSeconds);
+    expect(w1?.activeCartNumber).not.toBe(w2?.activeCartNumber);
+  });
 });
+
 

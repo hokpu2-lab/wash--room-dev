@@ -97,6 +97,73 @@ export function calculateEquipmentRemainingSeconds(
   return Math.max(0, totalSeconds - elapsedSeconds);
 }
 
+export function resolveEquipmentStartedAt(
+  equipmentId: string,
+  startTimesMap?: Map<string, number>,
+  nowMs: number = Date.now()
+): string {
+  if (startTimesMap && startTimesMap.has(equipmentId)) {
+    return new Date(startTimesMap.get(equipmentId)!).toISOString();
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      const storageKey = `washroom_eq_start_${equipmentId}`;
+      const stored = window.localStorage.getItem(storageKey);
+      if (stored) {
+        const storedTime = Number(stored);
+        if (!isNaN(storedTime) && storedTime > 0 && nowMs - storedTime < 24 * 3600 * 1000) {
+          if (startTimesMap) startTimesMap.set(equipmentId, storedTime);
+          return new Date(storedTime).toISOString();
+        }
+      }
+      window.localStorage.setItem(storageKey, String(nowMs));
+    } catch {
+      // ignore localStorage quota or access errors
+    }
+  }
+
+  if (startTimesMap) {
+    startTimesMap.set(equipmentId, nowMs);
+  }
+  return new Date(nowMs).toISOString();
+}
+
+export function syncEquipmentStartedAt(
+  equipmentId: string,
+  startedAtIso: string,
+  startTimesMap?: Map<string, number>
+) {
+  const time = new Date(startedAtIso).getTime();
+  if (isNaN(time)) return;
+  if (startTimesMap) {
+    startTimesMap.set(equipmentId, time);
+  }
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.setItem(`washroom_eq_start_${equipmentId}`, String(time));
+    } catch {
+      // ignore
+    }
+  }
+}
+
+export function clearEquipmentStartedAt(
+  equipmentId: string,
+  startTimesMap?: Map<string, number>
+) {
+  if (startTimesMap) {
+    startTimesMap.delete(equipmentId);
+  }
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.removeItem(`washroom_eq_start_${equipmentId}`);
+    } catch {
+      // ignore
+    }
+  }
+}
+
 export interface DerivePendingCartsOptions {
   completedEquipmentNames?: Set<string>;
   completedEquipmentIds?: Set<string>;
@@ -325,6 +392,365 @@ export function derivePendingCarts(
   return pendingCarts;
 }
 
+export interface ActiveRunInfo {
+  orderId: string;
+  orderNumber: string;
+  cartNumber: string;
+  institutionName: string;
+  batchId: string;
+  stageType: "disinfection_tank" | "washer" | "dryer" | "manual" | "cart";
+  stageName: string;
+  stageState: "pending" | "active" | "completed";
+  stageStatus: "in_progress" | "paused" | "completed" | "failed" | "cancelled" | null;
+  activeEquipmentName: string | null;
+  startedAt: string | null;
+  batchStatus: string;
+  categoryName: string | null;
+  categoryCode: string | null;
+}
+
+export interface DeriveEquipmentLiveStatusesOptions {
+  nowMs?: number;
+  completedEquipIds?: Set<string>;
+  completedEquipNames?: Set<string>;
+  initialStartTimes?: Map<string, number>;
+}
+
+export function deriveEquipmentLiveStatuses(
+  equipment: WorkspaceEquipment[],
+  orders: WorkspaceOrder[],
+  orderDetails: WorkspaceOrderDetail[],
+  options?: DeriveEquipmentLiveStatusesOptions
+): {
+  disinfectionEquipment: EquipmentLiveStatus[];
+  washingEquipment: EquipmentLiveStatus[];
+  dryingEquipment: EquipmentLiveStatus[];
+  allLiveEquipment: EquipmentLiveStatus[];
+} {
+  const nowMs = options?.nowMs ?? Date.now();
+  const completedEquipIds = options?.completedEquipIds ?? new Set<string>();
+  const completedEquipNames = options?.completedEquipNames ?? new Set<string>();
+  const startTimesMap = options?.initialStartTimes;
+
+  const orderByIdMap = new Map<string, WorkspaceOrder>();
+  for (const order of orders) {
+    orderByIdMap.set(order.id, order);
+  }
+
+  const activeRuns: ActiveRunInfo[] = [];
+
+  for (const detail of orderDetails) {
+    const parentOrder = orderByIdMap.get(detail.orderId);
+    for (const batch of detail.batches) {
+      const orderNumber = parentOrder?.orderNumber ?? "";
+      const cartNumber = parentOrder?.cartNumber ?? "";
+      const institutionName = parentOrder?.institutionName ?? "";
+
+      const isBatchActive =
+        batch.status === "in_progress" ||
+        batch.status === "paused" ||
+        batch.progress.stageStatus === "in_progress" ||
+        batch.progress.stageStatus === "paused";
+
+      const activeStage = batch.stages.find((s) => s.state === "active");
+      const currentStage =
+        activeStage ??
+        (isBatchActive
+          ? batch.stages.find((s) => s.stageOrder === batch.currentStageOrder) ?? batch.stages[0]
+          : null);
+
+      if (currentStage && (isBatchActive || activeStage || batch.activeEquipmentName)) {
+        activeRuns.push({
+          orderId: detail.orderId,
+          orderNumber,
+          cartNumber,
+          institutionName,
+          batchId: batch.id,
+          stageType: currentStage.equipmentType,
+          stageName: currentStage.name,
+          stageState: currentStage.state,
+          stageStatus: batch.progress.stageStatus,
+          activeEquipmentName: batch.activeEquipmentName,
+          startedAt: currentStage.startedAt || null,
+          batchStatus: batch.status,
+          categoryName: batch.categoryName || null,
+          categoryCode: batch.categoryCode || null,
+        });
+      }
+    }
+  }
+
+  // 特殊單據容錯（例如 2C-6、8D-1 消毒單）
+  const specialDisinfectOrders = orders.filter(
+    (o) =>
+      (o.orderNumber === "MAIN-20261008-0001" ||
+        o.orderNumber === "MAIN-20261005-0004" ||
+        o.cartNumber?.toUpperCase() === "2C-6" ||
+        o.cartNumber?.toUpperCase() === "8D-1") &&
+      o.status !== "ready_for_pickup" &&
+      o.status !== "picked_up" &&
+      o.status !== "awaiting_receipt"
+  );
+
+  // 建立獨立配對映射，確保一對一精確綁定，絕不交叉干擾
+  const equipmentMatchMap = new Map<string, ActiveRunInfo>();
+  const claimedBatchIds = new Set<string>();
+
+  // 階段 1：精準依據設備名稱（activeEquipmentName === eq.name）進行配對
+  for (const eq of equipment) {
+    const exactMatch = activeRuns.find(
+      (r) =>
+        r.activeEquipmentName &&
+        r.activeEquipmentName.trim().toLowerCase() === eq.name.trim().toLowerCase() &&
+        !claimedBatchIds.has(r.batchId)
+    );
+    if (exactMatch) {
+      equipmentMatchMap.set(eq.id, exactMatch);
+      claimedBatchIds.add(exactMatch.batchId);
+    }
+  }
+
+  // 階段 2：若設備 occupied 為 true 且尚未透過名稱配對，才配對未指定名稱且相同機型的運行批次
+  for (const eq of equipment) {
+    if (equipmentMatchMap.has(eq.id) || !eq.occupied) continue;
+
+    const looseMatch = activeRuns.find(
+      (r) =>
+        !r.activeEquipmentName &&
+        r.stageType === eq.equipmentType &&
+        !claimedBatchIds.has(r.batchId)
+    );
+    if (looseMatch) {
+      equipmentMatchMap.set(eq.id, looseMatch);
+      claimedBatchIds.add(looseMatch.batchId);
+    }
+  }
+
+  // 階段 3：消毒鍋特殊單據容錯
+  const disinfectTank = equipment.find(
+    (e) => e.equipmentType === "disinfection_tank" && e.occupied && !equipmentMatchMap.has(e.id)
+  );
+  if (disinfectTank && specialDisinfectOrders.length > 0) {
+    const sp = specialDisinfectOrders[0];
+    equipmentMatchMap.set(disinfectTank.id, {
+      orderId: sp.id,
+      orderNumber: sp.orderNumber,
+      cartNumber: sp.cartNumber,
+      institutionName: sp.institutionName,
+      batchId: `special-disinfect-${sp.id}`,
+      stageType: "disinfection_tank",
+      stageName: "消毒浸泡",
+      stageState: "active",
+      stageStatus: "in_progress",
+      activeEquipmentName: disinfectTank.name,
+      startedAt: null,
+      batchStatus: "in_progress",
+      categoryName: "消毒品",
+      categoryCode: "DISINFECT",
+    });
+  }
+
+  const getEquipmentLiveStatus = (eq: WorkspaceEquipment): EquipmentLiveStatus => {
+    const isCompletedLocally =
+      completedEquipIds.has(eq.id) || completedEquipNames.has(eq.name);
+
+    const match = equipmentMatchMap.get(eq.id) ?? null;
+
+    const matchCategory = match?.categoryName || match?.categoryCode || null;
+    const defaultDuration =
+      eq.cleaningDurationMinutes ?? (eq.equipmentType === "disinfection_tank" ? 30 : 60);
+    const cleaningDurationMinutes = resolveEquipmentDurationFromConfig(
+      eq.cleaningDurationConfig,
+      matchCategory,
+      defaultDuration,
+      eq.equipmentType
+    );
+
+    if (isCompletedLocally) {
+      const doneLabel =
+        eq.equipmentType === "disinfection_tank"
+          ? "消毒完畢"
+          : eq.equipmentType === "dryer"
+          ? "烘乾完畢"
+          : "清洗完畢";
+
+      return {
+        equipment: eq,
+        statusLabel: doneLabel,
+        statusTone: "completed",
+        activeCartNumber: match?.cartNumber || null,
+        activeInstitutionName: match?.institutionName || null,
+        cleaningDurationMinutes,
+        remainingSeconds: 0,
+        formattedCountdown: "00:00",
+        activeBatchId: match?.batchId || null,
+        activeCategoryName: match?.categoryName || null,
+        activeCategoryCode: match?.categoryCode || null,
+      };
+    }
+
+    if (match) {
+      // 基準運作時間推導：各自獨立，不被其他設備影響
+      let startedAt = match.startedAt;
+      if (!startedAt) {
+        startedAt = resolveEquipmentStartedAt(eq.id, startTimesMap, nowMs);
+      } else {
+        syncEquipmentStartedAt(eq.id, startedAt, startTimesMap);
+      }
+
+      const isPaused = match.stageStatus === "paused";
+      const isServerCompleted = match.stageState === "completed" || match.stageStatus === "completed";
+
+      let remainingSeconds = isServerCompleted
+        ? 0
+        : calculateEquipmentRemainingSeconds(startedAt, cleaningDurationMinutes, nowMs);
+
+      const isTimeUp = remainingSeconds <= 0 && !isPaused && !isServerCompleted;
+
+      let statusLabel = "運作中";
+      let statusTone: EquipmentLiveStatus["statusTone"] = "idle";
+
+      if (eq.equipmentType === "disinfection_tank") {
+        if (isPaused) {
+          statusLabel = "消毒暫停";
+          statusTone = "paused";
+        } else if (isServerCompleted || isTimeUp) {
+          statusLabel = "消毒完畢";
+          statusTone = "completed";
+          remainingSeconds = 0;
+        } else {
+          statusLabel = "消毒中";
+          statusTone = "disinfecting";
+        }
+      } else if (eq.equipmentType === "washer") {
+        if (isPaused) {
+          statusLabel = "清洗暫停";
+          statusTone = "paused";
+        } else if (isServerCompleted || isTimeUp) {
+          statusLabel = "清洗完畢";
+          statusTone = "completed";
+          remainingSeconds = 0;
+        } else {
+          statusLabel = "清洗中";
+          statusTone = "washing";
+        }
+      } else if (eq.equipmentType === "dryer") {
+        if (isPaused) {
+          statusLabel = "烘乾暫停";
+          statusTone = "paused";
+        } else if (isServerCompleted || isTimeUp) {
+          statusLabel = "烘乾完畢";
+          statusTone = "completed";
+          remainingSeconds = 0;
+        } else {
+          statusLabel = "烘乾中";
+          statusTone = "drying";
+        }
+      }
+
+      const formattedCountdown = formatCountdown(remainingSeconds);
+
+      return {
+        equipment: eq,
+        statusLabel,
+        statusTone,
+        activeCartNumber: match.cartNumber || null,
+        activeInstitutionName: match.institutionName || null,
+        cleaningDurationMinutes,
+        remainingSeconds,
+        formattedCountdown,
+        activeBatchId: match.batchId || null,
+        activeCategoryName: match.categoryName || null,
+        activeCategoryCode: match.categoryCode || null,
+      };
+    }
+
+    // 若設備 occupied 為 true，但未明確配對到特定 batch
+    if (eq.occupied) {
+      const startedAt = resolveEquipmentStartedAt(eq.id, startTimesMap, nowMs);
+      let remainingSeconds = calculateEquipmentRemainingSeconds(
+        startedAt,
+        cleaningDurationMinutes,
+        nowMs
+      );
+      const isTimeUp = remainingSeconds <= 0;
+
+      let defaultLabel = "使用中";
+      let defaultTone: EquipmentLiveStatus["statusTone"] = "washing";
+      if (eq.equipmentType === "disinfection_tank") {
+        defaultLabel = isTimeUp ? "消毒完畢" : "消毒中";
+        defaultTone = isTimeUp ? "completed" : "disinfecting";
+      } else if (eq.equipmentType === "dryer") {
+        defaultLabel = isTimeUp ? "烘乾完畢" : "烘乾中";
+        defaultTone = isTimeUp ? "completed" : "drying";
+      } else {
+        defaultLabel = isTimeUp ? "清洗完畢" : "清洗中";
+        defaultTone = isTimeUp ? "completed" : "washing";
+      }
+
+      return {
+        equipment: eq,
+        statusLabel: defaultLabel,
+        statusTone: defaultTone,
+        activeCartNumber: null,
+        activeInstitutionName: null,
+        cleaningDurationMinutes,
+        remainingSeconds,
+        formattedCountdown: formatCountdown(remainingSeconds),
+        activeBatchId: null,
+        activeCategoryName: null,
+        activeCategoryCode: null,
+      };
+    }
+
+    // 閒置設備
+    clearEquipmentStartedAt(eq.id, startTimesMap);
+
+    const isAvailable = eq.status === "normal";
+    return {
+      equipment: eq,
+      statusLabel: isAvailable ? "閒置待機" : "暫停服務",
+      statusTone: "idle",
+      activeCartNumber: null,
+      activeInstitutionName: null,
+      cleaningDurationMinutes,
+      remainingSeconds: null,
+      formattedCountdown: null,
+      activeBatchId: null,
+      activeCategoryName: null,
+      activeCategoryCode: null,
+    };
+  };
+
+  const disinfectionEquipment = equipment
+    .filter((e) => e.equipmentType === "disinfection_tank")
+    .sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"))
+    .map(getEquipmentLiveStatus);
+
+  const washingEquipment = equipment
+    .filter((e) => e.equipmentType === "washer")
+    .sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"))
+    .map(getEquipmentLiveStatus);
+
+  const dryingEquipment = equipment
+    .filter((e) => e.equipmentType === "dryer")
+    .sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"))
+    .map(getEquipmentLiveStatus);
+
+  const allLiveEquipment = [
+    ...disinfectionEquipment,
+    ...washingEquipment,
+    ...dryingEquipment,
+  ];
+
+  return {
+    disinfectionEquipment,
+    washingEquipment,
+    dryingEquipment,
+    allLiveEquipment,
+  };
+}
+
 export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveViewProps) {
   const router = useRouter();
   const [nowMs, setNowMs] = React.useState(() => Date.now());
@@ -427,287 +853,18 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
     };
   });
 
-  // 3. 中間：各設備即時狀態推導
-  interface ActiveRunInfo {
-    orderId: string;
-    orderNumber: string;
-    cartNumber: string;
-    institutionName: string;
-    batchId: string;
-    stageType: "disinfection_tank" | "washer" | "dryer" | "manual" | "cart";
-    stageName: string;
-    stageState: "pending" | "active" | "completed";
-    stageStatus: "in_progress" | "paused" | "completed" | "failed" | "cancelled" | null;
-    activeEquipmentName: string | null;
-    startedAt: string | null;
-    batchStatus: string;
-    categoryName: string | null;
-    categoryCode: string | null;
-  }
-
-  const activeRuns: ActiveRunInfo[] = [];
-
-  for (const detail of orderDetails) {
-    const parentOrder = orderByIdMap.get(detail.orderId);
-    for (const batch of detail.batches) {
-      const orderNumber = parentOrder?.orderNumber ?? "";
-      const cartNumber = parentOrder?.cartNumber ?? "";
-      const institutionName = parentOrder?.institutionName ?? "";
-
-      const activeStage = batch.stages.find((s) => s.state === "active");
-      const currentStage =
-        activeStage ??
-        batch.stages.find((s) => s.stageOrder === batch.currentStageOrder) ??
-        batch.stages[0];
-
-      if (currentStage) {
-        activeRuns.push({
-          orderId: detail.orderId,
-          orderNumber,
-          cartNumber,
-          institutionName,
-          batchId: batch.id,
-          stageType: currentStage.equipmentType,
-          stageName: currentStage.name,
-          stageState: currentStage.state,
-          stageStatus: batch.progress.stageStatus,
-          activeEquipmentName: batch.activeEquipmentName,
-          startedAt: currentStage.startedAt || batch.progress.estimatedStageCompletedAt || null,
-          batchStatus: batch.status,
-          categoryName: batch.categoryName || null,
-          categoryCode: batch.categoryCode || null,
-        });
-      }
-    }
-  }
-
-  // 特殊單據容錯（例如 2C-6、8D-1 消毒單）
-  const specialDisinfectOrders = orders.filter(
-    (o) =>
-      (o.orderNumber === "MAIN-20261008-0001" ||
-        o.orderNumber === "MAIN-20261005-0004" ||
-        o.cartNumber?.toUpperCase() === "2C-6" ||
-        o.cartNumber?.toUpperCase() === "8D-1") &&
-      o.status !== "ready_for_pickup" &&
-      o.status !== "picked_up" &&
-      o.status !== "awaiting_receipt"
-  );
-
-  const getEquipmentLiveStatus = (eq: WorkspaceEquipment): EquipmentLiveStatus => {
-    const isCompletedLocally =
-      completedEquipIds.has(eq.id) || completedEquipNames.has(eq.name);
-
-    // 尋找關聯的 active run
-    let match = activeRuns.find(
-      (r) => r.activeEquipmentName === eq.name || (r.stageType === eq.equipmentType && eq.occupied)
-    );
-
-    // 容錯支援：如果本館消毒鍋被占用但 match 未找到，且有特殊消毒單
-    if (!match && eq.equipmentType === "disinfection_tank" && eq.occupied && specialDisinfectOrders.length > 0) {
-      const sp = specialDisinfectOrders[0];
-      match = {
-        orderId: sp.id,
-        orderNumber: sp.orderNumber,
-        cartNumber: sp.cartNumber,
-        institutionName: sp.institutionName,
-        batchId: "",
-        stageType: "disinfection_tank",
-        stageName: "消毒浸泡",
-        stageState: "active",
-        stageStatus: "in_progress",
-        activeEquipmentName: eq.name,
-        startedAt: null,
-        batchStatus: "in_progress",
-        categoryName: "消毒品",
-        categoryCode: "DISINFECT",
-      };
-    }
-
-    const matchCategory = match?.categoryName || match?.categoryCode || null;
-    const defaultDuration =
-      eq.cleaningDurationMinutes ?? (eq.equipmentType === "disinfection_tank" ? 30 : 60);
-    const cleaningDurationMinutes = resolveEquipmentDurationFromConfig(
-      eq.cleaningDurationConfig,
-      matchCategory,
-      defaultDuration,
-      eq.equipmentType
-    );
-
-    if (isCompletedLocally) {
-      const doneLabel =
-        eq.equipmentType === "disinfection_tank"
-          ? "消毒完畢"
-          : eq.equipmentType === "dryer"
-          ? "烘乾完畢"
-          : "清洗完畢";
-
-      return {
-        equipment: eq,
-        statusLabel: doneLabel,
-        statusTone: "completed",
-        activeCartNumber: match?.cartNumber || null,
-        activeInstitutionName: match?.institutionName || null,
-        cleaningDurationMinutes,
-        remainingSeconds: 0,
-        formattedCountdown: "00:00",
-        activeBatchId: match?.batchId || null,
-        activeCategoryName: match?.categoryName || null,
-        activeCategoryCode: match?.categoryCode || null,
-      };
-    }
-
-    if (match) {
-      // 基準運作時間推導
-      let startedAt = match.startedAt;
-      if (!startedAt) {
-        if (!initialStartTimesRef.current.has(eq.id)) {
-          initialStartTimesRef.current.set(eq.id, Date.now());
-        }
-        startedAt = new Date(initialStartTimesRef.current.get(eq.id)!).toISOString();
-      }
-
-      const isPaused = match.stageStatus === "paused";
-      const isServerCompleted = match.stageState === "completed" || match.stageStatus === "completed";
-
-      let remainingSeconds = isServerCompleted
-        ? 0
-        : calculateEquipmentRemainingSeconds(startedAt, cleaningDurationMinutes, nowMs);
-
-      const isTimeUp = remainingSeconds <= 0 && !isPaused && !isServerCompleted;
-
-      let statusLabel = "運作中";
-      let statusTone: EquipmentLiveStatus["statusTone"] = "idle";
-
-      if (eq.equipmentType === "disinfection_tank") {
-        if (isPaused) {
-          statusLabel = "消毒暫停";
-          statusTone = "paused";
-        } else if (isServerCompleted || isTimeUp) {
-          statusLabel = "消毒完畢";
-          statusTone = "completed";
-          remainingSeconds = 0;
-        } else {
-          statusLabel = "消毒中";
-          statusTone = "disinfecting";
-        }
-      } else if (eq.equipmentType === "washer") {
-        if (isPaused) {
-          statusLabel = "清洗暫停";
-          statusTone = "paused";
-        } else if (isServerCompleted || isTimeUp) {
-          statusLabel = "清洗完畢";
-          statusTone = "completed";
-          remainingSeconds = 0;
-        } else {
-          statusLabel = "清洗中";
-          statusTone = "washing";
-        }
-      } else if (eq.equipmentType === "dryer") {
-        if (isPaused) {
-          statusLabel = "烘乾暫停";
-          statusTone = "paused";
-        } else if (isServerCompleted || isTimeUp) {
-          statusLabel = "烘乾完畢";
-          statusTone = "completed";
-          remainingSeconds = 0;
-        } else {
-          statusLabel = "烘乾中";
-          statusTone = "drying";
-        }
-      }
-
-      const formattedCountdown = formatCountdown(remainingSeconds);
-
-      return {
-        equipment: eq,
-        statusLabel,
-        statusTone,
-        activeCartNumber: match.cartNumber || null,
-        activeInstitutionName: match.institutionName || null,
-        cleaningDurationMinutes,
-        remainingSeconds,
-        formattedCountdown,
-        activeBatchId: match.batchId || null,
-        activeCategoryName: match.categoryName || null,
-        activeCategoryCode: match.categoryCode || null,
-      };
-    }
-
-    // 若設備本身 occupied 為 true，但未明確配對到特定 batch
-    if (eq.occupied) {
-      if (!initialStartTimesRef.current.has(eq.id)) {
-        initialStartTimesRef.current.set(eq.id, Date.now());
-      }
-      const startedAt = new Date(initialStartTimesRef.current.get(eq.id)!).toISOString();
-      let remainingSeconds = calculateEquipmentRemainingSeconds(
-        startedAt,
-        cleaningDurationMinutes,
-        nowMs
-      );
-      const isTimeUp = remainingSeconds <= 0;
-
-      let defaultLabel = "使用中";
-      let defaultTone: EquipmentLiveStatus["statusTone"] = "washing";
-      if (eq.equipmentType === "disinfection_tank") {
-        defaultLabel = isTimeUp ? "消毒完畢" : "消毒中";
-        defaultTone = isTimeUp ? "completed" : "disinfecting";
-      } else if (eq.equipmentType === "dryer") {
-        defaultLabel = isTimeUp ? "烘乾完畢" : "烘乾中";
-        defaultTone = isTimeUp ? "completed" : "drying";
-      } else {
-        defaultLabel = isTimeUp ? "清洗完畢" : "清洗中";
-        defaultTone = isTimeUp ? "completed" : "washing";
-      }
-
-      return {
-        equipment: eq,
-        statusLabel: defaultLabel,
-        statusTone: defaultTone,
-        activeCartNumber: null,
-        activeInstitutionName: null,
-        cleaningDurationMinutes,
-        remainingSeconds,
-        formattedCountdown: formatCountdown(remainingSeconds),
-        activeBatchId: null,
-      };
-    }
-
-    // 閒置設備
-    const isAvailable = eq.status === "normal";
-    return {
-      equipment: eq,
-      statusLabel: isAvailable ? "閒置待機" : "暫停服務",
-      statusTone: "idle",
-      activeCartNumber: null,
-      activeInstitutionName: null,
-      cleaningDurationMinutes,
-      remainingSeconds: null,
-      formattedCountdown: null,
-      activeBatchId: null,
-    };
-  };
-
-  // 分組依序並排顯示：消毒鍋群 ➔ 洗衣機群 ➔ 烘衣機群
-  const disinfectionEquipment = equipment
-    .filter((e) => e.equipmentType === "disinfection_tank")
-    .sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"))
-    .map(getEquipmentLiveStatus);
-
-  const washingEquipment = equipment
-    .filter((e) => e.equipmentType === "washer")
-    .sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"))
-    .map(getEquipmentLiveStatus);
-
-  const dryingEquipment = equipment
-    .filter((e) => e.equipmentType === "dryer")
-    .sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"))
-    .map(getEquipmentLiveStatus);
-
-  const allLiveEquipment = [
-    ...disinfectionEquipment,
-    ...washingEquipment,
-    ...dryingEquipment,
-  ];
+  // 3. 中間：各設備即時狀態推導（依分類與機型精確獨立倒數，不互相干擾）
+  const {
+    disinfectionEquipment,
+    washingEquipment,
+    dryingEquipment,
+    allLiveEquipment,
+  } = deriveEquipmentLiveStatuses(equipment, orders, orderDetails, {
+    nowMs,
+    completedEquipIds,
+    completedEquipNames,
+    initialStartTimes: initialStartTimesRef.current,
+  });
 
   // 監聽設備倒數計時：當倒數計時歸零，停止運作並將洗衣車推進下一階段
   React.useEffect(() => {
@@ -717,9 +874,10 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
         item.remainingSeconds <= 0 &&
         !completedEquipIds.has(item.equipment.id)
       ) {
-        // 1. 將該設備標記為完成停止運作
+        // 1. 將該設備標記為完成停止運作，並清除該設備獨立時間暫存
         setCompletedEquipIds((prev) => new Set([...prev, item.equipment.id]));
         setCompletedEquipNames((prev) => new Set([...prev, item.equipment.name]));
+        clearEquipmentStartedAt(item.equipment.id, initialStartTimesRef.current);
 
         // 2. 若為烘衣機結束，或床簾在洗衣機清洗結束（不須烘衣），洗衣車進入「待取件」清單
         const isCurtainWasherComplete =

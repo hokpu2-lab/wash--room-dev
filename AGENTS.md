@@ -26,6 +26,18 @@
 
 ## 2026-10-13 最新接手快照
 
+- **洗衣設備運作動態倒數計時獨立隔離修正（/app/dashboard）**：
+  - **根本原因排除**：原先 `activeRuns.find` 條件含有 `|| (r.stageType === eq.equipmentType && eq.occupied)`，且未針對各設備進行 1-to-1 獨佔綁定。當同類型有多台設備運作時（如兩台洗衣機），設備會搶佔並配對至同一批次，導致後啟動的設備時間與車號覆寫先啟動的設備，造成既有設備倒數時間被重置或同步。
+  - **1-to-1 獨佔綁定配對機制（`deriveEquipmentLiveStatuses`）**：
+    - 階段 1：精準依據設備名稱（`activeEquipmentName === eq.name`）進行 1-to-1 配對，配對後該批次即被標記為領取（`claimedBatchIds`），絕不重複配對。
+    - 階段 2：僅針對尚未配對且被占用的設備，容錯領取未指定設備名稱且同機型的批次，確保每台機台僅對應專屬運行批次。
+    - 僅納入真正執行中之批次（`in_progress` / `paused`），排除未開始批次對運作中機台的誤配對。
+  - **每台設備開始時間持久化與獨立隔離**：
+    - 提供 `resolveEquipmentStartedAt`、`syncEquipmentStartedAt` 與 `clearEquipmentStartedAt`，每台機台獨立維護開始時間戳（`washroom_eq_start_${equipmentId}`），設備完成或閒置時自動清除，確保跨機台、跨頁面與重整時倒數計時各不相干。
+  - **單元測試防護（`tests/unit/quick-live-view.spec.ts`）**：
+    - 新增測試驗證多台洗衣機同時運作時（一台已運作 20 分鐘、一台剛啟動），車號、剩餘秒數與倒數格式各自獨立，絕不互相影響或同步重置。
+    - 全專案 37 個測試檔、168 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
 - **依分類專屬流程與自訂清洗時間全面調整（/app/dashboard, /app/operations/receive, /app/admin/laundry-equipment）**：
   - **五大洗滌分類專屬流轉流程與清洗時間規則（`src/lib/laundry-equipment/duration-config.ts`、`receive-control.tsx`、`quick-live-view.tsx`）**：
     1. **消毒品（DISINFECT）**：
