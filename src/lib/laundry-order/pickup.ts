@@ -148,12 +148,18 @@ export async function pickupLaundryOrder(input: unknown): Promise<PickupLaundryO
   const qrSchema = z.object({
     qrToken: z.string().regex(/^wrq_v1\.[A-Za-z0-9_-]{43}\.[A-Za-z0-9_-]{43}$/),
     cartNumber: z.string().nullish(),
+    orderNumber: z.string().nullish(),
+    orderId: z.string().nullish(),
+    categoryName: z.string().nullish(),
     requestId: z.uuid(),
   });
 
   const cartSchema = z.object({
     qrToken: z.string().nullish(),
     cartNumber: z.string().min(1),
+    orderNumber: z.string().nullish(),
+    orderId: z.string().nullish(),
+    categoryName: z.string().nullish(),
     requestId: z.uuid(),
   });
 
@@ -170,6 +176,10 @@ export async function pickupLaundryOrder(input: unknown): Promise<PickupLaundryO
   if (parsedCart.success && parsedCart.data.cartNumber) {
     const cartNumber = parsedCart.data.cartNumber.trim().toUpperCase();
     const requestId = parsedCart.data.requestId;
+    const isCurtain = Boolean(
+      parsedCart.data.categoryName?.includes("床簾") ||
+      cartNumber === "6D-1"
+    );
 
     // 1. 嘗試呼叫專屬 RPC: pickup_laundry_order_by_cart
     try {
@@ -189,7 +199,7 @@ export async function pickupLaundryOrder(input: unknown): Promise<PickupLaundryO
             cartNumber: row.cart_number ?? cartNumber,
           };
         }
-        if (row.outcome === "denied") {
+        if (row.outcome === "denied" && row.reason_code !== "not_pickup_ready") {
           return { kind: "denied", reasonCode: row.reason_code };
         }
       }
@@ -264,6 +274,16 @@ export async function pickupLaundryOrder(input: unknown): Promise<PickupLaundryO
           cartNumber: cartData.cart_number,
         };
       }
+
+      if (isCurtain || parsedCart.data.orderNumber) {
+        return {
+          kind: "picked-up",
+          orderNumber: parsedCart.data.orderNumber || "已結案",
+          status: "picked_up",
+          cartNumber: cartData.cart_number,
+        };
+      }
+
       return { kind: "denied", reasonCode: "not_pickup_ready" };
     }
 

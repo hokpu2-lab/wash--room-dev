@@ -35,11 +35,17 @@ export async function POST(request: Request) {
   const value = typeof body === "object" && body !== null ? body : {};
   const qrToken = "qr_token" in value && typeof value.qr_token === "string" ? value.qr_token : null;
   const cartNumber = "cart_number" in value && typeof value.cart_number === "string" ? value.cart_number : null;
+  const orderNumber = "order_number" in value && typeof value.order_number === "string" ? value.order_number : null;
+  const orderId = "order_id" in value && typeof value.order_id === "string" ? value.order_id : null;
+  const categoryName = "category_name" in value && typeof value.category_name === "string" ? value.category_name : null;
   const requestId = "change_request_id" in value && typeof value.change_request_id === "string" ? value.change_request_id : null;
 
   const result = await pickupLaundryOrder({
     qrToken,
     cartNumber,
+    orderNumber,
+    orderId,
+    categoryName,
     requestId,
   });
 

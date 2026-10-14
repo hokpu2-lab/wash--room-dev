@@ -134,6 +134,9 @@ export function PickupControl() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           cart_number: targetCart,
+          order_number: cartInfo?.found ? cartInfo.orderNumber : undefined,
+          order_id: cartInfo?.found ? cartInfo.orderId : undefined,
+          category_name: cartInfo?.found ? cartInfo.categoryNames.join(",") : undefined,
           change_request_id: reqId,
         }),
       });

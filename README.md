@@ -10,11 +10,24 @@
 - GitHub 串接 Vercel 部署
 - Playwright 公開介面驗收測試
 
-## 2026-10-13 最新接手快照
+## 2026-10-14 最新接手快照
 
 本節是目前接手的第一個入口。先執行 `git status --short --branch`、`git log -5 --oneline`，再閱讀
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
+
+- **床簾（CURTAIN）舊程序卡住修復與智慧結案特赦（/scan/pickup, /app/dashboard）**：
+  - **根本原因排查**：
+    - 「6D-1」係於洗滌規則更新前完成收單分類，鎖定了含有「烘乾階段」的舊版程序（`procedure_template_versions` 具不可變性）。
+    - 洗衣機清洗完畢後，後端資料庫依據舊程序將其批次推進至第 2 階段「待烘乾」，訂單未達 `ready_for_pickup`。
+    - 現場依新規定「床簾不須烘衣」未進烘衣機，且看板（`quick-live-view.tsx`）直接將其呈現於「待取件」；而操作員在取件時，資料庫端因訂單未達待取件狀態而回傳 `not_pickup_ready` 阻擋結案。
+  - **專屬修復 Migration 與安全結案 RPC（`supabase/migrations/20261014170000_repair_curtain_procedure_and_close_order.sql`）**：
+    - 升級 `pickup_laundry_order_by_cart` RPC：結案時自動結束未完工 stage runs、釋放設備占用、標記批次全流程完成，並將訂單推進至 `picked_up`。
+    - 內建一次性自動校正腳本：掃描所有未結案之「床簾（CURTAIN）」單據及 6D-1，自動補齊未完階段並推進訂單至 `ready_for_pickup`。
+  - **取件資料流床簾智慧豁免（`src/lib/laundry-order/pickup.ts`、`/api/scan/pickup/route.ts`、`pickup-control.tsx`）**：
+    - 取件控制台於送出結案時帶入分類名稱與單號；後端取件模組具備床簾智慧豁免防禦，即使遠端資料庫未即時遷移，亦能強制結案。
+  - **測試與建置覆核**：
+    - 全專案 38 個測試檔、173 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
 
 - **看板卡片點擊直達取件、車號領回結案與歷史卡住單據修復（/app/dashboard, /scan/pickup）**：
   - **取件結案點選無反應問題排除（`src/app/scan/pickup/pickup-control.tsx`、`src/lib/laundry-order/pickup.ts`）**：
