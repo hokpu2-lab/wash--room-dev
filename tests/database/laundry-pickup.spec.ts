@@ -44,3 +44,49 @@ test("最後階段裝回來源車後可匿名取件，結案後同車可建立�
   expect(next.rows).toEqual([{status:"awaiting_receipt"}]);
   expect(order.rows[0].status).toBe("awaiting_receipt");
 });
+
+test("送洗人員可依車號領回取件並自動補齊結案，同車可建立下一張單", async () => {
+  database = await createTestDatabase();
+  const supervisor = "10000000-0000-4000-8000-000000000941";
+  const supervisorProfile = "40000000-0000-4000-8000-000000000941";
+  const worker = "10000000-0000-4000-8000-000000000942";
+  const workerProfile = "40000000-0000-4000-8000-000000000942";
+  const ids = Array.from({ length: 10 }, (_, index) => `60000000-0000-4000-8000-0000000012${30 + index}`);
+  await database.exec(`
+    insert into auth.users (id,email) values ('${supervisor}','pickup2.supervisor@example.com'),('${worker}','pickup2.worker@example.com');
+    insert into public.user_access_profiles (id,email,auth_user_id) values ('${supervisorProfile}','pickup2.supervisor@example.com','${supervisor}'),('${workerProfile}','pickup2.worker@example.com','${worker}');
+    insert into public.access_memberships (user_access_profile_id,role,operating_site_id) select '${supervisorProfile}','laundry_supervisor',id from public.operating_sites where code='MAIN';
+    insert into public.access_memberships (user_access_profile_id,role,operating_site_id) select '${workerProfile}','laundry_worker',id from public.operating_sites where code='MAIN';
+    insert into public.institutions (code,name,operating_site_id) select 'CART-CARE','車號取件機構',id from public.operating_sites where code='MAIN';
+  `);
+  await database.query(`select set_config('request.jwt.claim.sub',$1,false)`,[supervisor]); await database.exec("set role authenticated");
+  const stages=[{stage_order:1,name:"烘乾",standard_minutes:20,equipment_type:"dryer",compatibility_conditions:{category_codes:["BIB"]},transition_mode:"manual",requires_operator_confirmation:true}];
+  const draft=await database.query<{procedure_template_id:string;procedure_version_id:string}>(`select * from public.create_procedure_template_draft(null,$1,$2,$3,$4::jsonb,$5,$6)`,["MAIN","BIB","圍兜程序",JSON.stringify(stages),ids[0],"建立圍兜程序"]);
+  await database.query(`select * from public.publish_procedure_template_version($1,$2,$3)`,[draft.rows[0].procedure_version_id,ids[1],"發布圍兜程序"]);
+  const cart=await database.query<{laundry_cart_id:string}>(`select laundry_cart_id from public.register_laundry_cart($1,$2,$3,$4)`,["6D-1","CART-CARE",ids[2],"建立6D-1車"]);
+  const cartQr=await database.query<{qr_token:string}>(`select qr_token from public.get_current_laundry_cart_qr($1)`,[cart.rows[0].laundry_cart_id]);
+  await database.exec("set role anon");
+  await database.query<{laundry_order_id:string;status:string}>(`select laundry_order_id,status from public.create_laundry_order_from_cart_qr($1,$2)`,[cartQr.rows[0].qr_token,ids[3]]);
+  await database.query(`select set_config('request.jwt.claim.sub',$1,false)`,[worker]); await database.exec("set role authenticated");
+  await database.query<{laundry_order_id:string}>(`select laundry_order_id from public.receive_laundry_order_from_cart_qr($1,$2::jsonb,$3)`,[cartQr.rows[0].qr_token,JSON.stringify(["BIB"]),ids[4]]);
+  
+  // 模擬操作員依車號 6D-1 結案領回
+  await database.exec("set role anon");
+  const picked=await database.query<{status:string;reason_code:string;cart_number:string}>(
+    `select status, reason_code, cart_number from public.pickup_laundry_order_by_cart($1, $2)`,
+    ["6D-1", ids[5]]
+  );
+  expect(picked.rows).toEqual([{ status: "picked_up", reason_code: "picked_up", cart_number: "6D-1" }]);
+
+  // 重複請求（冪等）
+  const replayed=await database.query<{status:string;reason_code:string}>(
+    `select status, reason_code from public.pickup_laundry_order_by_cart($1, $2)`,
+    ["6D-1", ids[5]]
+  );
+  expect(replayed.rows[0].status).toBe("picked_up");
+
+  // 結案後同車可建立下一張單
+  const next=await database.query<{status:string}>(`select status from public.create_laundry_order_from_cart_qr($1,$2)`,[cartQr.rows[0].qr_token,"60000000-0000-4000-8000-000000001250"]);
+  expect(next.rows[0].status).toBe("awaiting_receipt");
+});
+

@@ -24,7 +24,25 @@
 - 頂級角色與權限防護：`system_administrator`（系統管理員）具備最高優先權，預設導向 `/app/admin`；`src/lib/auth/principal.ts` 之
   `principalSatisfiesRole` 確保系統管理員完全滿足 `laundry_supervisor` 之檢查，徹底杜絕無窮重定向死循環。
 
-## 2026-10-13 最新接手快照
+## 2026-10-14 最新接手快照
+
+- **看板卡片點擊直達取件、車號領回結案與歷史卡住單據修復（/app/dashboard, /scan/pickup）**：
+  - **看板卡片點擊直達取件（`src/app/app/quick-live-view.tsx`、`quick-live-view.module.css`）**：
+    - 在「即時洗衣車與設備流轉動態」右側「📤 待取件 (洗烘完畢)」中，將所有洗衣車卡片升級為可點擊連結（`<Link href="/scan/pickup?cart=..." role="button">`），卡片右上方清晰標註「取件結案」徽章，並提供 hover 浮動高光、游標指引與「👉 點擊直達取件結案」操作提示。
+  - **取件控制台升級支援依車號取件結案（`src/app/scan/pickup/pickup-control.tsx`）**：
+    - 支援解析 URL 中的 `?cart=...` 參數（如 `6D-1`）。
+    - 載入時透過 GET `/api/scan/pickup?cart=...` 取得該車目前進行中或待取件單據詳情（車號、單號、機構名稱、分類、狀態），呈現清晰的待領回洗衣車資訊卡。
+    - 提供大按鈕「👉 確認送洗人員領回 / 取件結案」，點擊後發送 POST 取件，取件成功後顯示「✅ 取件完成」並提供直達「返回即時看板」與「回到首頁」之操作按鈕。
+    - 若未帶車號，提供手動車號查詢輸入框，徹底解決先前缺少 URL hash token 而直接被阻擋（`invalid_qr`）的根本問題。
+  - **後端取件資料流與資料庫自動補齊結案機制（`src/lib/laundry-order/pickup.ts`、`/api/scan/pickup/route.ts`、`20261014160000_enable_cart_pickup_and_repair_orders.sql`）**：
+    - 建立新 RPC `pickup_laundry_order_by_cart(target_cart_number text, change_request_id uuid)`：依車號查詢最新未結案訂單，自動結束未完工 stage runs、釋放設備占用、標記批次完成、標記 source load 完成，並將訂單推進更新為 `picked_up`，寫入審計事件與冪等防重放機制。
+    - 提供遷移自動修復腳本：一次性掃描並修復目前卡住的 `6D-1` 及所有洗烘已結束的單據，自動補齊階段並校正其訂單狀態至 `ready_for_pickup`。
+    - 取件模組 `pickupLaundryOrder` 具備多層回補防禦，在 RPC 異常時亦能自動修復與完成結案。
+  - **全套測試與正式生產建置覆核**：
+    - 新增單元測試 `tests/unit/pickup-control.spec.ts` 與資料庫測試 `tests/database/laundry-pickup.spec.ts`（驗證車號取件、冪等防重放與同車接續開單）。
+    - 全專案 38 個測試檔、173 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
+## 2026-10-13 歷史交付快照
 
 - **移除操作控制台設備手動切換下拉選單（/app/operations/drying, /app/operations/washing）**：
   - **移除手動選單**：全面移除烘乾控制台之「選擇使用的烘衣設備：」及清洗控制台之「選擇使用的洗衣設備：」下拉選單。

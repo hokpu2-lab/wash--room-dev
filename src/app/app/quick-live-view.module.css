@@ -229,12 +229,37 @@
 .cartChipReady {
   background: var(--lv-ready-bg, rgba(16, 185, 129, 0.12));
   border-color: var(--lv-ready-border, rgba(16, 185, 129, 0.45));
+  cursor: pointer;
+  text-decoration: none;
+  display: block;
 }
 
 .cartChipReady:hover {
   background: var(--lv-ready-hover, rgba(16, 185, 129, 0.25));
   border-color: #10b981;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+  transform: translateY(-1px);
+}
+
+.cartPickupActionBadge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 0.15rem 0.45rem;
+  border-radius: 9999px;
+  background: #047857;
+  color: #ecfdf5;
+  border: 1px solid #34d399;
+  letter-spacing: 0.02em;
+  margin-left: auto;
+  box-shadow: 0 1px 3px rgba(4, 120, 87, 0.35);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.cartChipReady:hover .cartPickupActionBadge {
+  background: #059669;
+  transform: scale(1.05);
 }
 
 /* Hover Tooltip 浮動提示機構名稱與階段 */
@@ -312,6 +337,16 @@
   margin-top: 4px;
   display: inline-block;
   white-space: nowrap;
+}
+
+.tooltipPickupPrompt {
+  font-size: 0.74rem;
+  font-weight: 850;
+  color: #34d399;
+  margin-top: 5px;
+  padding-top: 4px;
+  border-top: 1px dashed rgba(52, 211, 153, 0.4);
+  display: block;
 }
 
 /* 依序並排顯示：消毒鍋 ➔ 洗衣機 ➔ 烘衣機 三大機器分組列 */

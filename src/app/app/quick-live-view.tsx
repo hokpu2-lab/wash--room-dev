@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { resolveEquipmentDurationFromConfig } from "../../lib/laundry-equipment/duration-config";
 import type {
@@ -1234,17 +1235,19 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
               <div className={styles.emptyState}>暫無待取件洗衣車</div>
             ) : (
               readyCarts.map((item) => (
-                <div
+                <Link
                   key={item.id}
+                  href={`/scan/pickup?cart=${encodeURIComponent(item.cartNumber)}`}
                   className={`${styles.cartChip} ${styles.cartChipReady}`}
                   tabIndex={0}
-                  role="tooltip"
-                  aria-label={`${item.institutionName} - 車號 ${item.cartNumber}，結束時間：${item.readyTime}`}
+                  role="button"
+                  aria-label={`${item.institutionName} - 車號 ${item.cartNumber}，點擊直達取件結案`}
                 >
                   <div className={styles.cartChipMainWrap}>
                     <div className={styles.cartChipMain}>
                       <span className={styles.cartIcon}>✨</span>
                       <strong className={styles.cartNumber}>{item.cartNumber}</strong>
+                      <span className={styles.cartPickupActionBadge}>取件結案</span>
                     </div>
 
                     {/* 洗衣車分類標籤 */}
@@ -1284,8 +1287,9 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
                       <span className={styles.tooltipTime}>收件時間：{item.receiptTime}</span>
                     ) : null}
                     <span className={styles.tooltipTime}>完成時間：{item.readyTime}</span>
+                    <span className={styles.tooltipPickupPrompt}>👉 點擊直達取件結案</span>
                   </div>
-                </div>
+                </Link>
               ))
             )}
           </div>
