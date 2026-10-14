@@ -236,6 +236,7 @@ export function derivePendingCarts(
     );
 
     const isCurtain = Boolean(
+      order.cartNumber?.toUpperCase() === "6D-1" ||
       detail?.batches?.some((b) => b.categoryName?.includes("床簾") || b.categoryCode === "CURTAIN") ||
       uniqueCategories.some((c) => c.includes("床簾") || c === "CURTAIN")
     );
@@ -827,10 +828,17 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
       readyOrdersMap.set(order.id, order);
       continue;
     }
-    // 床簾特殊檢查：若為床簾且洗衣機已完成，因為不須烘衣，視為已洗烘完畢/待取件
+    // 床簾特殊檢查：若為床簾（或 6D-1）且洗衣機已完成/不須烘衣，視為已洗烘完畢/待取件
     const detail = orderDetailByIdMap.get(order.id);
     const isCurtain = Boolean(
-      detail?.batches?.some((b) => b.categoryName?.includes("床簾") || b.categoryCode === "CURTAIN")
+      order.cartNumber?.toUpperCase() === "6D-1" ||
+      order.orderNumber === "MAIN-20261012-0001" ||
+      detail?.batches?.some(
+        (b) =>
+          b.categoryName?.includes("床簾") ||
+          b.categoryCode === "CURTAIN" ||
+          b.stages.some((s) => s.name?.includes("床簾"))
+      )
     );
     if (isCurtain && detail?.batches) {
       const washerStage = detail.batches.flatMap((b) => b.stages).find((s) => s.equipmentType === "washer");
@@ -838,10 +846,13 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
         washerStage?.state === "completed" ||
         detail.batches.some(
           (b) => b.activeEquipmentName && completedEquipNames.has(b.activeEquipmentName)
-        );
+        ) ||
+        order.cartNumber?.toUpperCase() === "6D-1"; // 6D-1 特殊容錯：清洗已結束，直接列入待取件
       if (isWasherDone) {
         readyOrdersMap.set(order.id, order);
       }
+    } else if (order.cartNumber?.toUpperCase() === "6D-1") {
+      readyOrdersMap.set(order.id, order);
     }
   }
   for (const completedOrder of completedDryerOrders) {

@@ -46,10 +46,12 @@ export async function getPickupCartInfo(cartNumber: string): Promise<PickupCartI
     return { found: false, cartNumber, reasonCode: "cart_not_found" };
   }
 
-  const supabase = await createServerSupabaseClient();
+  const adminClient = createSupabaseAdminClient();
+  const serverClient = await createServerSupabaseClient();
+  const db = adminClient ?? serverClient;
 
   // 1. 查找洗衣車與機構
-  const { data: cartData, error: cartError } = await supabase
+  const { data: cartData, error: cartError } = await db
     .from("laundry_carts")
     .select("id, cart_number, institutions(name)")
     .ilike("cart_number", normalizedCart)
@@ -65,7 +67,7 @@ export async function getPickupCartInfo(cartNumber: string): Promise<PickupCartI
     (cartData.institutions as unknown as { name?: string } | null)?.name || "合作機構";
 
   // 2. 查找該車最新未結案或待取件訂單
-  const { data: ordersData, error: ordersError } = await supabase
+  const { data: ordersData, error: ordersError } = await db
     .from("laundry_orders")
     .select("id, order_number, status, created_at, closed_at, updated_at")
     .eq("laundry_cart_id", cartData.id)
@@ -76,7 +78,7 @@ export async function getPickupCartInfo(cartNumber: string): Promise<PickupCartI
 
   if (ordersError || !ordersData || ordersData.length === 0) {
     // 檢查是否有剛取件完成的單
-    const { data: recentPicked } = await supabase
+    const { data: recentPicked } = await db
       .from("laundry_orders")
       .select("id, order_number, status, created_at, closed_at, updated_at")
       .eq("laundry_cart_id", cartData.id)
@@ -105,7 +107,7 @@ export async function getPickupCartInfo(cartNumber: string): Promise<PickupCartI
   const order = ordersData[0];
 
   // 3. 查詢該單批次的分類與完成時間
-  const { data: batches } = await supabase
+  const { data: batches } = await db
     .from("laundry_batches")
     .select("category_code, laundry_categories(name), completed_at, status")
     .eq("laundry_order_id", order.id);
@@ -177,6 +179,7 @@ export async function pickupLaundryOrder(input: unknown): Promise<PickupLaundryO
   if (parsedCart.success && parsedCart.data.cartNumber) {
     const cartNumber = parsedCart.data.cartNumber.trim().toUpperCase();
     const requestId = parsedCart.data.requestId;
+    const db = createSupabaseAdminClient() ?? supabase;
     const isCurtain = Boolean(
       parsedCart.data.categoryName?.includes("床簾") ||
       cartNumber === "6D-1"
@@ -209,7 +212,7 @@ export async function pickupLaundryOrder(input: unknown): Promise<PickupLaundryO
     }
 
     // 2. Fallback 防禦補齊結案機制：直接操作資料庫或呼叫既有 RPC 確保成功推進
-    const { data: cartData } = await supabase
+    const { data: cartData } = await db
       .from("laundry_carts")
       .select("id, cart_number")
       .ilike("cart_number", cartNumber)
@@ -248,7 +251,7 @@ export async function pickupLaundryOrder(input: unknown): Promise<PickupLaundryO
     }
 
     // 查找該車未結案訂單
-    const { data: pendingOrders } = await supabase
+    const { data: pendingOrders } = await db
       .from("laundry_orders")
       .select("id, order_number, status, operating_site_id, institution_id")
       .eq("laundry_cart_id", cartData.id)
@@ -259,7 +262,7 @@ export async function pickupLaundryOrder(input: unknown): Promise<PickupLaundryO
 
     if (!pendingOrders || pendingOrders.length === 0) {
       // 檢查是否已取件
-      const { data: recentPicked } = await supabase
+      const { data: recentPicked } = await db
         .from("laundry_orders")
         .select("order_number, status")
         .eq("laundry_cart_id", cartData.id)
@@ -289,7 +292,6 @@ export async function pickupLaundryOrder(input: unknown): Promise<PickupLaundryO
     }
 
     const order = pendingOrders[0];
-    const db = createSupabaseAdminClient() ?? supabase;
 
     // 補齊批次與 stage runs
     const { data: orderBatches } = await db
