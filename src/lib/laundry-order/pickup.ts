@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const resultSchema = z.array(
   z.object({
@@ -288,9 +289,10 @@ export async function pickupLaundryOrder(input: unknown): Promise<PickupLaundryO
     }
 
     const order = pendingOrders[0];
+    const db = createSupabaseAdminClient() ?? supabase;
 
     // 補齊批次與 stage runs
-    const { data: orderBatches } = await supabase
+    const { data: orderBatches } = await db
       .from("laundry_batches")
       .select("id, active_stage_run_id")
       .eq("laundry_order_id", order.id);
@@ -298,22 +300,42 @@ export async function pickupLaundryOrder(input: unknown): Promise<PickupLaundryO
     if (orderBatches && orderBatches.length > 0) {
       const batchIds = orderBatches.map((b) => b.id);
 
+      // 取得相關 stage runs 之設備 ID 並釋放占用
+      const { data: stageRuns } = await db
+        .from("laundry_batch_stage_runs")
+        .select("laundry_equipment_id")
+        .in("laundry_batch_id", batchIds);
+      const eqIds = Array.from(new Set((stageRuns ?? []).map((r) => r.laundry_equipment_id).filter(Boolean)));
+      if (eqIds.length > 0) {
+        await db
+          .from("laundry_equipment")
+          .update({ occupied: false, updated_at: new Date().toISOString() })
+          .in("id", eqIds);
+      }
+
       // 結束 stage runs
-      await supabase
+      await db
         .from("laundry_batch_stage_runs")
         .update({ status: "completed", completed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
         .in("laundry_batch_id", batchIds)
         .in("status", ["in_progress", "paused"]);
 
       // 標記批次完成
-      await supabase
+      await db
         .from("laundry_batches")
         .update({ status: "completed", completed_at: new Date().toISOString(), active_stage_run_id: null, updated_at: new Date().toISOString() })
         .in("id", batchIds);
+
+      // 標記 pending source load 為 loaded
+      await db
+        .from("laundry_batch_sources")
+        .update({ load_status: "loaded", loaded_at: new Date().toISOString() })
+        .in("shared_batch_id", batchIds)
+        .eq("load_status", "pending");
     }
 
     // 將訂單標記為 picked_up 並結案
-    await supabase
+    await db
       .from("laundry_orders")
       .update({
         status: "picked_up",
@@ -324,7 +346,7 @@ export async function pickupLaundryOrder(input: unknown): Promise<PickupLaundryO
 
     // 寫入授權審計事件
     try {
-      await supabase.from("authorization_audit_events").insert({
+      await db.from("authorization_audit_events").insert({
         actor_type: "system",
         operating_site_id: order.operating_site_id,
         institution_id: order.institution_id,
