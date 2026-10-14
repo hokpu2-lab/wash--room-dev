@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import type {
@@ -8,6 +8,7 @@ import type {
   WorkspaceOrder,
   WorkspaceOrderDetail,
 } from "@/lib/analytics/workspace-snapshot";
+import { deriveOrderPipeline } from "@/lib/laundry-schedule/order-pipeline";
 
 import { AppLink } from "./app-link";
 import { LaundryOrderFlow3D } from "./laundry-order-flow-3d";
@@ -268,6 +269,7 @@ export function LiveQueue({
 }: LiveQueueProps) {
   const [selectedId, setSelectedId] = useState<string | null>(selectedOrderId ?? orders[0]?.id ?? null);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [institutionFilter, setInstitutionFilter] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState(query);
   const [detailOpen, setDetailOpen] = useState(false);
   const closeDetail = useCallback(() => setDetailOpen(false), []);
@@ -284,10 +286,35 @@ export function LiveQueue({
     setSearchTerm(query);
   }, [query]);
 
+  // 統計所有不重複機構名稱與單據數量
+  const institutionsWithCount = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const o of orders) {
+      if (!o.institutionName) continue;
+      counts.set(o.institutionName, (counts.get(o.institutionName) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "zh-Hant"));
+  }, [orders]);
+
+  // 建立 orderId ➔ WorkspaceOrderDetail 快速對照表
+  const orderDetailByIdMap = useMemo(() => {
+    const map = new Map<string, WorkspaceOrderDetail>();
+    for (const d of orderDetails) {
+      map.set(d.orderId, d);
+    }
+    if (fetchedDetail) {
+      map.set(fetchedDetail.orderId, fetchedDetail);
+    }
+    return map;
+  }, [orderDetails, fetchedDetail]);
+
   const displayedOrders = orders.filter((order) => {
     const matchesStatus = !statusFilter || order.status === statusFilter;
+    const matchesInstitution = !institutionFilter || order.institutionName === institutionFilter;
     const matchesQuery = matchesSearch(order, searchTerm);
-    return matchesStatus && matchesQuery;
+    return matchesStatus && matchesInstitution && matchesQuery;
   });
 
   const activeSelectedId = selectedId && displayedOrders.some((order) => order.id === selectedId)
@@ -301,9 +328,8 @@ export function LiveQueue({
           ?? null;
   const selected = orders.find((order) => order.id === activeSelectedId) ?? null;
   const selectedDetail = selected
-    ? orderDetails.find((detail) => detail.orderId === selected.id)
-      ?? (fetchedDetail?.orderId === selected.id ? fetchedDetail : null)
-    : fetchedDetail?.orderId === activeSelectedId ? fetchedDetail : null;
+    ? orderDetailByIdMap.get(selected.id) ?? null
+    : activeSelectedId ? orderDetailByIdMap.get(activeSelectedId) ?? null : null;
 
 
   const handleSelectOrder = (order: WorkspaceOrder) => {
@@ -463,47 +489,86 @@ export function LiveQueue({
               </button>
             </form>
 
-            <div className={styles.queueFilterGroup} role="group" aria-label="狀態篩選">
-              <button
-                type="button"
-                className={statusFilter === null ? `${styles.filterPill} ${styles.filterPillAll} ${styles.filterPillActive}` : `${styles.filterPill} ${styles.filterPillAll}`}
-                onClick={() => setStatusFilter(null)}
-                aria-pressed={statusFilter === null}
-              >
-                全部
-              </button>
-              <button
-                type="button"
-                className={statusFilter === "awaiting_receipt" ? `${styles.filterPill} ${styles.filterPillGray} ${styles.filterPillActive}` : `${styles.filterPill} ${styles.filterPillGray}`}
-                onClick={() => setStatusFilter(statusFilter === "awaiting_receipt" ? null : "awaiting_receipt")}
-                aria-pressed={statusFilter === "awaiting_receipt"}
-              >
-                待收件{awaitingReceiptCount > 0 ? ` (${awaitingReceiptCount})` : ""}
-              </button>
-              <button
-                type="button"
-                className={statusFilter === "awaiting_cleaning" ? `${styles.filterPill} ${styles.filterPillBlue} ${styles.filterPillActive}` : `${styles.filterPill} ${styles.filterPillBlue}`}
-                onClick={() => setStatusFilter(statusFilter === "awaiting_cleaning" ? null : "awaiting_cleaning")}
-                aria-pressed={statusFilter === "awaiting_cleaning"}
-              >
-                待清洗{awaitingCleaningCount > 0 ? ` (${awaitingCleaningCount})` : ""}
-              </button>
-              <button
-                type="button"
-                className={statusFilter === "in_process" ? `${styles.filterPill} ${styles.filterPillOrange} ${styles.filterPillActive}` : `${styles.filterPill} ${styles.filterPillOrange}`}
-                onClick={() => setStatusFilter(statusFilter === "in_process" ? null : "in_process")}
-                aria-pressed={statusFilter === "in_process"}
-              >
-                處理中{inProcessCount > 0 ? ` (${inProcessCount})` : ""}
-              </button>
+            <div className={styles.queueFilterSection}>
+              {/* 1. 送洗機構篩選標籤群 */}
+              <div className={styles.filterGroupRow}>
+                <span className={styles.filterGroupTitle}>🏢 送洗機構：</span>
+                <div className={styles.queueFilterGroup} role="group" aria-label="機構篩選">
+                  <button
+                    type="button"
+                    className={institutionFilter === null ? `${styles.filterPill} ${styles.filterPillAll} ${styles.filterPillActive}` : `${styles.filterPill} ${styles.filterPillAll}`}
+                    onClick={() => setInstitutionFilter(null)}
+                    aria-pressed={institutionFilter === null}
+                  >
+                    全部機構 ({orders.length})
+                  </button>
+                  {institutionsWithCount.map((inst) => (
+                    <button
+                      key={inst.name}
+                      type="button"
+                      className={institutionFilter === inst.name ? `${styles.filterPill} ${styles.filterPillTeal} ${styles.filterPillActive}` : `${styles.filterPill} ${styles.filterPillTeal}`}
+                      onClick={() => setInstitutionFilter(institutionFilter === inst.name ? null : inst.name)}
+                      aria-pressed={institutionFilter === inst.name}
+                    >
+                      {inst.name} ({inst.count})
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 2. 單據狀態篩選標籤群 */}
+              <div className={styles.filterGroupRow}>
+                <span className={styles.filterGroupTitle}>📊 單據狀態：</span>
+                <div className={styles.queueFilterGroup} role="group" aria-label="狀態篩選">
+                  <button
+                    type="button"
+                    className={statusFilter === null ? `${styles.filterPill} ${styles.filterPillAll} ${styles.filterPillActive}` : `${styles.filterPill} ${styles.filterPillAll}`}
+                    onClick={() => setStatusFilter(null)}
+                    aria-pressed={statusFilter === null}
+                  >
+                    全部狀態
+                  </button>
+                  <button
+                    type="button"
+                    className={statusFilter === "awaiting_receipt" ? `${styles.filterPill} ${styles.filterPillGray} ${styles.filterPillActive}` : `${styles.filterPill} ${styles.filterPillGray}`}
+                    onClick={() => setStatusFilter(statusFilter === "awaiting_receipt" ? null : "awaiting_receipt")}
+                    aria-pressed={statusFilter === "awaiting_receipt"}
+                  >
+                    待收件{awaitingReceiptCount > 0 ? ` (${awaitingReceiptCount})` : ""}
+                  </button>
+                  <button
+                    type="button"
+                    className={statusFilter === "awaiting_cleaning" ? `${styles.filterPill} ${styles.filterPillBlue} ${styles.filterPillActive}` : `${styles.filterPill} ${styles.filterPillBlue}`}
+                    onClick={() => setStatusFilter(statusFilter === "awaiting_cleaning" ? null : "awaiting_cleaning")}
+                    aria-pressed={statusFilter === "awaiting_cleaning"}
+                  >
+                    待清洗{awaitingCleaningCount > 0 ? ` (${awaitingCleaningCount})` : ""}
+                  </button>
+                  <button
+                    type="button"
+                    className={statusFilter === "in_process" ? `${styles.filterPill} ${styles.filterPillOrange} ${styles.filterPillActive}` : `${styles.filterPill} ${styles.filterPillOrange}`}
+                    onClick={() => setStatusFilter(statusFilter === "in_process" ? null : "in_process")}
+                    aria-pressed={statusFilter === "in_process"}
+                  >
+                    處理中{inProcessCount > 0 ? ` (${inProcessCount})` : ""}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
           <div className={styles.queueListHeader}>
             <span>排序隊列 / {String(displayedOrders.length).padStart(2, "0")}</span>
-            {statusFilter ? (
+            {statusFilter || institutionFilter ? (
               <span className={styles.filterActiveNotice}>
-                （已篩選：{orderStatusLabel(statusFilter as any) || "篩選項目"}，共 {displayedOrders.length} 筆）
+                （已篩選：
+                {[
+                  institutionFilter ? `機構：${institutionFilter}` : null,
+                  statusFilter ? `狀態：${orderStatusLabel(statusFilter as any) || "篩選項目"}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+                ，共 {displayedOrders.length} 筆）
               </span>
             ) : null}
           </div>
@@ -512,19 +577,22 @@ export function LiveQueue({
             <span>狀態</span>
             <span>機構</span>
             <span>車號</span>
+            <span>洗滌品項</span>
+            <span>洗衣階段流程 (目前階段)</span>
             <span>收單時間</span>
           </div>
 
           {displayedOrders.length === 0 ? (
             <div className={styles.emptyQueueBox}>
               <p className={styles.emptyQueue}>目前沒有符合條件的洗衣單。</p>
-              {searchTerm || statusFilter ? (
+              {searchTerm || statusFilter || institutionFilter ? (
                 <button
                   type="button"
                   className={styles.resetFilterBtn}
                   onClick={() => {
                     setSearchTerm("");
                     setStatusFilter(null);
+                    setInstitutionFilter(null);
                     if (typeof window !== "undefined") {
                       const url = new URL(window.location.href);
                       url.searchParams.delete("q");
@@ -540,16 +608,18 @@ export function LiveQueue({
             <div className={styles.orderListContainer}>
               {displayedOrders.map((order) => {
                 const active = selected?.id === order.id;
-                const orderDetail = orderDetails.find((d) => d.orderId === order.id);
+                const orderDetail = orderDetailByIdMap.get(order.id);
                 const timeValue = orderDetail?.orderReceivedAt ?? orderDetail?.orderCreatedAt ?? order.updatedAt;
                 const equipmentDisplay = getEquipmentNameDisplay(order, orderDetail ?? null, equipment);
+                const pipeline = deriveOrderPipeline(order, orderDetail, equipment);
+
                 return (
                   <button
                     key={order.id}
                     type="button"
                     className={active ? `${styles.orderListItem} ${styles.orderListItemActive}` : styles.orderListItem}
                     aria-pressed={active}
-                    aria-label={`選取 ${order.orderNumber}，${orderStatusLabel(order.status)}（使用設備：${equipmentDisplay}）`}
+                    aria-label={`選取 ${order.orderNumber}，${orderStatusLabel(order.status)}（品項：${pipeline.categoryName}，目前：${pipeline.currentStageName}）`}
                     onClick={() => handleSelectOrder(order)}
                   >
                     <span className={`${styles.statusPill} ${statusPillClass[order.status]}`}>
@@ -559,8 +629,44 @@ export function LiveQueue({
                       {order.institutionName}
                     </span>
                     <span className={styles.orderItemCart} title={order.cartNumber}>
-                      {order.cartNumber}
+                      🛒 {order.cartNumber}
                     </span>
+                    <span
+                      className={`${styles.orderItemCategoryBadge} ${styles[`categoryBadge_${pipeline.categoryTone}`]}`}
+                      title={`洗滌分類品項：${pipeline.categoryName}`}
+                    >
+                      {pipeline.categoryName}
+                    </span>
+                    <div className={styles.orderItemPipeline} title={`目前階段：${pipeline.currentStageName}`}>
+                      {pipeline.steps.map((step, idx) => (
+                        <span key={step.order} className={styles.pipelineStepItem}>
+                          <span
+                            className={`${styles.pipelineChip} ${
+                              step.status === "completed"
+                                ? styles.pipelineChipCompleted
+                                : step.status === "current"
+                                ? styles.pipelineChipCurrent
+                                : styles.pipelineChipPending
+                            }`}
+                          >
+                            {step.status === "completed" ? (
+                              <span className={styles.chipCheck}>✓</span>
+                            ) : step.status === "current" ? (
+                              <span className={styles.chipPulse}>⚡</span>
+                            ) : (
+                              <span className={styles.chipNum}>{step.order}</span>
+                            )}
+                            <span className={styles.chipName}>{step.name}</span>
+                            {step.durationMinutes ? (
+                              <span className={styles.chipTime}>{step.durationMinutes}m</span>
+                            ) : null}
+                          </span>
+                          {idx < pipeline.steps.length - 1 ? (
+                            <span className={styles.pipelineArrow}>➔</span>
+                          ) : null}
+                        </span>
+                      ))}
+                    </div>
                     <span className={styles.orderItemTime}>
                       {formatReceiptTime(timeValue)}
                     </span>
