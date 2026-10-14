@@ -197,7 +197,7 @@ export async function pickupLaundryOrder(input: unknown): Promise<PickupLaundryO
       // 若 RPC 尚未就緒，進到下方 fallback 直接補齊並結案
     }
 
-    // 2. Fallback 防禦補齊結案機制：直接操作資料庫確保成功推進
+    // 2. Fallback 防禦補齊結案機制：直接操作資料庫或呼叫既有 RPC 確保成功推進
     const { data: cartData } = await supabase
       .from("laundry_carts")
       .select("id, cart_number")
@@ -208,6 +208,32 @@ export async function pickupLaundryOrder(input: unknown): Promise<PickupLaundryO
 
     if (!cartData) {
       return { kind: "denied", reasonCode: "cart_not_found" };
+    }
+
+    // 2.1 嘗試透過既有固定車卡 RPC 橋接結案
+    try {
+      const { data: qrData } = await supabase.rpc("get_current_laundry_cart_qr", {
+        target_laundry_cart_id: cartData.id,
+      });
+      const qrList = z.array(z.object({ qr_token: z.string() })).safeParse(qrData);
+      if (qrList.success && qrList.data[0]?.qr_token) {
+        const qrRes = await supabase.rpc("pickup_laundry_order_from_cart_qr", {
+          qr_token: qrList.data[0].qr_token,
+          change_request_id: requestId,
+        });
+        const qrParsed = resultSchema.safeParse(qrRes.data);
+        if (qrParsed.success && qrParsed.data.length === 1 && qrParsed.data[0].outcome === "applied") {
+          const row = qrParsed.data[0];
+          return {
+            kind: row.already_applied ? "already-picked-up" : "picked-up",
+            orderNumber: row.order_number || "已取件",
+            status: row.status ?? "picked_up",
+            cartNumber: cartData.cart_number,
+          };
+        }
+      }
+    } catch {
+      // 略過既有 RPC 錯誤，繼續嘗試手動補齊
     }
 
     // 查找該車未結案訂單

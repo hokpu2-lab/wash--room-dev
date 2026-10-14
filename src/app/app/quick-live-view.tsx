@@ -1238,6 +1238,10 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
                 <Link
                   key={item.id}
                   href={`/scan/pickup?cart=${encodeURIComponent(item.cartNumber)}`}
+                  onClick={() => {
+                    // 雙重防禦保險：無論客戶端路由狀態為何，皆能立即跳轉至取件頁面
+                    window.location.assign(`/scan/pickup?cart=${encodeURIComponent(item.cartNumber)}`);
+                  }}
                   className={`${styles.cartChip} ${styles.cartChipReady}`}
                   tabIndex={0}
                   role="button"
@@ -1247,7 +1251,15 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
                     <div className={styles.cartChipMain}>
                       <span className={styles.cartIcon}>✨</span>
                       <strong className={styles.cartNumber}>{item.cartNumber}</strong>
-                      <span className={styles.cartPickupActionBadge}>取件結案</span>
+                      <span
+                        className={styles.cartPickupActionBadge}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.location.assign(`/scan/pickup?cart=${encodeURIComponent(item.cartNumber)}`);
+                        }}
+                      >
+                        👉 取件結案
+                      </span>
                     </div>
 
                     {/* 洗衣車分類標籤 */}

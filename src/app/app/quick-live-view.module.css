@@ -254,12 +254,14 @@
   letter-spacing: 0.02em;
   margin-left: auto;
   box-shadow: 0 1px 3px rgba(4, 120, 87, 0.35);
+  cursor: pointer;
+  pointer-events: auto;
   transition: background 0.15s ease, transform 0.15s ease;
 }
 
-.cartChipReady:hover .cartPickupActionBadge {
+.cartPickupActionBadge:hover {
   background: #059669;
-  transform: scale(1.05);
+  transform: scale(1.08);
 }
 
 /* Hover Tooltip 浮動提示機構名稱與階段 */

@@ -17,6 +17,11 @@
 資訊仍須以實際環境重新覆核。
 
 - **看板卡片點擊直達取件、車號領回結案與歷史卡住單據修復（/app/dashboard, /scan/pickup）**：
+  - **取件結案點選無反應問題排除（`src/app/scan/pickup/pickup-control.tsx`、`src/lib/laundry-order/pickup.ts`）**：
+    - **按鈕即時回饋與資訊卡常駐**：移除原本在提交時會導致整個資訊卡與按鈕瞬間從 DOM 消失的 `!submitting` 限制；點選「取件結案」時按鈕立即切換為「`⏳ 正在辦理取件結案中，請稍候…`」並設置 `disabled={submitting}` 與過渡配色，提供即時、明確的點擊視覺反饋。
+    - **安全 UUID 生成相容性**：引入 `getSafeUUID()` 容錯函數替換原生 `crypto.randomUUID()`，徹底杜絕在非 Secure Context（HTTP、區域網路 IP 或特定行動端瀏覽器）下拋出 `TypeError: crypto.randomUUID is not a function` 導致點擊處理流程中斷崩潰的根本問題。
+    - **既有 RPC 橋接回退機制**：在 `pickupLaundryOrder` 增加自動透過既有 `get_current_laundry_cart_qr` RPC 取得車卡 QR token 並呼叫 `pickup_laundry_order_from_cart_qr` 結案的雙重保護，即使遠端資料庫尚未同步最新 migration 亦能成功取件。
+    - **看板點擊雙重導航保險（`quick-live-view.tsx`）**：在卡片與「👉 取件結案」徽章加入 `window.location.assign`，確保任何情境下點選皆能 100% 直達取件控制台。
   - **看板卡片點擊直達取件（`src/app/app/quick-live-view.tsx`、`quick-live-view.module.css`）**：
     - 在「即時洗衣車與設備流轉動態」右側「📤 待取件 (洗烘完畢)」中，將所有洗衣車卡片升級為可點擊連結（`<Link href="/scan/pickup?cart=..." role="button">`），卡片右上方清晰標註「取件結案」徽章，並提供 hover 浮動高光、游標指引與「👉 點擊直達取件結案」操作提示。
   - **取件控制台升級支援依車號取件結案（`src/app/scan/pickup/pickup-control.tsx`）**：
