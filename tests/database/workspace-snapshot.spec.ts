@@ -17,8 +17,8 @@ test("workspace snapshot 與 mutation RPC 會自行驗證 auth.uid() 與範圍",
   await database.exec(`
     insert into auth.users (id, email, raw_app_meta_data) values
       ('${supervisorAuthUserId}', 'snapshot.supervisor@example.com', '{"provider":"email","providers":["email"]}');
-    insert into public.user_access_profiles (id, email, auth_user_id) values
-      ('${supervisorProfileId}', 'snapshot.supervisor@example.com', '${supervisorAuthUserId}');
+    insert into public.user_access_profiles (id, email, auth_user_id, display_name) values
+      ('${supervisorProfileId}', 'snapshot.supervisor@example.com', '${supervisorAuthUserId}', '快照主管');
     insert into public.access_memberships (user_access_profile_id, role, operating_site_id)
       select '${supervisorProfileId}', 'laundry_supervisor', id from public.operating_sites where code = 'MAIN';
   `);
@@ -37,10 +37,11 @@ test("workspace snapshot 與 mutation RPC 會自行驗證 auth.uid() 與範圍",
   await database.query(`select set_config('request.jwt.claim.sub', $1, false)`, [supervisorAuthUserId]);
   await database.exec("set role authenticated");
 
-  const principal = await database.query<{ current_workspace_principal: { kind: string } }>(
+  const principal = await database.query<{ current_workspace_principal: { kind: string; display_name: string } }>(
     "select public.current_workspace_principal()",
   );
   expect(principal.rows[0]?.current_workspace_principal.kind).toBe("authorized");
+  expect(principal.rows[0]?.current_workspace_principal.display_name).toBe("快照主管");
 
   const snapshot = await database.query<{
     get_workspace_snapshot: { outcome: string; orders: { picked_up: number } };

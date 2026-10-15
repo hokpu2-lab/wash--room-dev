@@ -844,6 +844,7 @@ const server = createServer(async (request, response) => {
     json(response, 200, {
       kind: "authorized",
       login_name: "admin",
+      display_name: "系統管理者",
       memberships: accessContexts(),
     });
     return;

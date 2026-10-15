@@ -16,18 +16,21 @@
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
 
-- **頂部工具列「登出」按鈕左側加入登入者帳號名稱（layout.tsx, workspace-user-badge.tsx, workspace-shell.module.css）**：
+- **頂部工具列「登出」按鈕左側加入登入者帳號名稱與顯示名稱（layout.tsx, workspace-user-badge.tsx, principal.ts, workspace-shell.module.css, 20261015120000_add_display_name_to_current_workspace_principal.sql）**：
   - **介面設計與伺服端資料流**：
-    1. 新增非同步伺服端元件 `WorkspaceUserBadge`（`src/app/app/workspace-user-badge.tsx`），自 `getPrincipalState()` 提取目前授權使用者之 `state.principal.loginName`。
-    2. 若 `loginName` 缺失則自動回退至首個授權範圍名稱（`scope_name`），並提供字串前後修剪（`trim()`）防護；未授權或未登入狀態則回傳 `null` 安全不顯示。
-    3. 在 `src/app/app/layout.tsx` 的頂端工具列（`.topbarTools`）中，以 `<Suspense fallback={null}>` 包裹 `<WorkspaceUserBadge />`，精準配置於「登出」按鈕（`<LogoutForm />`）的正左側。
+    1. 非同步伺服端元件 `WorkspaceUserBadge`（`src/app/app/workspace-user-badge.tsx`）自 `getPrincipalState()` 提取目前授權使用者之 `state.principal.loginName` 與 `state.principal.displayName`。
+    2. 若 `displayName` 存在且不與 `loginName` 重複，在帳號旁以次要層次清晰呈現括號顯示名稱（如 `👤 supervisor (王小明)`），並自動修剪前後空白（`trim()`）。
+    3. 若無設定顯示名稱或名稱與帳號一致，則僅呈現帳號名稱（如 `👤 admin`），避免冗餘贅字。
+    4. 資料庫端新增遷移 `20261015120000_add_display_name_to_current_workspace_principal.sql`，使 `current_workspace_principal` RPC 原生回傳 `display_name`；伺服端 `getPrincipalState` 具備雙重回退防禦，若資料庫尚未更新則自動自 Auth Session JWT（`user_metadata.display_name`）或 `user_access_profiles` 本地撈取。
+    5. 在 `src/app/app/layout.tsx` 的頂端工具列（`.topbarTools`）中，以 `<Suspense fallback={null}>` 包裹 `<WorkspaceUserBadge />`，配置於「登出」按鈕（`<LogoutForm />`）的正左側。
   - **主題外觀與響應式螢幕適配**：
-    1. 採用與頂部操作按鈕對齊之圓角膠囊造型，呈現使用者圖示（`👤`）與帳號名稱，並配置 `title` 與 `aria-label` 輔助提示。
+    1. 採用與頂部操作按鈕對齊之圓角膠囊造型，呈現使用者圖示（`👤`）、帳號名稱（強對比主色）與顯示名稱（次要靜態柔和色），並配置 `title` 與 `aria-label` 完整無障礙提示。
     2. 全面適配全站四種主題風格（MX 原廠墨綠風格、AP 簡約風格、GS 綠幕戰情風格、MB 報章風格、SH shadcn 風格）。
-    3. 針對平板與手機小尺寸螢幕（`@media (max-width: 900px)` 與 `@media (max-width: 480px)`）加入動態寬度限制與文字省略溢出（`text-overflow: ellipsis`），確保行動端窄螢幕下導覽列各功能元件絕不破版或擠壓換行。
+    3. 針對平板與手機小尺寸螢幕（`@media (max-width: 900px)` 與 `@media (max-width: 480px)`）動態調整寬度限制與文字省略；在極窄手機螢幕下自動隱藏顯示名稱括號保留帳號名稱，確保導覽列操作按鈕絕不破版或擠壓換行。
   - **測試與建置覆核**：
-    - 新增單元測試 `tests/unit/workspace-user-badge.spec.ts` 驗證未授權/訪客隱藏、正常帳號顯示、空白修剪、名稱回退與空值防禦等 5 項場景。
-    - 全專案 40 個測試檔、186 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+    - 單元測試 `tests/unit/workspace-user-badge.spec.ts` 擴充至 7 項場景（驗證未授權/訪客隱藏、帳號與顯示名稱並存、重複名稱去重、空白修剪、無顯示名稱回退與空值防禦等）。
+    - 資料庫測試 `tests/database/workspace-snapshot.spec.ts` 驗證 `current_workspace_principal()` 正確解析並回傳 `display_name`。
+    - 全專案 40 個測試檔、188 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
 
 - **手機掃描設備 QR Code 進入操作控制點洗衣車號遺漏修復（dispatch.ts, load-site-batches.ts, use-live-batches.ts）**：
   - **根本原因排查**：

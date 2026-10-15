@@ -254,7 +254,7 @@
 .userBadge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   min-height: 38px;
   padding: 6px 12px;
   border: 1px solid #cfddd7;
@@ -265,7 +265,7 @@
   font-weight: 800;
   letter-spacing: .02em;
   white-space: nowrap;
-  max-width: 200px;
+  max-width: 260px;
 }
 
 .userIcon {
@@ -279,6 +279,15 @@
 }
 
 .userName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.userDisplayName {
+  color: #57716a;
+  font-size: .72rem;
+  font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -403,7 +412,8 @@
   .styleSwitcher { min-height: 40px; }
   .styleSwitcherLabel { display: none; }
   .styleSwitcher select { max-width: 146px; min-height: 36px; }
-  .userBadge { min-height: 36px; padding: 4px 8px; font-size: .7rem; max-width: 120px; }
+  .userBadge { min-height: 36px; padding: 4px 8px; font-size: .7rem; max-width: 160px; }
+  .userDisplayName { font-size: .66rem; }
   .sidebar { position: sticky; z-index: 15; top: 64px; height: auto; max-height: 46vh; padding: 10px 12px; border-right: 0; border-bottom: 1px solid #dce6e1; }
   .searchArea { margin-bottom: 10px; }
   .navigation { display: flex; gap: 8px; overflow-x: auto; }
@@ -415,7 +425,8 @@
 }
 
 @media (max-width: 480px) {
-  .userBadge { max-width: 90px; padding: 4px 6px; gap: 4px; }
+  .userBadge { max-width: 95px; padding: 4px 6px; gap: 3px; }
+  .userDisplayName { display: none; }
 }
 
 /*
@@ -468,6 +479,7 @@
 :global(html[data-workspace-style="AP"]) .styleSwitcher select { border-color: rgba(60, 60, 67, .2); border-radius: 11px; color: #1d1d1f; background: rgba(255, 255, 255, .86); }
 :global(html[data-workspace-style="AP"]) .topbar form button { border-color: rgba(60, 60, 67, .2); border-radius: 11px; color: #1d1d1f; background: rgba(255, 255, 255, .86); }
 :global(html[data-workspace-style="AP"]) .userBadge { border-color: rgba(60, 60, 67, .2); border-radius: 11px; color: #1d1d1f; background: rgba(255, 255, 255, .86); }
+:global(html[data-workspace-style="AP"]) .userDisplayName { color: #86868b; }
 :global(html[data-workspace-style="AP"]) .sidebar { border-right-color: rgba(60, 60, 67, .14); background: rgba(245, 245, 247, .72); backdrop-filter: blur(24px) saturate(160%); }
 :global(html[data-workspace-style="AP"]) .searchBox { border-color: rgba(60, 60, 67, .18); border-radius: 13px; color: #6e6e73; background: rgba(255, 255, 255, .78); }
 :global(html[data-workspace-style="AP"]) .searchBox:focus-within { border-color: #0071e3; box-shadow: 0 0 0 4px rgba(0, 113, 227, .12); }
@@ -514,6 +526,7 @@
 :global(html[data-workspace-style="GS"]) .styleSwitcher select { border-color: rgba(140, 247, 182, .28); border-radius: 3px; color: #8cf7b6; background: #101719; }
 :global(html[data-workspace-style="GS"]) .topbar form button { border-color: rgba(140, 247, 182, .28); border-radius: 3px; color: #8cf7b6; background: #101719; }
 :global(html[data-workspace-style="GS"]) .userBadge { border-color: rgba(140, 247, 182, .28); border-radius: 3px; color: #8cf7b6; background: #101719; }
+:global(html[data-workspace-style="GS"]) .userDisplayName { color: #6e897b; }
 :global(html[data-workspace-style="GS"]) .sidebar { border-right-color: rgba(140, 247, 182, .18); background: rgba(8, 11, 13, .84); }
 :global(html[data-workspace-style="GS"]) .searchBox { border-color: rgba(140, 247, 182, .22); border-radius: 3px; color: #6e897b; background: #101719; }
 :global(html[data-workspace-style="GS"]) .searchBox:focus-within { border-color: #8cf7b6; box-shadow: 0 0 0 3px rgba(140, 247, 182, .13); }
@@ -554,6 +567,7 @@
 :global(html[data-workspace-style="MB"]) .styleSwitcher select { border-color: #161616; border-radius: 0; color: #161616; background: transparent; }
 :global(html[data-workspace-style="MB"]) .topbar form button { border-color: #161616; border-radius: 0; color: #f7f6f2; background: #161616; }
 :global(html[data-workspace-style="MB"]) .userBadge { border-color: #161616; border-radius: 0; color: #161616; background: transparent; }
+:global(html[data-workspace-style="MB"]) .userDisplayName { color: #686761; }
 :global(html[data-workspace-style="MB"]) .sidebar { border-right: 2px solid #161616; background: #f7f6f2; }
 :global(html[data-workspace-style="MB"]) .searchBox { border-color: #161616; border-radius: 0; color: #686761; background: transparent; }
 :global(html[data-workspace-style="MB"]) .searchBox:focus-within { border-color: #1745d1; box-shadow: 4px 4px 0 rgba(23, 69, 209, .16); }
@@ -626,6 +640,7 @@
 :global(html[data-workspace-style="SH"]) .styleSwitcher select:focus-visible { outline: 2px solid var(--sh-ring); outline-offset: 2px; }
 :global(html[data-workspace-style="SH"]) .topbar form button { border-color: var(--sh-border); border-radius: 6px; color: var(--sh-primary-foreground); background: var(--sh-primary); }
 :global(html[data-workspace-style="SH"]) .userBadge { border-color: var(--sh-border); border-radius: 6px; color: var(--sh-foreground); background: var(--sh-card); }
+:global(html[data-workspace-style="SH"]) .userDisplayName { color: var(--sh-muted-foreground); }
 :global(html[data-workspace-style="SH"]) .sidebar { border-right-color: var(--sh-border); background: var(--sh-background); }
 :global(html[data-workspace-style="SH"]) .searchBox { border-color: var(--sh-input); border-radius: 6px; color: var(--sh-muted-foreground); background: var(--sh-card); }
 :global(html[data-workspace-style="SH"]) .searchBox:focus-within { border-color: var(--sh-ring); box-shadow: 0 0 0 2px rgba(24, 24, 27, .14); }

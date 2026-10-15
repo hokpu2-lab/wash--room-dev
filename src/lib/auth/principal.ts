@@ -39,10 +39,12 @@ const principalPayloadSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("password_change_required"),
     login_name: z.string().optional(),
+    display_name: z.string().nullable().optional(),
   }),
   z.object({
     kind: z.literal("authorized"),
     login_name: z.string().optional(),
+    display_name: z.string().nullable().optional(),
     memberships: z.array(membershipSchema).min(1),
   }),
 ]);
@@ -51,6 +53,7 @@ const accessContextSchema = z.array(membershipSchema).min(1);
 
 export type Principal = {
   loginName?: string;
+  displayName?: string | null;
   memberships: AccessMembership[];
 };
 
@@ -62,10 +65,11 @@ async function hasAuthenticatedSession() {
 
 async function resolvePrincipalFromLegacyRpcs(): Promise<PrincipalState> {
   const supabase = await createServerSupabaseClient();
-  const [authorizationResult, securityState, accessResult] = await Promise.all([
+  const [authorizationResult, securityState, accessResult, sessionResult] = await Promise.all([
     supabase.rpc("authorize_current_user"),
     supabase.rpc("current_account_security_state"),
     supabase.rpc("current_access_context"),
+    supabase.auth.getSession(),
   ]);
 
   if (authorizationResult.error || !authorizationResult.data?.authorized) {
@@ -82,10 +86,23 @@ async function resolvePrincipalFromLegacyRpcs(): Promise<PrincipalState> {
   if (accessResult.error || !parsedAccess.success) {
     return { kind: "denied" };
   }
+
+  let displayName = typeof sessionResult.data?.session?.user?.user_metadata?.display_name === "string"
+    ? sessionResult.data.session.user.user_metadata.display_name.trim()
+    : null;
+  if (!displayName) {
+    const { data: profile } = await supabase
+      .from("user_access_profiles")
+      .select("display_name")
+      .maybeSingle();
+    displayName = profile?.display_name?.trim() ?? null;
+  }
+
   return {
     kind: "authorized",
     principal: {
       loginName: securityState.data[0].login_name,
+      displayName,
       memberships: parsedAccess.data,
     },
   };
@@ -101,10 +118,27 @@ export const getPrincipalState = cache(async (): Promise<PrincipalState> => {
   const parsed = principalPayloadSchema.safeParse(data);
   if (!error && parsed.success) {
     if (parsed.data.kind === "authorized") {
+      let displayName = parsed.data.display_name ?? null;
+      if (!displayName) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const userMeta = sessionData.session?.user?.user_metadata;
+        if (typeof userMeta?.display_name === "string" && userMeta.display_name.trim()) {
+          displayName = userMeta.display_name.trim();
+        } else {
+          const { data: profile } = await supabase
+            .from("user_access_profiles")
+            .select("display_name")
+            .maybeSingle();
+          if (profile?.display_name) {
+            displayName = profile.display_name.trim();
+          }
+        }
+      }
       return {
         kind: "authorized",
         principal: {
           loginName: parsed.data.login_name,
+          displayName,
           memberships: parsed.data.memberships,
         },
       };

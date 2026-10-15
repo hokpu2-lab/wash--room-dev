@@ -12,15 +12,21 @@ export async function WorkspaceUserBadge() {
     return null;
   }
 
+  const rawDisplayName = state.principal.displayName?.trim();
+  const displayName = rawDisplayName && rawDisplayName !== accountName ? rawDisplayName : null;
+
   return (
     <div
       className={styles.userBadge}
-      title={`目前登入帳號：${accountName}`}
-      aria-label={`目前登入帳號：${accountName}`}
+      title={`目前登入帳號：${accountName}${displayName ? ` (${displayName})` : ""}`}
+      aria-label={`目前登入帳號：${accountName}${displayName ? `，顯示名稱：${displayName}` : ""}`}
       data-testid="workspace-user-badge"
     >
       <i className={styles.userIcon} aria-hidden="true">👤</i>
       <span className={styles.userName}>{accountName}</span>
+      {displayName ? (
+        <span className={styles.userDisplayName}>{`(${displayName})`}</span>
+      ) : null}
     </div>
   );
 }
