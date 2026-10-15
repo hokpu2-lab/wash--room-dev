@@ -49,12 +49,38 @@ export async function loadSiteBatches(
   let request = supabase
     .from("laundry_batches")
     .select(
-      "id, status, current_stage_order, operating_site_id, source_laundry_cart_id, laundry_carts!source_laundry_cart_id(cart_number), operating_sites(name), laundry_orders(order_number, laundry_carts(cart_number), institutions(name)), laundry_categories(name)",
+      "id, status, current_stage_order, operating_site_id, source_laundry_cart_id, laundry_order_id, laundry_carts!source_laundry_cart_id(cart_number), operating_sites(name), laundry_orders(order_number, laundry_cart_id, laundry_carts(cart_number), institutions(name)), laundry_categories(name)",
     )
     .in("status", statuses)
     .order("created_at", { ascending: true });
   if (scope.siteId) request = request.eq("operating_site_id", scope.siteId);
   const { data } = await request;
+
+  // 100% 確保洗衣車號完整解析：若 batch 或 order 含有 cart_id，批量查詢 laundry_carts
+  const cartIds = Array.from(
+    new Set(
+      (data ?? []).flatMap((item) => {
+        const order = Array.isArray(item?.laundry_orders) ? item?.laundry_orders[0] : item?.laundry_orders;
+        const orderCartId = order && typeof order === "object" && "laundry_cart_id" in order && typeof order.laundry_cart_id === "string" ? order.laundry_cart_id : null;
+        const sourceCartId = typeof item?.source_laundry_cart_id === "string" ? item.source_laundry_cart_id : null;
+        return [sourceCartId, orderCartId].filter((id): id is string => Boolean(id));
+      }),
+    ),
+  );
+  const cartMap = new Map<string, string>();
+  if (cartIds.length > 0) {
+    const { data: cartsData } = await supabase
+      .from("laundry_carts")
+      .select("id, cart_number")
+      .in("id", cartIds);
+    if (Array.isArray(cartsData)) {
+      for (const cart of cartsData) {
+        if (cart?.id && typeof cart.cart_number === "string") {
+          cartMap.set(cart.id, cart.cart_number);
+        }
+      }
+    }
+  }
 
   let equipmentRequest = supabase
     .from("laundry_equipment")
@@ -96,7 +122,13 @@ export async function loadSiteBatches(
           return [];
         }
         const orderInfo = fromOrder(item.laundry_orders);
-        const cartNumber = named(item.laundry_carts) || orderInfo.cartNumber;
+        const order = Array.isArray(item.laundry_orders) ? item.laundry_orders[0] : item.laundry_orders;
+        const orderCartId = order && typeof order === "object" && "laundry_cart_id" in order && typeof order.laundry_cart_id === "string" ? order.laundry_cart_id : null;
+        const cartNumber =
+          (item.source_laundry_cart_id && cartMap.get(item.source_laundry_cart_id)) ||
+          (orderCartId && cartMap.get(orderCartId)) ||
+          named(item.laundry_carts) ||
+          orderInfo.cartNumber;
         return [
           {
             id: item.id,

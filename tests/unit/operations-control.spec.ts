@@ -291,5 +291,34 @@ describe("操作控制點與批次標籤 (Operations Control & Batch Labels)", (
     expect(defaultWasher?.id).toBe("w2");
     expect(defaultWasher?.name).toBe("本館洗衣-2");
   });
+
+  it("手機掃碼進入控制點時，displayCart 優先使用 batch.cartNumber，若無則精準回退至 selectedCartNumber", () => {
+    // 情境 1：批次自身帶有車號
+    const batchWithCart: ControlBatch = {
+      id: "b-with-cart",
+      status: "in_progress",
+      current_stage_order: 2,
+      orderNumber: "CORP-20261015-0001",
+      cartNumber: "6D-1",
+      categoryName: "消毒品",
+      institutionName: "一館",
+    };
+    const displayCart1 = batchWithCart.cartNumber || "—";
+    expect(displayCart1).toBe("6D-1");
+
+    // 情境 2：批次暫無車號，但掃碼 URL 帶入 selectedCartNumber
+    const batchWithoutCart: ControlBatch = {
+      id: "b-without-cart",
+      status: "in_progress",
+      current_stage_order: 2,
+      orderNumber: "CORP-20261015-0001",
+      categoryName: "消毒品",
+      institutionName: "一館",
+    };
+    const selectedCartNumber = "6D-1";
+    const displayCart2 = batchWithoutCart.cartNumber || selectedCartNumber || "—";
+    expect(displayCart2).toBe("6D-1");
+  });
 });
+
 

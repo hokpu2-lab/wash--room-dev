@@ -61,21 +61,70 @@ export async function dispatchEquipmentQr(input: unknown) {
     return { kind: "denied" as const, reasonCode: result.data.reason_code ?? "invalid_qr" };
   }
   let batchId: string | undefined;
+  let cartNumber: string | undefined;
+  let orderNumber: string | undefined;
+  let institutionName: string | undefined;
   if (result.data.occupied && result.data.laundry_equipment_id) {
     const runs = await supabase
       .from("laundry_batch_stage_runs")
       .select("laundry_batch_id")
       .eq("laundry_equipment_id", result.data.laundry_equipment_id)
-      .eq("status", "in_progress")
+      .in("status", ["in_progress", "paused"])
+      .order("created_at", { ascending: false })
       .limit(1);
     const active = activeRunSchema.safeParse(runs.data);
     batchId = active.success ? active.data[0]?.laundry_batch_id : undefined;
+
+    if (batchId) {
+      const { data: batchData } = await supabase
+        .from("laundry_batches")
+        .select("source_laundry_cart_id, laundry_order_id, laundry_orders(order_number, laundry_cart_id, institutions(name))")
+        .eq("id", batchId)
+        .maybeSingle();
+
+      if (batchData) {
+        const order = Array.isArray(batchData.laundry_orders)
+          ? batchData.laundry_orders[0]
+          : batchData.laundry_orders;
+        if (order && typeof order === "object") {
+          if ("order_number" in order && typeof order.order_number === "string") {
+            orderNumber = order.order_number;
+          }
+          const inst = "institutions" in order
+            ? (Array.isArray(order.institutions) ? order.institutions[0] : order.institutions)
+            : null;
+          if (inst && typeof inst === "object" && "name" in inst && typeof inst.name === "string") {
+            institutionName = inst.name;
+          }
+        }
+
+        const cartId =
+          batchData.source_laundry_cart_id ||
+          (order && typeof order === "object" && "laundry_cart_id" in order
+            ? (order as { laundry_cart_id?: string }).laundry_cart_id
+            : null);
+
+        if (cartId) {
+          const { data: cartData } = await supabase
+            .from("laundry_carts")
+            .select("cart_number")
+            .eq("id", cartId)
+            .maybeSingle();
+          if (cartData && typeof cartData.cart_number === "string") {
+            cartNumber = cartData.cart_number;
+          }
+        }
+      }
+    }
   }
   const params = new URLSearchParams();
   if (result.data.operating_site_id) params.set("site", result.data.operating_site_id);
   if (result.data.laundry_equipment_id) params.set("e", result.data.laundry_equipment_id);
   params.set("mode", batchId ? "complete" : "start");
   if (batchId) params.set("batch", batchId);
+  if (cartNumber) params.set("cart", cartNumber);
+  if (orderNumber) params.set("order", orderNumber);
+  if (institutionName) params.set("institution", institutionName);
   let equipmentName: string | undefined;
   let operatingSiteName: string | undefined;
   let operatingSiteCode: string | undefined;

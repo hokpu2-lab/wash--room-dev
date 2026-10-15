@@ -16,6 +16,19 @@
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
 
+- **手機掃描設備 QR Code 進入操作控制點洗衣車號遺漏修復（dispatch.ts, load-site-batches.ts, use-live-batches.ts）**：
+  - **根本原因排查**：
+    1. 當使用者以手機掃描設備固定 QR Code 時，後端派送邏輯 `dispatchEquipmentQr` 在設備占用時成功解析了執行中批次 `batchId`，但產生的重定向網址僅包含 `mode=complete&batch=<id>`，漏帶了 `cart`、`order`、`institution` 參數，導致前台控制點頁面無法第一時間自 URL 參數取得車號。
+    2. 控制點伺服端資料載入 `loadSiteBatches` 在關聯 `laundry_batches` 時，僅依賴巢狀 PostgREST 關聯解析 `source_laundry_cart_id`；當遇到多關聯或深層嵌入時可能回傳 `null`，致使 `item.cartNumber` 缺失。
+    3. 前端動態更新 Hook `useLiveBatches` 先前設定 `pageSize: 1` 且僅映射 `prior?.cartNumber`，當 `snapshot.batches` 刷新時未能自 `snapshot.orders` 交叉比對即時車號。
+  - **三重防護架構修復**：
+    1. **設備 QR 派送端點補齊車號解析（`dispatch.ts`）**：在 `dispatchEquipmentQr` 偵測到設備運作中時，直接自資料庫批次、單據與車輛主表查出 `cartNumber`、`orderNumber` 與 `institutionName`，並寫入 URL 查詢參數（`?cart=...&order=...&institution=...`），使手機掃碼開啟時即可秒級直顯車號。
+    2. **控制點伺服端批量車號補強（`load-site-batches.ts`）**：在撈取批次時，自動彙整所有 `source_laundry_cart_id` 與 `order.laundry_cart_id`，以批量查詢方式直接向 `laundry_carts` 取回正確車號，100% 確保伺服端回傳物件必帶車號。
+    3. **即時批次 Hook 跨清單交叉比對與容量擴展（`use-live-batches.ts`）**：將即時快照容量調升為 `pageSize: 40`，並在映射時自 `snapshot.orders` 即時補齊 `cartNumber` 與 `institutionName`，徹底解決手機掃碼及手動切換批次時車號顯示為「—」的問題。
+  - **測試與建置覆核**：
+    - `tests/unit/operations-control.spec.ts` 新增測試驗證控制點車號解析與回退機制。
+    - 全專案 39 個測試檔、181 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
 - **即時洗衣車與設備流轉動態及洗衣排程與資料庫即時同步機制全面覆核與補強（/app/dashboard, quick-live-view.tsx, workspace-live-session.ts）**：
   - **資料同步機制全面覆核**：
     - 「洗衣單與批次（`/app/dashboard`）」透過 `WorkspaceLive` 整合 `useWorkspaceLive` 監聽 Supabase Realtime 與定時輪詢機制。

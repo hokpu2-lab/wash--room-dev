@@ -21,26 +21,39 @@ export function useLiveBatches(
   statuses: string[],
   siteId?: string,
 ) {
-  const { snapshot, liveMode, syncedAt } = useWorkspaceLive(null, { siteId, pageSize: 1 });
+  const { snapshot, liveMode, syncedAt } = useWorkspaceLive(null, { siteId, pageSize: 40 });
   if (!snapshot) return { batches: initial, liveMode, syncedAt };
   const previous = new Map(initial.map((batch) => [batch.id, batch]));
+  const liveBatches = snapshot.batches
+    .filter((batch) => statuses.includes(batch.status))
+    .map((batch) => {
+      const prior = previous.get(batch.id);
+      const order = snapshot.orders.find((o) => o.orderNumber === batch.orderNumber);
+      const detail = snapshot.orderDetails.find((d) =>
+        d.batches.some((b) => b.id === batch.id)
+      );
+      const detailOrder = detail ? snapshot.orders.find((o) => o.id === detail.orderId) : null;
+      return {
+        id: batch.id,
+        status: batch.status,
+        current_stage_order: batch.stageOrder,
+        orderNumber: batch.orderNumber || prior?.orderNumber,
+        cartNumber: prior?.cartNumber || order?.cartNumber || detailOrder?.cartNumber,
+        categoryName: batch.categoryName || prior?.categoryName,
+        institutionName: prior?.institutionName || order?.institutionName || detailOrder?.institutionName,
+        operating_site_id: prior?.operating_site_id,
+        operating_site_name: prior?.operating_site_name,
+      };
+    });
+
+  const liveIds = new Set(liveBatches.map((b) => b.id));
+  const merged = [
+    ...liveBatches,
+    ...initial.filter((b) => statuses.includes(b.status) && !liveIds.has(b.id)),
+  ];
+
   return {
-    batches: snapshot.batches
-      .filter((batch) => statuses.includes(batch.status))
-      .map((batch) => {
-        const prior = previous.get(batch.id);
-        return {
-          id: batch.id,
-          status: batch.status,
-          current_stage_order: batch.stageOrder,
-          orderNumber: batch.orderNumber || prior?.orderNumber,
-          cartNumber: prior?.cartNumber,
-          categoryName: batch.categoryName || prior?.categoryName,
-          institutionName: prior?.institutionName,
-          operating_site_id: prior?.operating_site_id,
-          operating_site_name: prior?.operating_site_name,
-        };
-      }),
+    batches: merged,
     liveMode,
     syncedAt,
   };
