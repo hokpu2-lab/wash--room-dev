@@ -7,9 +7,9 @@ import {
 } from "@/lib/analytics/workspace-snapshot";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
-import { getAuthorizedSiteIds } from "./workspace-scope-client";
+import { getAuthorizedSiteIds, readClientWorkspaceScope } from "./workspace-scope-client";
 
-const POLL_MS = 15_000;
+const POLL_MS = 5_000;
 const MIN_REFRESH_MS = 1_000;
 const LAST_SYNC_KEY = "wash-room-last-sync";
 const CHANNEL_NAME = "workspace-read-model";
@@ -59,6 +59,10 @@ export function readStoredSync() {
   }
 }
 
+export function triggerWorkspaceLiveRefresh() {
+  requestRefresh();
+}
+
 async function refresh() {
   const supabase = getClient();
   if (!supabase) return;
@@ -66,8 +70,14 @@ async function refresh() {
   const pageSize = Math.min(Math.max(input.pageSize ?? 20, 1), 40);
   const page = Math.max(input.page ?? 1, 1);
   const query = input.query?.trim() || null;
-  const siteIds = input.siteId ? [input.siteId] : getAuthorizedSiteIds();
-  if (!input.siteId && siteIds.length === 0) return;
+  const storedScope = readClientWorkspaceScope();
+  const siteIds = input.siteId
+    ? [input.siteId]
+    : getAuthorizedSiteIds().length > 0
+    ? getAuthorizedSiteIds()
+    : storedScope.siteId
+    ? [storedScope.siteId]
+    : [];
   const targets = siteIds.length > 0 ? siteIds : [null];
   const parts: WorkspaceSnapshot[] = [];
   for (const siteId of targets) {
@@ -124,6 +134,8 @@ function subscribeChannel() {
       .on("postgres_changes", { event: "*", schema: "public", table: "laundry_orders" }, requestRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "laundry_batches" }, requestRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "laundry_equipment" }, requestRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "laundry_batch_stage_runs" }, requestRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "laundry_carts" }, requestRefresh)
       .subscribe((status) => {
         if (status === "SUBSCRIBED") setMode("realtime");
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {

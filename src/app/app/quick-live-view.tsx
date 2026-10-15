@@ -9,7 +9,23 @@ import type {
   WorkspaceOrder,
   WorkspaceOrderDetail,
 } from "@/lib/analytics/workspace-snapshot";
+import { triggerWorkspaceLiveRefresh } from "./workspace-live-session";
 import styles from "./quick-live-view.module.css";
+
+function getSafeUUID(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    try {
+      return crypto.randomUUID();
+    } catch {
+      // fallback
+    }
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 interface QuickLiveViewProps {
   orders: WorkspaceOrder[];
@@ -793,6 +809,65 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
     Map<string, CompletedStageCartInfo>
   >(() => new Map());
 
+  // 當資料庫端資料更新時，即時校正並釋放本地已完成的暫存狀態，與資料庫無縫同步
+  React.useEffect(() => {
+    // 1. 若設備在資料庫端已非使用中 (occupied === false)，自 completedEquipIds 與 completedEquipNames 清除
+    setCompletedEquipIds((prev) => {
+      if (prev.size === 0) return prev;
+      const next = new Set(prev);
+      for (const eq of equipment) {
+        if (!eq.occupied && next.has(eq.id)) {
+          next.delete(eq.id);
+        }
+      }
+      return next.size === prev.size ? prev : next;
+    });
+
+    setCompletedEquipNames((prev) => {
+      if (prev.size === 0) return prev;
+      const next = new Set(prev);
+      for (const eq of equipment) {
+        if (!eq.occupied && next.has(eq.name)) {
+          next.delete(eq.name);
+        }
+      }
+      return next.size === prev.size ? prev : next;
+    });
+
+    // 2. 若烘乾結束的訂單在資料庫中已被領回 (picked_up) 或已在 ready_for_pickup，自 completedDryerOrders 清除
+    setCompletedDryerOrders((prev) => {
+      if (prev.length === 0) return prev;
+      const filtered = prev.filter((co) => {
+        const liveOrder = orders.find((o) => o.id === co.id);
+        if (!liveOrder) return false;
+        return liveOrder.status !== "picked_up" && liveOrder.status !== "ready_for_pickup";
+      });
+      return filtered.length === prev.length ? prev : filtered;
+    });
+
+    // 3. 若洗衣車在資料庫端已進入下一階段設備、或已達待取件/結案，自 completedStageCarts 清除
+    setCompletedStageCarts((prev) => {
+      if (prev.size === 0) return prev;
+      const next = new Map(prev);
+      for (const order of orders) {
+        const cartNum = order.cartNumber?.trim();
+        if (!cartNum || !next.has(cartNum)) continue;
+        if (order.status === "ready_for_pickup" || order.status === "picked_up") {
+          next.delete(cartNum);
+          continue;
+        }
+        const detail = orderDetails.find((d) => d.orderId === order.id);
+        const hasActiveStage = detail?.batches?.some((b) =>
+          b.stages.some((s) => s.state === "active") || b.progress.stageStatus === "in_progress"
+        );
+        if (hasActiveStage) {
+          next.delete(cartNum);
+        }
+      }
+      return next.size === prev.size ? prev : next;
+    });
+  }, [equipment, orders, orderDetails]);
+
   // 定時器：每秒更新 nowMs 讓倒數計時即時跳動
   React.useEffect(() => {
     const timer = setInterval(() => {
@@ -856,7 +931,11 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
     }
   }
   for (const completedOrder of completedDryerOrders) {
-    readyOrdersMap.set(completedOrder.id, completedOrder);
+    const liveOrder = orders.find((o) => o.id === completedOrder.id);
+    if (liveOrder && liveOrder.status === "picked_up") {
+      continue;
+    }
+    readyOrdersMap.set(completedOrder.id, liveOrder || completedOrder);
   }
 
   const readyCarts: ReadyCartItem[] = Array.from(readyOrdersMap.values()).map((order) => {
@@ -982,10 +1061,11 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
             body: JSON.stringify({
               batch_id: item.activeBatchId,
               equipment_id: item.equipment.id,
-              change_request_id: crypto.randomUUID(),
+              change_request_id: getSafeUUID(),
             }),
           })
             .then(() => {
+              triggerWorkspaceLiveRefresh();
               router.refresh();
             })
             .catch(() => {});

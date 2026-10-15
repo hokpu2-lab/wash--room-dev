@@ -24,7 +24,30 @@
 - 頂級角色與權限防護：`system_administrator`（系統管理員）具備最高優先權，預設導向 `/app/admin`；`src/lib/auth/principal.ts` 之
   `principalSatisfiesRole` 確保系統管理員完全滿足 `laundry_supervisor` 之檢查，徹底杜絕無窮重定向死循環。
 
-## 2026-10-14 最新接手快照
+## 2026-10-15 最新接手快照
+
+- **即時洗衣車與設備流轉動態及洗衣排程與資料庫即時同步機制全面覆核與補強（/app/dashboard, quick-live-view.tsx, workspace-live-session.ts）**：
+  - **資料同步機制全面覆核**：
+    - 「洗衣單與批次（`/app/dashboard`）」透過 `WorkspaceLive` 整合 `useWorkspaceLive` 監聽 Supabase Realtime 與定時輪詢機制。
+    - 取得即時快照後，實時傳入 `QuickLiveView`（即時洗衣車與設備流轉動態）與 `LiveQueue`（洗衣排程列表與選取詳情）。
+  - **排查遺漏點修復與機制補強**：
+    1. **資料庫端 Realtime 廣播補齊（`20261015110000_enable_stage_runs_and_carts_realtime.sql`）**：
+       - 原 `supabase_realtime` 發布僅涵蓋 `laundry_orders`、`laundry_batches` 與 `laundry_equipment`。
+       - 本次遷移將 `laundry_batch_stage_runs` 與 `laundry_carts` 正式加入 `supabase_realtime` 發布，確保任何設備階段啟動、完工、暫停、恢復或車輛綁定異動時，PostgreSQL 均可毫秒級廣播通知前端。
+    2. **即時連線通道監聽完整化與輪詢提速（`workspace-live-session.ts`）**：
+       - 客戶端頻道增加監聽 `laundry_batch_stage_runs` 與 `laundry_carts` 的 `postgres_changes` 事件。
+       - 輪詢間隔由 15 秒縮短為 5 秒（`POLL_MS = 5_000`），在 Realtime 暫時斷線或網路抖動時仍能維持近乎實時的雙重備援更新。
+       - 修復未明確傳入 `siteId` 且 authorizedSiteIds 尚未初始化時提前 return 的問題，支援自動回退至已授權/通用範圍查詢（`target_site_id: null`），確保資料庫查詢永不中斷。
+       - 導出 `triggerWorkspaceLiveRefresh()` 供背景完工 API 完成後主動觸發快照刷新。
+    3. **即時看板狀態自動校正與資料庫狀態對齊（`quick-live-view.tsx`）**：
+       - 新增資料庫更新響應 `useEffect`：當資料庫最新快照回傳時，自動校正本地倒數暫存（清空已非 occupied 的設備暫存、移除已取件 `picked_up` 或已結案的單據、清除已在資料庫進入下一階段之車號），徹底杜絕本地暫存狀態與資料庫真實狀態脫節或幽靈卡片問題。
+       - 倒數歸零背景呼叫階段完工端點後，立即調用 `triggerWorkspaceLiveRefresh()`，瞬間自資料庫重新撈取最新快照。
+       - 引入 `getSafeUUID()` 安全相容方法，杜絕非 Secure Context 拋出例外中斷倒數完工流程。
+  - **測試與建置覆核**：
+    - `tests/unit/quick-live-view.spec.ts` 新增驗證資料庫同步已取件狀態單據自看板清除。
+    - 全專案 39 個測試檔、180 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
+## 2026-10-14 歷史交付快照
 
 - **洗衣排程機構篩選、品項分類展示與即時洗衣階段管線（/app/dashboard, live-queue.tsx, order-pipeline.ts）**：
   - **送洗機構篩選標籤群（Institution Filter Pills）**：

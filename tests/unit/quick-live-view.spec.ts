@@ -849,6 +849,32 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
     expect(pendingTankCart?.nextStageName).toBe("待清洗");
     expect(pendingTankCart?.nextStageTone).toBe("wash");
   });
+
+  it("已取件（picked_up）之洗衣單在資料庫同步後絕不出現在待處理或待取件清單中", () => {
+    const orders: WorkspaceOrder[] = [
+      {
+        id: "order-picked",
+        orderNumber: "MAIN-20261012-0008",
+        cartNumber: "3C-1",
+        institutionName: "仁愛之家",
+        status: "picked_up",
+        updatedAt: "2026-10-12T12:00:00.000Z",
+      },
+    ];
+    const details: WorkspaceOrderDetail[] = [
+      makeDetail({
+        orderId: "order-picked",
+        orderCreatedAt: "2026-10-12T08:00:00.000Z",
+        orderReceivedAt: "2026-10-12T08:30:00.000Z",
+        orderReadyAt: "2026-10-12T11:00:00.000Z",
+        orderClosedAt: "2026-10-12T12:00:00.000Z",
+      }),
+    ];
+
+    const pending = derivePendingCarts(orders, details);
+    expect(pending.length).toBe(0);
+  });
 });
+
 
 
