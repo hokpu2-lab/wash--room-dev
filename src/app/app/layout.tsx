@@ -10,6 +10,7 @@ import { NotificationBell } from "./notification-bell";
 import { StyleSwitcher } from "./style-switcher";
 import { NavigationFallback } from "./workspace-fallbacks";
 import { SsoFlashNotice } from "./sso-flash-notice";
+import { WorkspaceUserBadge } from "./workspace-user-badge";
 import { WorkspaceShellNavigation } from "./workspace-shell";
 import styles from "./workspace-shell.module.css";
 
@@ -28,6 +29,7 @@ export default async function WorkspaceLayout({ children }: Readonly<{ children:
           <Suspense fallback={null}><WorkspaceNotificationBell /></Suspense>
           <StyleSwitcher />
           <div className={styles.status}><i /> 系統連線中</div>
+          <Suspense fallback={null}><WorkspaceUserBadge /></Suspense>
           <LogoutForm />
         </div>
       </header>

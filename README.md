@@ -16,6 +16,19 @@
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
 
+- **頂部工具列「登出」按鈕左側加入登入者帳號名稱（layout.tsx, workspace-user-badge.tsx, workspace-shell.module.css）**：
+  - **介面設計與伺服端資料流**：
+    1. 新增非同步伺服端元件 `WorkspaceUserBadge`（`src/app/app/workspace-user-badge.tsx`），自 `getPrincipalState()` 提取目前授權使用者之 `state.principal.loginName`。
+    2. 若 `loginName` 缺失則自動回退至首個授權範圍名稱（`scope_name`），並提供字串前後修剪（`trim()`）防護；未授權或未登入狀態則回傳 `null` 安全不顯示。
+    3. 在 `src/app/app/layout.tsx` 的頂端工具列（`.topbarTools`）中，以 `<Suspense fallback={null}>` 包裹 `<WorkspaceUserBadge />`，精準配置於「登出」按鈕（`<LogoutForm />`）的正左側。
+  - **主題外觀與響應式螢幕適配**：
+    1. 採用與頂部操作按鈕對齊之圓角膠囊造型，呈現使用者圖示（`👤`）與帳號名稱，並配置 `title` 與 `aria-label` 輔助提示。
+    2. 全面適配全站四種主題風格（MX 原廠墨綠風格、AP 簡約風格、GS 綠幕戰情風格、MB 報章風格、SH shadcn 風格）。
+    3. 針對平板與手機小尺寸螢幕（`@media (max-width: 900px)` 與 `@media (max-width: 480px)`）加入動態寬度限制與文字省略溢出（`text-overflow: ellipsis`），確保行動端窄螢幕下導覽列各功能元件絕不破版或擠壓換行。
+  - **測試與建置覆核**：
+    - 新增單元測試 `tests/unit/workspace-user-badge.spec.ts` 驗證未授權/訪客隱藏、正常帳號顯示、空白修剪、名稱回退與空值防禦等 5 項場景。
+    - 全專案 40 個測試檔、186 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
 - **手機掃描設備 QR Code 進入操作控制點洗衣車號遺漏修復（dispatch.ts, load-site-batches.ts, use-live-batches.ts）**：
   - **根本原因排查**：
     1. 當使用者以手機掃描設備固定 QR Code 時，後端派送邏輯 `dispatchEquipmentQr` 在設備占用時成功解析了執行中批次 `batchId`，但產生的重定向網址僅包含 `mode=complete&batch=<id>`，漏帶了 `cart`、`order`、`institution` 參數，導致前台控制點頁面無法第一時間自 URL 參數取得車號。
