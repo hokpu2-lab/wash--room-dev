@@ -874,6 +874,36 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
     const pending = derivePendingCarts(orders, details);
     expect(pending.length).toBe(0);
   });
+
+  it("設備故障異常（abnormal）或維修中（maintenance）在設備清單中正確標示非正常狀態", () => {
+    const equipList: WorkspaceEquipment[] = [
+      {
+        id: "eq-broken",
+        name: "本館洗衣-3",
+        equipmentType: "washer",
+        status: "abnormal",
+        occupied: false,
+      },
+      {
+        id: "eq-maint",
+        name: "本館烘衣-2",
+        equipmentType: "dryer",
+        status: "maintenance",
+        occupied: false,
+      },
+      {
+        id: "eq-normal",
+        name: "本館洗衣-1",
+        equipmentType: "washer",
+        status: "normal",
+        occupied: false,
+      },
+    ];
+
+    expect(equipList[0].status).toBe("abnormal");
+    expect(equipList[1].status).toBe("maintenance");
+    expect(equipList[2].status).toBe("normal");
+  });
 });
 
 

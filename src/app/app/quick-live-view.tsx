@@ -47,6 +47,19 @@ export interface EquipmentLiveStatus {
   activeCategoryCode?: string | null;
 }
 
+function getNonNormalStatusInfo(status: string) {
+  if (status === "abnormal") {
+    return { statusLabel: "異常故障", statusTone: "paused" as const, descText: "⚠️ 設備故障待修" };
+  }
+  if (status === "maintenance") {
+    return { statusLabel: "維修中", statusTone: "paused" as const, descText: "🔧 設備維修保養中" };
+  }
+  if (status === "inactive") {
+    return { statusLabel: "已停用", statusTone: "idle" as const, descText: "⛔ 設備已停用" };
+  }
+  return { statusLabel: "暫停服務", statusTone: "paused" as const, descText: "設備暫停服務" };
+}
+
 export interface PendingCartItem {
   id: string;
   orderNumber: string;
@@ -615,10 +628,11 @@ export function deriveEquipmentLiveStatuses(
 
     if (isCompletedLocally) {
       const isAvailable = eq.status === "normal";
+      const nonNormal = !isAvailable ? getNonNormalStatusInfo(eq.status) : null;
       return {
         equipment: eq,
-        statusLabel: isAvailable ? "閒置待機" : "暫停服務",
-        statusTone: "idle",
+        statusLabel: isAvailable ? "閒置待機" : (nonNormal?.statusLabel ?? "暫停服務"),
+        statusTone: isAvailable ? "idle" : (nonNormal?.statusTone ?? "paused"),
         activeCartNumber: null,
         activeInstitutionName: null,
         cleaningDurationMinutes,
@@ -748,10 +762,11 @@ export function deriveEquipmentLiveStatuses(
     clearEquipmentStartedAt(eq.id, startTimesMap);
 
     const isAvailable = eq.status === "normal";
+    const nonNormal = !isAvailable ? getNonNormalStatusInfo(eq.status) : null;
     return {
       equipment: eq,
-      statusLabel: isAvailable ? "閒置待機" : "暫停服務",
-      statusTone: "idle",
+      statusLabel: isAvailable ? "閒置待機" : (nonNormal?.statusLabel ?? "暫停服務"),
+      statusTone: isAvailable ? "idle" : (nonNormal?.statusTone ?? "paused"),
       activeCartNumber: null,
       activeInstitutionName: null,
       cleaningDurationMinutes,
@@ -1135,6 +1150,23 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
               </span>
               <span className={styles.runningCartBadge}>
                 🛒 {item.activeCartNumber || "作業中"}
+              </span>
+            </div>
+          ) : item.equipment.status !== "normal" ? (
+            <div className={styles.idleRunningInfo}>
+              <span
+                style={{
+                  color:
+                    item.equipment.status === "abnormal"
+                      ? "#f87171"
+                      : item.equipment.status === "maintenance"
+                      ? "#fbbf24"
+                      : "#94a3b8",
+                  fontWeight: 700,
+                  fontSize: "0.85rem",
+                }}
+              >
+                {getNonNormalStatusInfo(item.equipment.status).descText}
               </span>
             </div>
           ) : (

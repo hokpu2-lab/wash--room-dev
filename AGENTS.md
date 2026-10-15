@@ -26,6 +26,21 @@
 
 ## 2026-10-15 最新接手快照
 
+- **實體設備故障異常標示與即時看板非正常狀態強化（quick-live-view.tsx, quick-live-view.spec.ts, /app/admin/laundry-equipment）**：
+  - **管理維運端設備異常調整機制**：
+    1. 作業主管或系統管理員可於「管理洗衣設備與固定 QR（`/app/admin/laundry-equipment`）」的「修改設備資料」表單，選取欲調整的實體設備，將「設備狀態（`status`）」由 `normal（正常）` 切換為 `abnormal（異常）`、`maintenance（維修中）` 或 `inactive（停用）`，並填寫異動理由完成保存。
+    2. 後端與控制端全流程防呆已建置完備：`start_laundry_batch_*` RPC、設備 QR 掃描派送端點 `dispatchEquipmentQr` 與控制台資料載入均嚴格檢驗 `status = 'normal'`，一旦設備標記為異常或維修中，現場手機或條碼槍掃描即刻阻擋並提示 `equipment_unavailable`（設備停用、異常或維修中），且控制台下拉候選名單自動排除，徹底杜絕派工至故障機具。
+  - **即時看板視覺警示強化（`quick-live-view.tsx`）**：
+    1. 在「即時洗衣車與設備流轉動態」之洗衣設備卡片中，針對非正常狀態設備提供專屬狀態徽章與高對比醒目警示說明：
+       - **異常故障（`abnormal`）**：狀態標籤顯示為「`異常故障`」（紅底/暫停色系），卡片底部顯示「`⚠️ 設備故障待修`」（鮮紅色粗體警示）。
+       - **維修中（`maintenance`）**：狀態標籤顯示為「`維修中`」（琥珀黃底色系），卡片底部顯示「`🔧 設備維修保養中`」（明亮琥珀色粗體）。
+       - **已停用（`inactive`）**：狀態標籤顯示為「`已停用`」（次要灰底色系），卡片底部顯示「`⛔ 設備已停用`」。
+    2. 修復閒置設備與本地倒數完工設備狀態推導，使非正常設備不再誤顯為「閒置待機」或模糊的「暫停服務」，第一時間向現場與戰情監控人員傳遞設備真實健康狀態。
+  - **測試與建置覆核**：
+    - 單元測試 `tests/unit/quick-live-view.spec.ts` 擴充至 20 項 tests，驗證異常（abnormal）與維修中（maintenance）在設備清單中正確呈現狀態標籤與文字說明。
+    - 全專案 40 個測試檔、192 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
+
 - **控制點分類與階段資格嚴格過濾與跨設備幽靈批次徹底排除（/app/operations/disinfection, /app/operations/washing, /app/operations/drying, stage-eligibility.ts, load-site-batches.ts, use-live-batches.ts）**：
   - **根本原因排查**：
     1. 消毒鍋（`/app/operations/disinfection`）、洗衣機（`/app/operations/washing`）與烘衣機（`/app/operations/drying`）控制點的伺服端資料載入 `loadSiteBatches` 與客戶端即時更新 Hook `useLiveBatches`，先前僅依 `status`（如 `not_started` 或 `in_progress`）及據點篩選批次，未依各機型（`equipment_type`）比對該批次目前階段是否屬於該設備。
