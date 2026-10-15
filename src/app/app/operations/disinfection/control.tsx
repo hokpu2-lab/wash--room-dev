@@ -12,6 +12,7 @@ import { hrefWithClientScope } from "../../workspace-scope-client";
 import styles from "../../workspace.module.css";
 import { formatBatchLabel, type ControlBatch } from "../batch-label";
 import type { ControlEquipment } from "../load-site-batches";
+import { isBatchEligibleForEquipment } from "../stage-eligibility";
 
 type Batch = ControlBatch;
 type Result =
@@ -66,6 +67,7 @@ export function DisinfectionControl({
     initial,
     mode === "complete" ? ["in_progress"] : ["not_started"],
     siteId,
+    "disinfection_tank",
   );
 
   const { token, clear: clearQrFragment } = useQrFragment("equipment");
@@ -145,15 +147,19 @@ export function DisinfectionControl({
     }
   }
 
+  const eligibleBatches = batches.filter((b) =>
+    isBatchEligibleForEquipment(b, "disinfection_tank"),
+  );
+
   const siteMatchedBatches =
     equipmentInfo?.operatingSiteId
-      ? batches.filter(
+      ? eligibleBatches.filter(
           (b) => !b.operating_site_id || b.operating_site_id === equipmentInfo.operatingSiteId,
         )
-      : batches;
+      : eligibleBatches;
 
   const candidateBatches =
-    siteMatchedBatches.length > 0 ? siteMatchedBatches : batches;
+    siteMatchedBatches.length > 0 ? siteMatchedBatches : eligibleBatches;
 
   const matchingBatch = candidateBatches.find(
     (b) =>
@@ -169,10 +175,10 @@ export function DisinfectionControl({
     : candidateBatches;
 
   const [batchId, setBatchId] = usePreferredId(
-    (visible.length > 0 ? visible : candidateBatches).map((batch) => batch.id),
+    visible.map((batch) => batch.id),
   );
 
-  const selectedBatch = batches.find((b) => b.id === batchId) ?? matchingBatch;
+  const selectedBatch = visible.find((b) => b.id === batchId) ?? matchingBatch;
 
   const availableDisinfectTanks = availableEquipment.filter((e) => e.equipment_type === "disinfection_tank");
   const matchedDisinfectTanks = selectedBatch?.operating_site_id
@@ -202,10 +208,10 @@ export function DisinfectionControl({
     "本館消毒鍋";
 
   const displayEquipment = effectiveEquipmentName;
-  const displayInstitution = selectedBatch?.institutionName || selectedInstitutionName || matchingBatch?.institutionName || "—";
-  const displayCart = selectedBatch?.cartNumber || selectedCartNumber || matchingBatch?.cartNumber || "—";
-  const displayOrderNumber = selectedBatch?.orderNumber || selectedOrderNumber || matchingBatch?.orderNumber || "—";
-  const displayCategory = selectedBatch?.categoryName || matchingBatch?.categoryName || "消毒品";
+  const displayInstitution = selectedBatch?.institutionName || (matchingBatch ? selectedInstitutionName : undefined) || "—";
+  const displayCart = selectedBatch?.cartNumber || (matchingBatch ? selectedCartNumber : undefined) || "—";
+  const displayOrderNumber = selectedBatch?.orderNumber || (matchingBatch ? selectedOrderNumber : undefined) || "—";
+  const displayCategory = selectedBatch?.categoryName || (matchingBatch ? (selectedBatch?.categoryName || "消毒品") : "—");
 
   const hasScanned = Boolean(activeToken || activeEquipmentId || effectiveEquipmentId);
 
@@ -264,7 +270,7 @@ export function DisinfectionControl({
     ? (currentStageOrder === 1
         ? (mode === "complete" ? "第一階段(浸泡完成)" : "第一階段(浸泡消毒)")
         : `第${stageNum}階段(待清洗)`)
-    : (mode === "complete" ? "第一階段(浸泡完成)" : "第一階段(浸泡消毒)");
+    : (candidateBatches.length === 0 ? "無可處理消毒批次" : (mode === "complete" ? "第一階段(浸泡完成)" : "第一階段(浸泡消毒)"));
 
   return (
     <div aria-live="polite">
@@ -466,7 +472,7 @@ export function DisinfectionControl({
           <button
             type="button"
             onClick={() => void call("/api/operations/complete-disinfection")}
-            disabled={(!batchId && !selectedBatch?.id && !matchingBatch?.id) || (!activeToken && !effectiveEquipmentId && !activeEquipmentId) || submitting}
+            disabled={!selectedBatch || (!batchId && !selectedBatch?.id && !matchingBatch?.id) || (!activeToken && !effectiveEquipmentId && !activeEquipmentId) || submitting}
             style={{
               fontSize: "1.15rem",
               fontWeight: 800,
@@ -480,7 +486,7 @@ export function DisinfectionControl({
           <button
             type="button"
             onClick={() => void call("/api/operations/start-disinfection")}
-            disabled={(!batchId && !selectedBatch?.id && !matchingBatch?.id) || (!activeToken && !effectiveEquipmentId && !activeEquipmentId) || submitting || isSiteMismatch}
+            disabled={!selectedBatch || (!batchId && !selectedBatch?.id && !matchingBatch?.id) || (!activeToken && !effectiveEquipmentId && !activeEquipmentId) || submitting || isSiteMismatch}
             style={{
               fontSize: "1.15rem",
               fontWeight: 800,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { formatBatchLabel, type ControlBatch } from "../../src/app/app/operations/batch-label";
+import { isBatchEligibleForEquipment } from "../../src/app/app/operations/stage-eligibility";
 
 describe("操作控制點與批次標籤 (Operations Control & Batch Labels)", () => {
   it("formatBatchLabel 正確格式化包含作業據點名稱的批次", () => {
@@ -318,6 +319,126 @@ describe("操作控制點與批次標籤 (Operations Control & Batch Labels)", (
     const selectedCartNumber = "6D-1";
     const displayCart2 = batchWithoutCart.cartNumber || selectedCartNumber || "—";
     expect(displayCart2).toBe("6D-1");
+  });
+
+  it("isBatchEligibleForEquipment 正確判定五大分類在各階段唯一的設備資格", () => {
+    // 1. 圍兜 (BIB)：只有第 1 階段需要烘乾，絕不進入消毒鍋或洗衣機
+    const bibStage1 = { categoryName: "圍兜", current_stage_order: 1 };
+    expect(isBatchEligibleForEquipment(bibStage1, "disinfection_tank")).toBe(false);
+    expect(isBatchEligibleForEquipment(bibStage1, "washer")).toBe(false);
+    expect(isBatchEligibleForEquipment(bibStage1, "dryer")).toBe(true);
+
+    // 2. 床簾 (CURTAIN)：只有第 1 階段需要清洗，洗完待取件，絕不進入消毒鍋或烘衣機
+    const curtainStage1 = { categoryName: "床簾", current_stage_order: 1 };
+    expect(isBatchEligibleForEquipment(curtainStage1, "disinfection_tank")).toBe(false);
+    expect(isBatchEligibleForEquipment(curtainStage1, "washer")).toBe(true);
+    expect(isBatchEligibleForEquipment(curtainStage1, "dryer")).toBe(false);
+
+    // 3. 消毒品 (DISINFECT)：第 1 階段消毒鍋、第 2 階段洗衣機、第 3 階段烘衣機
+    const disinfectStage1 = { categoryName: "消毒品", current_stage_order: 1 };
+    expect(isBatchEligibleForEquipment(disinfectStage1, "disinfection_tank")).toBe(true);
+    expect(isBatchEligibleForEquipment(disinfectStage1, "washer")).toBe(false);
+    expect(isBatchEligibleForEquipment(disinfectStage1, "dryer")).toBe(false);
+
+    const disinfectStage2 = { categoryName: "消毒品", current_stage_order: 2 };
+    expect(isBatchEligibleForEquipment(disinfectStage2, "disinfection_tank")).toBe(false);
+    expect(isBatchEligibleForEquipment(disinfectStage2, "washer")).toBe(true);
+    expect(isBatchEligibleForEquipment(disinfectStage2, "dryer")).toBe(false);
+
+    const disinfectStage3 = { categoryName: "消毒品", current_stage_order: 3 };
+    expect(isBatchEligibleForEquipment(disinfectStage3, "disinfection_tank")).toBe(false);
+    expect(isBatchEligibleForEquipment(disinfectStage3, "washer")).toBe(false);
+    expect(isBatchEligibleForEquipment(disinfectStage3, "dryer")).toBe(true);
+
+    // 4. 汙衣 (SOILED) & 一般 (GENERAL)：第 1 階段洗衣機、第 2 階段烘衣機，絕不進入消毒鍋
+    const soiledStage1 = { categoryName: "汙衣", current_stage_order: 1 };
+    expect(isBatchEligibleForEquipment(soiledStage1, "disinfection_tank")).toBe(false);
+    expect(isBatchEligibleForEquipment(soiledStage1, "washer")).toBe(true);
+    expect(isBatchEligibleForEquipment(soiledStage1, "dryer")).toBe(false);
+
+    const generalStage2 = { categoryName: "一般", current_stage_order: 2 };
+    expect(isBatchEligibleForEquipment(generalStage2, "disinfection_tank")).toBe(false);
+    expect(isBatchEligibleForEquipment(generalStage2, "washer")).toBe(false);
+    expect(isBatchEligibleForEquipment(generalStage2, "dryer")).toBe(true);
+  });
+
+  it("在消毒鍋控制點，若選到圍兜或非消毒分類項目，候選清單與卡片均不顯示並停用按鈕", () => {
+    // 模擬使用者上傳附圖之情境：消毒鍋控制點載入了 圍兜 批次
+    const allBatches: ControlBatch[] = [
+      {
+        id: "b-bib-1",
+        status: "not_started",
+        current_stage_order: 1,
+        orderNumber: "CORP-20261015-0007",
+        cartNumber: "2G02",
+        categoryName: "圍兜",
+        institutionName: "三館",
+        operating_site_name: "法人",
+      },
+    ];
+
+    // 消毒鍋控制點過濾
+    const eligibleForDisinfection = allBatches.filter((b) =>
+      isBatchEligibleForEquipment(b, "disinfection_tank"),
+    );
+
+    // 圍兜在消毒鍋控制點應被徹底排除
+    expect(eligibleForDisinfection).toHaveLength(0);
+
+    const selectedBatch = eligibleForDisinfection[0];
+    const displayCart = selectedBatch?.cartNumber || "—";
+    const displayOrderNumber = selectedBatch?.orderNumber || "—";
+    const displayCategory = selectedBatch?.categoryName || "—";
+    const displayInstitution = selectedBatch?.institutionName || "—";
+
+    expect(displayCart).toBe("—");
+    expect(displayOrderNumber).toBe("—");
+    expect(displayCategory).toBe("—");
+    expect(displayInstitution).toBe("—");
+
+    // 按鈕狀態防護：在沒有符合的批次時必須停用
+    const isButtonDisabled = !selectedBatch || eligibleForDisinfection.length === 0;
+    expect(isButtonDisabled).toBe(true);
+  });
+
+  it("在烘衣機控制點，床簾（不須烘衣）被排除，圍兜（第 1 階段直接烘乾）正常呈現", () => {
+    const batches: ControlBatch[] = [
+      {
+        id: "b-curtain",
+        status: "not_started",
+        current_stage_order: 1,
+        orderNumber: "MAIN-001",
+        cartNumber: "6D-1",
+        categoryName: "床簾",
+        institutionName: "一館",
+      },
+      {
+        id: "b-bib",
+        status: "not_started",
+        current_stage_order: 1,
+        orderNumber: "CORP-20261015-0007",
+        cartNumber: "2G02",
+        categoryName: "圍兜",
+        institutionName: "三館",
+      },
+      {
+        id: "b-disinfect-stage1",
+        status: "not_started",
+        current_stage_order: 1,
+        orderNumber: "MAIN-002",
+        cartNumber: "8D-1",
+        categoryName: "消毒品",
+        institutionName: "一館",
+      },
+    ];
+
+    const eligibleForDryer = batches.filter((b) =>
+      isBatchEligibleForEquipment(b, "dryer"),
+    );
+
+    expect(eligibleForDryer).toHaveLength(1);
+    expect(eligibleForDryer[0].cartNumber).toBe("2G02");
+    expect(eligibleForDryer[0].categoryName).toBe("圍兜");
   });
 });
 

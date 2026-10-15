@@ -21,6 +21,7 @@ export default async function StartWashingPage({
   const { batches, siteId, equipmentList } = await loadSiteBatches(
     query,
     ["not_started", "in_progress"],
+    "washer",
   );
   return (
     <main className={styles.shell}>

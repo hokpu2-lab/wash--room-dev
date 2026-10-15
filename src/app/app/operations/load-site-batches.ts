@@ -2,9 +2,14 @@ import { resolveWorkspaceScope } from "@/lib/auth/workspace-scope";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 import type { ControlBatch } from "./batch-label";
+import {
+  isBatchEligibleForEquipment,
+  type OperableEquipmentType,
+} from "./stage-eligibility";
 
-export type { ControlBatch };
+export type { ControlBatch, OperableEquipmentType };
 export { formatBatchLabel } from "./batch-label";
+export { isBatchEligibleForEquipment, resolveRequiredEquipmentForBatch } from "./stage-eligibility";
 
 export type ControlEquipment = {
   id: string;
@@ -30,6 +35,14 @@ function named(value: unknown): string | undefined {
   return undefined;
 }
 
+function coded(value: unknown): string | undefined {
+  if (!value) return undefined;
+  const row = Array.isArray(value) ? value[0] : value;
+  if (!row || typeof row !== "object") return undefined;
+  if ("code" in row && typeof row.code === "string" && row.code) return row.code;
+  return undefined;
+}
+
 function fromOrder(value: unknown) {
   const row = Array.isArray(value) ? value[0] : value;
   if (!row || typeof row !== "object") return {};
@@ -43,13 +56,14 @@ function fromOrder(value: unknown) {
 export async function loadSiteBatches(
   query: Record<string, string | string[] | undefined>,
   statuses: string[],
+  targetEquipmentType?: OperableEquipmentType,
 ) {
   const scope = await resolveWorkspaceScope(query);
   const supabase = await createServerSupabaseClient();
   let request = supabase
     .from("laundry_batches")
     .select(
-      "id, status, current_stage_order, operating_site_id, source_laundry_cart_id, laundry_order_id, laundry_carts!source_laundry_cart_id(cart_number), operating_sites(name), laundry_orders(order_number, laundry_cart_id, laundry_carts(cart_number), institutions(name)), laundry_categories(name)",
+      "id, status, current_stage_order, procedure_version_id, operating_site_id, source_laundry_cart_id, laundry_order_id, laundry_carts!source_laundry_cart_id(cart_number), operating_sites(name), laundry_orders(order_number, laundry_cart_id, laundry_carts(cart_number), institutions(name)), laundry_categories(id, code, name)",
     )
     .in("status", statuses)
     .order("created_at", { ascending: true });
@@ -77,6 +91,36 @@ export async function loadSiteBatches(
       for (const cart of cartsData) {
         if (cart?.id && typeof cart.cart_number === "string") {
           cartMap.set(cart.id, cart.cart_number);
+        }
+      }
+    }
+  }
+
+  // 查詢各批次所屬程序版本與階段對應之 equipment_type
+  const versionIds = Array.from(
+    new Set(
+      (data ?? [])
+        .map((item) => (typeof item?.procedure_version_id === "string" ? item.procedure_version_id : null))
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const stageEquipmentMap = new Map<string, string>();
+  if (versionIds.length > 0) {
+    const { data: stagesData } = await supabase
+      .from("procedure_template_stages")
+      .select("procedure_version_id, stage_order, equipment_type")
+      .in("procedure_version_id", versionIds);
+    if (Array.isArray(stagesData)) {
+      for (const stage of stagesData) {
+        if (
+          stage?.procedure_version_id &&
+          typeof stage.stage_order === "number" &&
+          typeof stage.equipment_type === "string"
+        ) {
+          stageEquipmentMap.set(
+            `${stage.procedure_version_id}_${stage.stage_order}`,
+            stage.equipment_type,
+          );
         }
       }
     }
@@ -129,6 +173,10 @@ export async function loadSiteBatches(
           (orderCartId && cartMap.get(orderCartId)) ||
           named(item.laundry_carts) ||
           orderInfo.cartNumber;
+        const stageEquipment =
+          typeof item.procedure_version_id === "string"
+            ? stageEquipmentMap.get(`${item.procedure_version_id}_${item.current_stage_order}`)
+            : undefined;
         return [
           {
             id: item.id,
@@ -140,10 +188,17 @@ export async function loadSiteBatches(
             orderNumber: orderInfo.orderNumber,
             cartNumber: cartNumber,
             institutionName: orderInfo.institutionName,
+            categoryCode: coded(item.laundry_categories),
             categoryName: named(item.laundry_categories),
+            equipment_type: stageEquipment,
           },
         ];
       })
     : [];
-  return { batches, siteId: scope.siteId ?? undefined, equipmentList };
+
+  const filteredBatches = targetEquipmentType
+    ? batches.filter((b) => isBatchEligibleForEquipment(b, targetEquipmentType))
+    : batches;
+
+  return { batches: filteredBatches, siteId: scope.siteId ?? undefined, equipmentList };
 }

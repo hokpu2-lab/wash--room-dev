@@ -16,6 +16,26 @@
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
 
+- **控制點分類與階段資格嚴格過濾與跨設備幽靈批次徹底排除（/app/operations/disinfection, /app/operations/washing, /app/operations/drying, stage-eligibility.ts, load-site-batches.ts, use-live-batches.ts）**：
+  - **根本原因排查**：
+    1. 消毒鍋（`/app/operations/disinfection`）、洗衣機（`/app/operations/washing`）與烘衣機（`/app/operations/drying`）控制點的伺服端資料載入 `loadSiteBatches` 與客戶端即時更新 Hook `useLiveBatches`，先前僅依 `status`（如 `not_started` 或 `in_progress`）及據點篩選批次，未依各機型（`equipment_type`）比對該批次目前階段是否屬於該設備。
+    2. 三大控制點前端在選取候選批次時，未檢驗批次分類（如 `圍兜 BIB`、`床簾 CURTAIN`）與階段次序，導致不屬於該機型的批次（例如使用者回報在消毒鍋控制點出現 `CORP-20261015-0007 · 2G02 · 圍兜 · 三館`）被帶入候選下拉選單與上方資訊卡。
+  - **嚴格資格過濾與全流程防護架構**：
+    1. **建立統一設備資格判定核心（`stage-eligibility.ts`）**：
+       - `resolveRequiredEquipmentForBatch` 與 `isBatchEligibleForEquipment`：五大洗滌分類嚴格對齊專屬流轉規範：
+         - **圍兜（BIB）**：不須消毒、不須清洗，直接第 1 階段進烘衣機（`dryer`）；在消毒鍋與洗衣機控制點 100% 徹底排除。
+         - **床簾（CURTAIN）**：第 1 階段進洗衣機（`washer`），洗畢待取件不須烘衣；在消毒鍋與烘衣機控制點 100% 徹底排除。
+         - **消毒品（DISINFECT）**：第 1 階段消毒鍋（`disinfection_tank`）➔ 第 2 階段洗衣機（`washer`）➔ 第 3 階段烘衣機（`dryer`）；未達或已過階段不可跨設備跨階段出現。
+         - **汙衣（SOILED）與一般（GENERAL）**：第 1 階段洗衣機（`washer`）➔ 第 2 階段烘衣機（`dryer`）；在消毒鍋控制點 100% 徹底排除。
+    2. **伺服端與客戶端雙層過濾（`load-site-batches.ts`, `use-live-batches.ts`）**：
+       - `loadSiteBatches` 擴充 `targetEquipmentType` 參數，批次查詢 `procedure_template_stages` 表與 `laundry_categories(code, name)`，並在伺服端過濾只保留符合機型的批次。
+       - `useLiveBatches` 接受 `targetEquipmentType` 參數，於 Realtime 與輪詢快照更新時同步維持資格過濾。
+    3. **三大控制台元件資訊卡與按鈕連動防護**：
+       - 若無符合該機型階段之批次，資訊卡顯示 `—`，下拉選單顯示「目前沒有可處理的...批次」並禁用，動作按鈕一律 `disabled`，徹底杜絕誤點操作。
+  - **測試與建置覆核**：
+    - 單元測試 `tests/unit/operations-control.spec.ts` 擴充驗證五大分類各階段資格、消毒鍋排除圍兜、烘衣機排除床簾等。
+    - 全專案 40 個測試檔、191 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
 - **頂部工具列「登出」按鈕左側加入登入者帳號名稱與顯示名稱（layout.tsx, workspace-user-badge.tsx, principal.ts, workspace-shell.module.css, 20261015120000_add_display_name_to_current_workspace_principal.sql）**：
   - **介面設計與伺服端資料流**：
     1. 非同步伺服端元件 `WorkspaceUserBadge`（`src/app/app/workspace-user-badge.tsx`）自 `getPrincipalState()` 提取目前授權使用者之 `state.principal.loginName` 與 `state.principal.displayName`。

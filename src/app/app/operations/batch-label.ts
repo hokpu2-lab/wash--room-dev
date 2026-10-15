@@ -4,10 +4,12 @@ export type ControlBatch = {
   current_stage_order: number;
   orderNumber?: string;
   cartNumber?: string;
+  categoryCode?: string;
   categoryName?: string;
   institutionName?: string;
   operating_site_id?: string;
   operating_site_name?: string;
+  equipment_type?: string;
 };
 
 export function formatBatchLabel(batch: {

@@ -21,6 +21,7 @@ export default async function DisinfectionPage({
   const { batches, siteId, equipmentList } = await loadSiteBatches(
     query,
     mode === "complete" ? ["in_progress"] : ["not_started"],
+    "disinfection_tank",
   );
   return (
     <main className={styles.shell}>

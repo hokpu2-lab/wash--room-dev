@@ -10,6 +10,7 @@ import { useQrFragment } from "../../use-qr-fragment";
 import styles from "../../workspace.module.css";
 import { formatBatchLabel, type ControlBatch } from "../batch-label";
 import type { ControlEquipment } from "../load-site-batches";
+import { isBatchEligibleForEquipment } from "../stage-eligibility";
 
 type Batch = ControlBatch;
 
@@ -62,6 +63,7 @@ export function DryingControl({
     initial,
     mode === "complete" ? ["in_progress"] : ["not_started"],
     siteId,
+    "dryer",
   );
 
   const { token, clear: clearQrFragment } = useQrFragment("equipment");
@@ -145,15 +147,18 @@ export function DryingControl({
     }
   }
 
+  // 嚴格確保只納入目前處於烘乾階段之批次（例如圍兜第1階段、消毒品第3階段、汙衣/一般第2階段；床簾不烘衣一律排除）
+  const eligibleBatches = batches.filter((b) => isBatchEligibleForEquipment(b, "dryer"));
+
   const siteMatchedBatches =
     equipmentInfo?.operatingSiteId
-      ? batches.filter(
+      ? eligibleBatches.filter(
           (b) => !b.operating_site_id || b.operating_site_id === equipmentInfo.operatingSiteId,
         )
-      : batches;
+      : eligibleBatches;
 
   const candidateBatches =
-    siteMatchedBatches.length > 0 ? siteMatchedBatches : batches;
+    siteMatchedBatches.length > 0 ? siteMatchedBatches : eligibleBatches;
 
   const matchingBatch = candidateBatches.find(
     (b) =>
@@ -164,15 +169,13 @@ export function DryingControl({
 
   const visible = matchingBatch
     ? [matchingBatch, ...candidateBatches.filter((b) => b.id !== matchingBatch.id)]
-    : focusedBatchId
-    ? candidateBatches.filter((batch) => batch.id === focusedBatchId)
     : candidateBatches;
 
   const [batchId, setBatchId] = usePreferredId(
-    (visible.length > 0 ? visible : candidateBatches).map((batch) => batch.id),
+    visible.map((batch) => batch.id),
   );
 
-  const selectedBatch = batches.find((b) => b.id === batchId) ?? matchingBatch;
+  const selectedBatch = visible.find((b) => b.id === batchId) ?? matchingBatch;
 
   const availableDryers = availableEquipment.filter((e) => e.equipment_type === "dryer");
   const matchedDryers = selectedBatch?.operating_site_id
@@ -205,10 +208,10 @@ export function DryingControl({
     (effectiveDryer?.name || "本館烘衣-1");
 
   const displayEquipment = effectiveEquipmentName;
-  const displayInstitution = selectedBatch?.institutionName || selectedInstitutionName || matchingBatch?.institutionName || "—";
-  const displayCart = selectedBatch?.cartNumber || selectedCartNumber || matchingBatch?.cartNumber || "—";
-  const displayOrderNumber = selectedBatch?.orderNumber || selectedOrderNumber || matchingBatch?.orderNumber || "—";
-  const displayCategory = selectedBatch?.categoryName || matchingBatch?.categoryName || "一般";
+  const displayInstitution = selectedBatch?.institutionName || (matchingBatch ? selectedInstitutionName : undefined) || "—";
+  const displayCart = selectedBatch?.cartNumber || (matchingBatch ? selectedCartNumber : undefined) || "—";
+  const displayOrderNumber = selectedBatch?.orderNumber || (matchingBatch ? selectedOrderNumber : undefined) || "—";
+  const displayCategory = selectedBatch?.categoryName || (matchingBatch ? "一般" : "—");
 
   const hasScanned = Boolean(activeToken || activeEquipmentId || effectiveEquipmentId);
 
@@ -264,17 +267,17 @@ export function DryingControl({
     (selectedBatch?.orderNumber === "MAIN-20261006-0001" && !batchId) ||
     (selectedBatch?.cartNumber === "2C-1" && !batchId) ||
     (selectedBatch && selectedBatch.current_stage_order >= 2 && selectedBatch.status === "completed") ||
-    mode === "complete" ||
+    (mode === "complete" && Boolean(selectedBatch)) ||
     result?.status === "completed" ||
     result?.status === "awaiting_cart";
 
-  const displayProgress = isStage2Complete
+  const displayProgress = !selectedBatch
+    ? (candidateBatches.length === 0 ? "無可處理烘乾批次" : (mode === "complete" ? "第二階段完成" : "待烘衣"))
+    : isStage2Complete
     ? "第二階段完成"
-    : selectedBatch
-    ? (selectedBatch.status === "in_progress"
+    : (selectedBatch.status === "in_progress"
         ? `第${chineseStageNumber(selectedBatch.current_stage_order)}階段(烘乾中)`
-        : `第${chineseStageNumber(selectedBatch.current_stage_order)}階段(待烘衣)`)
-    : "待烘衣";
+        : `第${chineseStageNumber(selectedBatch.current_stage_order)}階段(待烘衣)`);
 
   return (
     <div aria-live="polite">
@@ -447,7 +450,7 @@ export function DryingControl({
           <button
             type="button"
             onClick={() => void submit("/api/operations/complete-stage")}
-            disabled={(!batchId && !selectedBatch?.id && !matchingBatch?.id) || (!activeToken && !effectiveEquipmentId) || submitting}
+            disabled={!selectedBatch || (!batchId && !selectedBatch?.id && !matchingBatch?.id) || (!activeToken && !effectiveEquipmentId) || submitting || visible.length === 0}
             style={{
               fontSize: "1.15rem",
               fontWeight: 800,
@@ -461,7 +464,7 @@ export function DryingControl({
           <button
             type="button"
             onClick={() => void submit("/api/operations/start-drying")}
-            disabled={(!batchId && !selectedBatch?.id && !matchingBatch?.id) || (!activeToken && !effectiveEquipmentId) || submitting || isSiteMismatch}
+            disabled={!selectedBatch || (!batchId && !selectedBatch?.id && !matchingBatch?.id) || (!activeToken && !effectiveEquipmentId) || submitting || isSiteMismatch || visible.length === 0}
             style={{
               fontSize: "1.15rem",
               fontWeight: 800,

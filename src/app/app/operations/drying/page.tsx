@@ -21,6 +21,7 @@ export default async function DryingPage({
   const { batches, siteId, equipmentList } = await loadSiteBatches(
     query,
     mode === "complete" ? ["in_progress"] : ["not_started"],
+    "dryer",
   );
   return (
     <main className={styles.shell}>

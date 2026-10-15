@@ -10,6 +10,7 @@ import { useQrFragment } from "../../use-qr-fragment";
 import styles from "../../workspace.module.css";
 import { formatBatchLabel, type ControlBatch } from "../batch-label";
 import type { ControlEquipment } from "../load-site-batches";
+import { isBatchEligibleForEquipment } from "../stage-eligibility";
 
 type Batch = ControlBatch;
 type Result =
@@ -64,6 +65,7 @@ export function StartWashingControl({
     initial,
     mode === "complete" ? ["in_progress"] : ["not_started"],
     siteId,
+    "washer",
   );
 
   const { token, clear: clearQrFragment } = useQrFragment("equipment");
@@ -143,16 +145,19 @@ export function StartWashingControl({
     }
   }
 
+  // 嚴格確保只納入目前處於清洗階段之批次（例如圍兜、未消毒之消毒品一律排除）
+  const eligibleBatches = batches.filter((b) => isBatchEligibleForEquipment(b, "washer"));
+
   // 根據設備作業據點過濾批次
   const siteMatchedBatches =
     equipmentInfo?.operatingSiteId
-      ? batches.filter(
+      ? eligibleBatches.filter(
           (b) => !b.operating_site_id || b.operating_site_id === equipmentInfo.operatingSiteId,
         )
-      : batches;
+      : eligibleBatches;
 
   const candidateBatches: Batch[] =
-    siteMatchedBatches.length > 0 ? siteMatchedBatches : batches;
+    siteMatchedBatches.length > 0 ? siteMatchedBatches : eligibleBatches;
 
   const matchingBatch = candidateBatches.find(
     (b) =>
@@ -169,27 +174,22 @@ export function StartWashingControl({
     sortedBatches.map((batch: Batch) => batch.id),
   );
 
-  const selectedBatch = batches.find((b) => b.id === batchId) ?? matchingBatch;
+  const selectedBatch = sortedBatches.find((b) => b.id === batchId) ?? matchingBatch;
 
-  const displayInstitution = selectedBatch?.institutionName || selectedInstitutionName || matchingBatch?.institutionName || "—";
-  const displayCart = selectedBatch?.cartNumber || selectedCartNumber || matchingBatch?.cartNumber || "—";
-  const displayOrderNumber = selectedBatch?.orderNumber || selectedOrderNumber || matchingBatch?.orderNumber || "—";
+  const displayInstitution = selectedBatch?.institutionName || (matchingBatch ? selectedInstitutionName : undefined) || "—";
+  const displayCart = selectedBatch?.cartNumber || (matchingBatch ? selectedCartNumber : undefined) || "—";
+  const displayOrderNumber = selectedBatch?.orderNumber || (matchingBatch ? selectedOrderNumber : undefined) || "—";
   const isTargetedDisinfect =
     selectedBatch?.orderNumber === "MAIN-20261005-0004" ||
     selectedBatch?.orderNumber === "MAIN-20261008-0001" ||
     selectedBatch?.cartNumber?.toUpperCase() === "8D-1" ||
-    selectedBatch?.cartNumber?.toUpperCase() === "2C-6" ||
-    selectedOrderNumber === "MAIN-20261005-0004" ||
-    selectedOrderNumber === "MAIN-20261008-0001" ||
-    selectedCartNumber?.toUpperCase() === "8D-1" ||
-    selectedCartNumber?.toUpperCase() === "2C-6";
+    selectedBatch?.cartNumber?.toUpperCase() === "2C-6";
 
-  const displayCategory = selectedBatch?.categoryName || matchingBatch?.categoryName || (isTargetedDisinfect ? "消毒品" : "一般");
+  const displayCategory = selectedBatch?.categoryName || (matchingBatch ? (isTargetedDisinfect ? "消毒品" : "一般") : "—");
 
   const isDisinfect = Boolean(
     selectedBatch?.categoryName?.includes("消毒") ||
-    isTargetedDisinfect ||
-    (typeof displayCategory === "string" && displayCategory.includes("消毒"))
+    isTargetedDisinfect
   );
 
   const isCompleteMode =
@@ -212,37 +212,20 @@ export function StartWashingControl({
 
   const effectiveWasher = defaultWasher;
 
-  const availableDisinfectTanks = availableEquipment.filter((e) => e.equipment_type === "disinfection_tank");
-  const matchedDisinfectTanks = selectedBatch?.operating_site_id
-    ? availableDisinfectTanks.filter((w) => w.operating_site_id === selectedBatch.operating_site_id)
-    : availableDisinfectTanks;
-
-  const defaultDisinfectTank =
-    matchedDisinfectTanks.find((w) => w.name.includes("消毒")) ||
-    availableDisinfectTanks.find((w) => w.name.includes("消毒")) ||
-    matchedDisinfectTanks[0] ||
-    availableDisinfectTanks[0];
-
-  const isStage1Disinfect = Boolean(
-    isDisinfect && (selectedBatch?.current_stage_order ?? 1) === 1 && !isCompleteMode
-  );
-
-  const defaultEquipment = isStage1Disinfect ? (defaultDisinfectTank || effectiveWasher) : effectiveWasher;
-
   const effectiveEquipmentId =
     activeToken
       ? undefined
-      : activeEquipmentId || defaultEquipment?.id;
+      : activeEquipmentId || effectiveWasher?.id;
 
   const effectiveEquipmentObj =
     availableEquipment.find((w) => w.id === effectiveEquipmentId) ||
     availableEquipment.find((w) => w.id === activeEquipmentId) ||
-    defaultEquipment;
+    effectiveWasher;
 
   const effectiveEquipmentName =
     equipmentInfo?.equipmentName ||
     effectiveEquipmentObj?.name ||
-    (isStage1Disinfect ? "本館消毒鍋" : (effectiveWasher?.name || "本館洗衣-1"));
+    (effectiveWasher?.name || "本館洗衣-1");
 
   const displayEquipment = effectiveEquipmentName;
   const currentStageOrder = selectedBatch?.current_stage_order ?? (isDisinfect ? 2 : 1);
@@ -262,15 +245,13 @@ export function StartWashingControl({
     selectedOrderNumber === "MAIN-20261006-0001" ||
     selectedCartNumber === "2C-1";
 
-  const displayProgress = isStage2Complete
+  const displayProgress = !selectedBatch
+    ? (candidateBatches.length === 0 ? "無可處理清洗批次" : (isCompleteMode ? "清洗處理中" : "第一階段(待清洗)"))
+    : isStage2Complete
     ? (stageNum === "一" ? "第一階段完成" : "第二階段完成")
     : isCompleteMode
     ? `第${stageNum}階段(處理中)`
-    : isStage1Disinfect
-    ? "第一階段(浸泡消毒)"
-    : selectedBatch
-    ? `第${stageNum}階段(待清洗)`
-    : "第一階段(待清洗)";
+    : `第${stageNum}階段(待清洗)`;
 
   const hasScanned = Boolean(activeToken || activeEquipmentId || effectiveEquipmentId);
 
@@ -331,8 +312,6 @@ export function StartWashingControl({
               ? "STAGE COMPLETED"
               : isCompleteMode
               ? "LAUNDRY COMPLETE"
-              : isStage1Disinfect
-              ? "DISINFECTION CONTROL POINT"
               : "LAUNDRY WASHING"}
           </p>
           <h1 id="washing-title">{displayProgress}</h1>
@@ -341,8 +320,6 @@ export function StartWashingControl({
               ? "清洗程序已結束完成。"
               : isCompleteMode
               ? "確認清洗完成並釋放洗衣設備。"
-              : isStage1Disinfect
-              ? "確認開始浸泡消毒程序。"
               : "掃描洗衣機固定 QR，確認批次後開始清洗。"}
           </p>
         </div>
@@ -468,7 +445,7 @@ export function StartWashingControl({
             }}
           >
             {sortedBatches.length === 0 ? (
-              <option value="">目前沒有可處理的批次</option>
+              <option value="">目前沒有可處理的清洗批次</option>
             ) : (
               sortedBatches.map((batch: Batch) => (
                 <option key={batch.id} value={batch.id}>
@@ -503,7 +480,7 @@ export function StartWashingControl({
           <button
             type="button"
             onClick={() => void submit("/api/operations/complete-stage")}
-            disabled={(!batchId && !selectedBatch?.id && !matchingBatch?.id) || (!activeToken && !effectiveEquipmentId) || submitting || isCompletedSuccess}
+            disabled={!selectedBatch || (!batchId && !selectedBatch?.id && !matchingBatch?.id) || (!activeToken && !effectiveEquipmentId) || submitting || isCompletedSuccess || sortedBatches.length === 0}
             style={{
               fontSize: "1.15rem",
               fontWeight: 800,
@@ -513,25 +490,11 @@ export function StartWashingControl({
           >
             {submitting ? "處理中…" : isCompletedSuccess ? "已確認完成" : "確認清洗完成"}
           </button>
-        ) : isStage1Disinfect ? (
-          <button
-            type="button"
-            onClick={() => void submit("/api/operations/start-disinfection")}
-            disabled={(!batchId && !selectedBatch?.id && !matchingBatch?.id) || (!activeToken && !effectiveEquipmentId) || submitting || isSiteMismatch}
-            style={{
-              fontSize: "1.15rem",
-              fontWeight: 800,
-              padding: "0.85rem 1.75rem",
-              borderRadius: "8px",
-            }}
-          >
-            {submitting ? "處理中…" : "確認開始浸泡消毒"}
-          </button>
         ) : (
           <button
             type="button"
             onClick={() => void submit("/api/operations/start-washing")}
-            disabled={(!batchId && !selectedBatch?.id && !matchingBatch?.id) || (!activeToken && !effectiveEquipmentId) || submitting || isSiteMismatch}
+            disabled={!selectedBatch || (!batchId && !selectedBatch?.id && !matchingBatch?.id) || (!activeToken && !effectiveEquipmentId) || submitting || isSiteMismatch || sortedBatches.length === 0}
             style={{
               fontSize: "1.15rem",
               fontWeight: 800,
