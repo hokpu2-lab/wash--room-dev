@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { getLaundryEquipmentWorkspace } from "@/lib/laundry-equipment/administration";
+import { resolveEquipmentDurationFromConfig } from "@/lib/laundry-equipment/duration-config";
 
 import { ModuleTabs } from "../../module-tabs";
 import styles from "../../workspace.module.css";
@@ -262,6 +263,15 @@ export default async function LaundryEquipmentPage({
                       : "—";
 
                     const statusBadge = getEquipmentStatusBadge(equipment);
+                    const durationMinutes = isOccupied
+                      ? equipment.active_duration_minutes ??
+                        resolveEquipmentDurationFromConfig(
+                          equipment.cleaning_duration_config,
+                          equipment.active_category_code || equipment.active_category_name,
+                          equipment.cleaning_duration_minutes ?? 60,
+                          equipment.equipment_type
+                        )
+                      : null;
 
                     return (
                       <tr key={equipment.id}>
@@ -272,36 +282,14 @@ export default async function LaundryEquipmentPage({
                         </td>
                         <td>1 台</td>
                         <td>
-                          <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
+                          {isOccupied && durationMinutes ? (
                             <span>
-                              {equipment.cleaning_duration_minutes ?? equipment.cleaning_duration_config?.default ?? 60} 分鐘
+                              {durationMinutes} 分鐘
+                              {equipment.active_category_name ? ` (${equipment.active_category_name})` : ""}
                             </span>
-                            {equipment.cleaning_duration_config &&
-                              Object.keys(equipment.cleaning_duration_config).filter((k) => k !== "default").length > 0 && (
-                                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem", fontSize: "0.78rem" }}>
-                                  {Object.entries(equipment.cleaning_duration_config)
-                                    .filter(([k]) => k !== "default")
-                                    .map(([k, v]) => {
-                                      const cat = workspace.categories.find((c) => c.code === k);
-                                      return (
-                                        <span
-                                          key={k}
-                                          style={{
-                                            padding: "0.05rem 0.35rem",
-                                            borderRadius: "4px",
-                                            background: "rgba(255, 255, 255, 0.06)",
-                                            color: "var(--foreground-muted, #94a3b8)",
-                                            whiteSpace: "nowrap",
-                                          }}
-                                          title={`分類 ${k}: ${v} 分鐘`}
-                                        >
-                                          {cat?.name ?? k}: {v}分
-                                        </span>
-                                      );
-                                    })}
-                                </div>
-                              )}
-                          </div>
+                          ) : (
+                            "—"
+                          )}
                         </td>
                         <td>
                           <span

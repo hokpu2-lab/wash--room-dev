@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { resolveEquipmentDurationFromConfig } from "@/lib/laundry-equipment/duration-config";
+
 describe("equipment-edit-form logic", () => {
   const defaultReasons: Record<string, string> = {
     abnormal: "⚠️ 設備故障異常待修",
@@ -148,6 +150,109 @@ describe("equipment-edit-form logic", () => {
         occupied: false,
       })
     ).toMatchObject({ label: "已停用", icon: "⛔" });
+  });
+
+  function getEquipmentCleaningDurationText(equipment: {
+    occupied: boolean;
+    active_cart_count?: number;
+    equipment_type: "disinfection_tank" | "washer" | "dryer";
+    cleaning_duration_minutes?: number;
+    cleaning_duration_config?: Record<string, number>;
+    active_category_code?: string | null;
+    active_category_name?: string | null;
+    active_duration_minutes?: number | null;
+  }) {
+    const isOccupied = Boolean(
+      equipment.occupied || (equipment.active_cart_count && equipment.active_cart_count > 0)
+    );
+    if (!isOccupied) return "—";
+
+    const durationMinutes =
+      equipment.active_duration_minutes ??
+      resolveEquipmentDurationFromConfig(
+        equipment.cleaning_duration_config,
+        equipment.active_category_code || equipment.active_category_name,
+        equipment.cleaning_duration_minutes ?? 60,
+        equipment.equipment_type
+      );
+
+    if (!durationMinutes) return "—";
+    return `${durationMinutes} 分鐘${equipment.active_category_name ? ` (${equipment.active_category_name})` : ""}`;
+  }
+
+  it("設備清單中清洗時間：未使用時保持空白（—），作業中依對應分類計算時間", () => {
+    // 1. 未使用（閒置）時保持空白
+    expect(
+      getEquipmentCleaningDurationText({
+        occupied: false,
+        active_cart_count: 0,
+        equipment_type: "washer",
+      })
+    ).toBe("—");
+
+    expect(
+      getEquipmentCleaningDurationText({
+        occupied: false,
+        active_cart_count: 0,
+        equipment_type: "dryer",
+      })
+    ).toBe("—");
+
+    // 2. 作業中：洗衣機清洗床簾 (CURTAIN) ➔ 40 分鐘
+    expect(
+      getEquipmentCleaningDurationText({
+        occupied: true,
+        active_cart_count: 1,
+        equipment_type: "washer",
+        active_category_code: "CURTAIN",
+        active_category_name: "床簾",
+      })
+    ).toBe("40 分鐘 (床簾)");
+
+    // 3. 作業中：烘衣機烘乾圍兜 (BIB) ➔ 20 分鐘
+    expect(
+      getEquipmentCleaningDurationText({
+        occupied: true,
+        active_cart_count: 1,
+        equipment_type: "dryer",
+        active_category_code: "BIB",
+        active_category_name: "圍兜",
+      })
+    ).toBe("20 分鐘 (圍兜)");
+
+    // 4. 作業中：消毒鍋消毒品 (DISINFECT) ➔ 30 分鐘
+    expect(
+      getEquipmentCleaningDurationText({
+        occupied: true,
+        active_cart_count: 1,
+        equipment_type: "disinfection_tank",
+        active_category_code: "DISINFECT",
+        active_category_name: "消毒品",
+      })
+    ).toBe("30 分鐘 (消毒品)");
+
+    // 5. 作業中：洗衣機清洗消毒品 (DISINFECT) ➔ 60 分鐘
+    expect(
+      getEquipmentCleaningDurationText({
+        occupied: true,
+        active_cart_count: 1,
+        equipment_type: "washer",
+        active_category_code: "DISINFECT",
+        active_category_name: "消毒品",
+      })
+    ).toBe("60 分鐘 (消毒品)");
+
+    // 6. 作業中：自訂 JSON 配置時間生效
+    expect(
+      getEquipmentCleaningDurationText({
+        occupied: true,
+        active_cart_count: 1,
+        equipment_type: "dryer",
+        cleaning_duration_config: { default: 60, BIB: 15 },
+        active_category_code: "BIB",
+        active_category_name: "圍兜",
+      })
+    ).toBe("15 分鐘 (圍兜)");
   });
 });
 

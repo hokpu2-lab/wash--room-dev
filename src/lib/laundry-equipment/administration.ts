@@ -7,7 +7,7 @@ import { requireRole } from "@/lib/auth/principal";
 import { resolveWorkspaceScope } from "@/lib/auth/workspace-scope";
 import { renderFixedAssetQrSvg } from "@/lib/fixed-asset-qr";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { parseCleaningDurationConfig } from "./duration-config";
+import { parseCleaningDurationConfig, resolveEquipmentDurationFromConfig } from "./duration-config";
 
 const namedSiteSchema = z.object({ code: z.string(), name: z.string() });
 const equipmentSchema = z.object({
@@ -26,6 +26,9 @@ const equipmentSchema = z.object({
   active_institutions: z.array(z.string()).optional().default([]),
   active_cart_count: z.number().int().nonnegative().optional().default(0),
   active_cart_numbers: z.array(z.string()).optional().default([]),
+  active_category_code: z.string().nullable().optional(),
+  active_category_name: z.string().nullable().optional(),
+  active_duration_minutes: z.number().int().positive().nullable().optional(),
   operating_sites: z.union([namedSiteSchema, z.array(namedSiteSchema)]).transform((value) => (
     Array.isArray(value) ? value[0] ?? { code: "—", name: "—" } : value
   )),
@@ -126,7 +129,7 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
     supabase.from("laundry_equipment_categories").select("laundry_equipment_id, laundry_categories(code)"),
     supabase.from("laundry_equipment_procedures").select("laundry_equipment_id, procedure_template_id"),
     supabase.from("laundry_batch_stage_runs").select("id, laundry_equipment_id, laundry_batch_id, status").in("operating_site_id", siteIds),
-    supabase.from("laundry_batches").select("id, source_laundry_cart_id, laundry_order_id, status, active_stage_run_id").in("operating_site_id", siteIds),
+    supabase.from("laundry_batches").select("id, source_laundry_cart_id, laundry_order_id, status, active_stage_run_id, laundry_categories(code, name)").in("operating_site_id", siteIds),
     supabase.from("laundry_carts").select("id, cart_number, institutions(name)"),
     supabase.from("laundry_orders").select("id, laundry_cart_id").in("operating_site_id", siteIds),
     supabase.from("laundry_batch_sources").select("shared_batch_id, source_laundry_cart_id, laundry_order_id").in("operating_site_id", siteIds),
@@ -173,10 +176,46 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
     }
   }
 
-  const batchMap = new Map<string, { id: string; source_laundry_cart_id?: string | null; laundry_order_id?: string | null; status?: string | null; active_stage_run_id?: string | null }>();
-  for (const batch of (activeBatchesResult.data ?? []) as Array<{ id: string; source_laundry_cart_id?: string | null; laundry_order_id?: string | null; status?: string | null; active_stage_run_id?: string | null }>) {
+  function extractCategory(value: unknown): { code?: string; name?: string } | null {
+    if (!value) return null;
+    const item = Array.isArray(value) ? value[0] : value;
+    if (!item || typeof item !== "object") return null;
+    return {
+      code: "code" in item && typeof item.code === "string" ? item.code : undefined,
+      name: "name" in item && typeof item.name === "string" ? item.name : undefined,
+    };
+  }
+
+  type BatchMapEntry = {
+    id: string;
+    source_laundry_cart_id?: string | null;
+    laundry_order_id?: string | null;
+    status?: string | null;
+    active_stage_run_id?: string | null;
+    categoryCode?: string;
+    categoryName?: string;
+  };
+
+  const batchMap = new Map<string, BatchMapEntry>();
+  for (const batch of (activeBatchesResult.data ?? []) as Array<{
+    id: string;
+    source_laundry_cart_id?: string | null;
+    laundry_order_id?: string | null;
+    status?: string | null;
+    active_stage_run_id?: string | null;
+    laundry_categories?: unknown;
+  }>) {
     if (batch.id) {
-      batchMap.set(batch.id, batch);
+      const cat = extractCategory(batch.laundry_categories);
+      batchMap.set(batch.id, {
+        id: batch.id,
+        source_laundry_cart_id: batch.source_laundry_cart_id,
+        laundry_order_id: batch.laundry_order_id,
+        status: batch.status,
+        active_stage_run_id: batch.active_stage_run_id,
+        categoryCode: cat?.code,
+        categoryName: cat?.name,
+      });
     }
   }
 
@@ -187,7 +226,15 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
     }
   }
 
-  const equipmentUsageMap = new Map<string, { cartNumbers: Set<string>; institutions: Set<string>; cartCount: number }>();
+  type EquipmentUsage = {
+    cartNumbers: Set<string>;
+    institutions: Set<string>;
+    cartCount: number;
+    categoryCodes: Set<string>;
+    categoryNames: Set<string>;
+  };
+
+  const equipmentUsageMap = new Map<string, EquipmentUsage>();
   for (const run of (activeRunsResult.data ?? []) as Array<{ id?: string; laundry_equipment_id?: string | null; laundry_batch_id?: string | null; status?: string | null }>) {
     const isRunActive = run.status === "in_progress" || run.status === "paused";
     if (!isRunActive) continue;
@@ -195,13 +242,19 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
     const batchId = run.laundry_batch_id;
     if (!equipId) continue;
 
-    const current = equipmentUsageMap.get(equipId) ?? {
+    const current: EquipmentUsage = equipmentUsageMap.get(equipId) ?? {
       cartNumbers: new Set<string>(),
       institutions: new Set<string>(),
       cartCount: 0,
+      categoryCodes: new Set<string>(),
+      categoryNames: new Set<string>(),
     };
 
     if (batchId) {
+      const batch = batchMap.get(batchId);
+      if (batch?.categoryCode) current.categoryCodes.add(batch.categoryCode);
+      if (batch?.categoryName) current.categoryNames.add(batch.categoryName);
+
       const sources = batchSourcesMap.get(batchId) ?? [];
       if (sources.length > 0) {
         current.cartCount += sources.length;
@@ -214,7 +267,6 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
         }
       } else {
         current.cartCount += 1;
-        const batch = batchMap.get(batchId);
         const cartId = batch?.source_laundry_cart_id || (batch?.laundry_order_id ? orderToCartIdMap.get(batch.laundry_order_id) : null);
         const cartNum = cartId ? cartMap.get(cartId) : null;
         if (cartNum) current.cartNumbers.add(cartNum);
@@ -225,15 +277,21 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
     equipmentUsageMap.set(equipId, current);
   }
 
-  for (const batch of (activeBatchesResult.data ?? []) as Array<{ id: string; source_laundry_cart_id?: string | null; laundry_order_id?: string | null; status?: string | null; active_stage_run_id?: string | null }>) {
+  for (const batch of (activeBatchesResult.data ?? []) as Array<{ id: string; source_laundry_cart_id?: string | null; laundry_order_id?: string | null; status?: string | null; active_stage_run_id?: string | null; laundry_categories?: unknown }>) {
     if (batch.active_stage_run_id) {
       const runInfo = runToBatchMap.get(batch.active_stage_run_id);
       if (runInfo?.equipId) {
-        const current = equipmentUsageMap.get(runInfo.equipId) ?? {
+        const current: EquipmentUsage = equipmentUsageMap.get(runInfo.equipId) ?? {
           cartNumbers: new Set<string>(),
           institutions: new Set<string>(),
           cartCount: 0,
+          categoryCodes: new Set<string>(),
+          categoryNames: new Set<string>(),
         };
+        const cat = extractCategory(batch.laundry_categories);
+        if (cat?.code) current.categoryCodes.add(cat.code);
+        if (cat?.name) current.categoryNames.add(cat.name);
+
         const cartId = batch.source_laundry_cart_id || (batch.laundry_order_id ? orderToCartIdMap.get(batch.laundry_order_id) : null);
         const cartNum = cartId ? cartMap.get(cartId) : null;
         if (cartNum) current.cartNumbers.add(cartNum);
@@ -246,19 +304,25 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
 
   for (const item of (equipmentResult.data ?? []) as Array<{ id: string; name?: string; occupied?: boolean }>) {
     if (item.occupied) {
-      const current = equipmentUsageMap.get(item.id) ?? {
+      const current: EquipmentUsage = equipmentUsageMap.get(item.id) ?? {
         cartNumbers: new Set<string>(),
         institutions: new Set<string>(),
         cartCount: 1,
+        categoryCodes: new Set<string>(),
+        categoryNames: new Set<string>(),
       };
       if (current.cartNumbers.size === 0) {
-        for (const batch of (activeBatchesResult.data ?? []) as Array<{ id: string; source_laundry_cart_id?: string | null; laundry_order_id?: string | null; status?: string | null }>) {
+        for (const batch of (activeBatchesResult.data ?? []) as Array<{ id: string; source_laundry_cart_id?: string | null; laundry_order_id?: string | null; status?: string | null; laundry_categories?: unknown }>) {
           if (batch.status === "in_progress" || batch.status === "paused") {
             const cartId = batch.source_laundry_cart_id || (batch.laundry_order_id ? orderToCartIdMap.get(batch.laundry_order_id) : null);
             const cartNum = cartId ? cartMap.get(cartId) : null;
             if (cartNum) current.cartNumbers.add(cartNum);
             const inst = cartId ? cartToInstMap.get(cartId) : null;
             if (inst) current.institutions.add(inst);
+
+            const cat = extractCategory(batch.laundry_categories);
+            if (cat?.code) current.categoryCodes.add(cat.code);
+            if (cat?.name) current.categoryNames.add(cat.name);
           }
         }
       }
@@ -333,6 +397,17 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
       const usage = equipmentUsageMap.get(item.id);
       const isOccupied = Boolean(item.occupied || (usage && usage.cartCount > 0));
       const config = item.cleaning_duration_config ?? { default: item.cleaning_duration_minutes ?? 60 };
+      const activeCategoryCode = usage && usage.categoryCodes.size > 0 ? Array.from(usage.categoryCodes)[0] : null;
+      const activeCategoryName = usage && usage.categoryNames.size > 0 ? Array.from(usage.categoryNames)[0] : null;
+      const activeDuration = isOccupied
+        ? resolveEquipmentDurationFromConfig(
+            config,
+            activeCategoryCode || activeCategoryName,
+            item.cleaning_duration_minutes ?? config.default ?? 60,
+            item.equipment_type
+          )
+        : null;
+
       return {
         ...item,
         occupied: isOccupied,
@@ -344,6 +419,9 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
         active_institutions: usage && usage.institutions.size > 0 ? Array.from(usage.institutions) : [],
         active_cart_count: usage ? usage.cartCount : (isOccupied ? 1 : 0),
         active_cart_numbers: usage && usage.cartNumbers.size > 0 ? Array.from(usage.cartNumbers) : [],
+        active_category_code: activeCategoryCode,
+        active_category_name: activeCategoryName,
+        active_duration_minutes: activeDuration,
       };
     }),
     categories: categoryResult.data ?? [],
