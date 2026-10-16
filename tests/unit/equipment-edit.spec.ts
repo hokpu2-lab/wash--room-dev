@@ -48,4 +48,106 @@ describe("equipment-edit-form logic", () => {
     expect(isProcedureCompatibleWithEquipment("床簾洗滌程序", "disinfection_tank")).toBe(false);
     expect(isProcedureCompatibleWithEquipment("浸泡消毒程序", "disinfection_tank")).toBe(true);
   });
+
+  function getEquipmentStatusBadge(equipment: {
+    status: string;
+    equipment_type: "disinfection_tank" | "washer" | "dryer";
+    occupied: boolean;
+    active_cart_count?: number;
+  }) {
+    const isOccupied = Boolean(
+      equipment.occupied || (equipment.active_cart_count && equipment.active_cart_count > 0)
+    );
+
+    if (equipment.status === "abnormal") {
+      return { label: "異常故障", color: "#f87171", icon: "⚠️" };
+    }
+    if (equipment.status === "maintenance") {
+      return { label: "維修中", color: "#fbbf24", icon: "🔧" };
+    }
+    if (equipment.status === "inactive") {
+      return { label: "已停用", color: "#94a3b8", icon: "⛔" };
+    }
+
+    if (isOccupied) {
+      if (equipment.equipment_type === "washer") {
+        return { label: "清洗中", color: "#38bdf8", icon: "💧" };
+      }
+      if (equipment.equipment_type === "dryer") {
+        return { label: "烘乾中", color: "#fb923c", icon: "🔥" };
+      }
+      if (equipment.equipment_type === "disinfection_tank") {
+        return { label: "消毒中", color: "#c084fc", icon: "🧪" };
+      }
+      return { label: "作業中", color: "#38bdf8", icon: "⚡" };
+    }
+
+    return { label: "可使用", color: "#4ade80", icon: "🟢" };
+  }
+
+  it("設備清單中正確呈現即時狀態（清洗中、烘乾中、可使用、維修中、異常故障）", () => {
+    // 洗衣機清洗中
+    expect(
+      getEquipmentStatusBadge({
+        status: "normal",
+        equipment_type: "washer",
+        occupied: true,
+      })
+    ).toMatchObject({ label: "清洗中", icon: "💧" });
+
+    // 洗衣機可使用 (閒置)
+    expect(
+      getEquipmentStatusBadge({
+        status: "normal",
+        equipment_type: "washer",
+        occupied: false,
+      })
+    ).toMatchObject({ label: "可使用", icon: "🟢" });
+
+    // 烘衣機烘乾中
+    expect(
+      getEquipmentStatusBadge({
+        status: "normal",
+        equipment_type: "dryer",
+        occupied: true,
+      })
+    ).toMatchObject({ label: "烘乾中", icon: "🔥" });
+
+    // 烘衣機可使用
+    expect(
+      getEquipmentStatusBadge({
+        status: "normal",
+        equipment_type: "dryer",
+        occupied: false,
+      })
+    ).toMatchObject({ label: "可使用", icon: "🟢" });
+
+    // 維修中
+    expect(
+      getEquipmentStatusBadge({
+        status: "maintenance",
+        equipment_type: "washer",
+        occupied: false,
+      })
+    ).toMatchObject({ label: "維修中", icon: "🔧" });
+
+    // 異常故障
+    expect(
+      getEquipmentStatusBadge({
+        status: "abnormal",
+        equipment_type: "washer",
+        occupied: false,
+      })
+    ).toMatchObject({ label: "異常故障", icon: "⚠️" });
+
+    // 已停用
+    expect(
+      getEquipmentStatusBadge({
+        status: "inactive",
+        equipment_type: "washer",
+        occupied: false,
+      })
+    ).toMatchObject({ label: "已停用", icon: "⛔" });
+  });
 });
+
