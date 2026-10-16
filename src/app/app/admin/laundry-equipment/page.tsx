@@ -28,6 +28,7 @@ export default async function LaundryEquipmentPage({
   const workspace = await getLaundryEquipmentWorkspace();
   const query = await searchParams;
   const result = typeof query.equipment === "string" ? query.equipment : "";
+  const reason = typeof query.reason === "string" ? query.reason : "";
 
   return (
     <main className={styles.shell}>
@@ -51,8 +52,16 @@ export default async function LaundryEquipmentPage({
           <p className={styles.errorNotice} role="alert">你沒有刪除此設備的據點權限。</p>
         ) : result === "delete-invalid" ? (
           <p className={styles.errorNotice} role="alert">刪除確認資料不完整，設備未刪除。</p>
+        ) : result === "denied" || reason === "site_scope_denied" ? (
+          <p className={styles.errorNotice} role="alert">⚠️ 權限不足：你目前的帳號沒有此設備所在作業據點的主管管理權限。</p>
+        ) : reason === "reason_required" ? (
+          <p className={styles.errorNotice} role="alert">⚠️ 請填寫「異動理由」（例如：設備故障報修、例行保養維護等），此為系統強制稽核欄位，不可空白。</p>
+        ) : reason === "procedure_incompatible" ? (
+          <p className={styles.errorNotice} role="alert">⚠️ 所選相容程序與此設備機型不符（例如洗衣機不可勾選純烘乾程序），請檢查相容程序勾選。</p>
+        ) : result === "invalid" ? (
+          <p className={styles.errorNotice} role="alert">⚠️ 設備資料格式不正確或缺少必填資料，請確認「異動理由」與各欄位是否填寫完整。</p>
         ) : result ? (
-          <p className={styles.errorNotice} role="alert">設備異動失敗，未套用任何變更。</p>
+          <p className={styles.errorNotice} role="alert">設備異動失敗，未套用任何變更。請確認異動理由與相容程序設定。</p>
         ) : null}
 
         <ModuleTabs

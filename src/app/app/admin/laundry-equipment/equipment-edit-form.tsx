@@ -48,6 +48,19 @@ export function EquipmentEditForm({
   const selected = equipment.find((item) => item.id === selectedId);
   const [status, setStatus] = useState(selected?.status ?? "normal");
 
+  const defaultReasons: Record<string, string> = {
+    abnormal: "⚠️ 設備故障異常待修",
+    maintenance: "🔧 設備例行保養維修中",
+    normal: "✅ 維修檢驗完畢，恢復正常運作",
+    inactive: "⛔ 設備停用暫不指派",
+  };
+
+  const [changeReason, setChangeReason] = useState(
+    selected?.status && selected.status !== "normal"
+      ? defaultReasons[selected.status] ?? ""
+      : ""
+  );
+
   const initialDefault =
     selected?.cleaning_duration_minutes ??
     selected?.cleaning_duration_config?.default ??
@@ -59,6 +72,13 @@ export function EquipmentEditForm({
   const [categoryDurations, setCategoryDurations] = useState<Record<string, number>>(
     selected?.cleaning_duration_config ?? {}
   );
+
+  const handleStatusChange = (nextStatus: typeof status) => {
+    setStatus(nextStatus);
+    if (!changeReason || Object.values(defaultReasons).includes(changeReason)) {
+      setChangeReason(defaultReasons[nextStatus] ?? "");
+    }
+  };
 
   const handleEquipmentChange = (nextId: string) => {
     setSelectedId(nextId);
@@ -77,6 +97,9 @@ export function EquipmentEditForm({
         }
       }
       setCategoryDurations(nextDurations);
+      if (!changeReason || Object.values(defaultReasons).includes(changeReason)) {
+        setChangeReason(next.status !== "normal" ? (defaultReasons[next.status] ?? "") : "");
+      }
     }
   };
 
@@ -107,10 +130,27 @@ export function EquipmentEditForm({
     }));
   };
 
+  const isProcedureCompatibleWithEquipment = (
+    procedureLabel: string,
+    equipType?: "disinfection_tank" | "washer" | "dryer"
+  ) => {
+    if (!equipType) return true;
+    const lower = procedureLabel.toLowerCase();
+    // 圍兜僅需烘衣：洗衣機與消毒鍋不相容
+    if ((lower.includes("圍兜") || lower.includes("bib")) && equipType !== "dryer") {
+      return false;
+    }
+    // 床簾不需烘衣：烘衣機與消毒鍋不相容
+    if ((lower.includes("床簾") || lower.includes("curtain")) && equipType !== "washer") {
+      return false;
+    }
+    return true;
+  };
+
   const visibleProcedures = procedures.filter(
     (procedure) =>
-      !selected?.operating_site_id ||
-      procedure.operating_site_id === selected.operating_site_id,
+      (!selected?.operating_site_id || procedure.operating_site_id === selected.operating_site_id) &&
+      isProcedureCompatibleWithEquipment(procedure.label, selected?.equipment_type)
   );
 
   if (!selected) {
@@ -160,7 +200,7 @@ export function EquipmentEditForm({
         <select
           name="status"
           value={status}
-          onChange={(event) => setStatus(event.target.value as typeof status)}
+          onChange={(event) => handleStatusChange(event.target.value as typeof status)}
         >
           {Object.entries(statusLabels).map(([value, label]) => (
             <option key={value} value={value}>
@@ -198,10 +238,68 @@ export function EquipmentEditForm({
           </label>
         ))}
       </fieldset>
-      <label>
-        異動理由
-        <input name="change_reason" maxLength={500} required />
-      </label>
+
+      <div style={{ marginTop: "0.6rem" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: "0.35rem",
+          }}
+        >
+          <label
+            htmlFor="change-reason-input"
+            style={{
+              fontWeight: 650,
+              fontSize: "0.92rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.4rem",
+              margin: 0,
+            }}
+          >
+            <span>異動理由</span>
+            <span style={{ color: "#f87171", fontSize: "0.82rem", fontWeight: 700 }}>* 必填稽核項目</span>
+          </label>
+          <span style={{ fontSize: "0.78rem", color: "var(--muted, #94a3b8)" }}>
+            （切換狀態會自動預填，亦可自訂輸入）
+          </span>
+        </div>
+        <input
+          id="change-reason-input"
+          name="change_reason"
+          maxLength={500}
+          required
+          value={changeReason}
+          onChange={(event) => setChangeReason(event.target.value)}
+          placeholder="請輸入異動理由（例如：機台加熱管故障待修、定期例行保養等）"
+        />
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginTop: "0.45rem" }}>
+          {Object.entries(defaultReasons).map(([key, text]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setChangeReason(text)}
+              style={{
+                fontSize: "0.78rem",
+                padding: "0.25rem 0.6rem",
+                borderRadius: "9999px",
+                border: "1px solid var(--border-subtle, rgba(255, 255, 255, 0.15))",
+                background:
+                  changeReason === text
+                    ? "var(--accent, #0d9488)"
+                    : "var(--surface-sunken, rgba(0, 0, 0, 0.25))",
+                color: changeReason === text ? "#ffffff" : "var(--foreground-muted, #cbd5e1)",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              {text}
+            </button>
+          ))}
+        </div>
+      </div>
     </>
   );
 }

@@ -10,11 +10,26 @@
 - GitHub 串接 Vercel 部署
 - Playwright 公開介面驗收測試
 
-## 2026-10-15 最新接手快照
+## 2026-10-16 最新接手快照
 
 本節是目前接手的第一個入口。先執行 `git status --short --branch`、`git log -5 --oneline`，再閱讀
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
+
+- **設備狀態修改失敗排查、智慧預填理由與相容程序過濾強化（equipment-edit-form.tsx, page.tsx, actions.ts, administration.ts）**：
+  - **根本原因排查**：
+    1. **異動理由（change_reason）空白或漏填**：資料庫 RPC `update_laundry_equipment` 與 Zod 驗證皆要求異動理由長度 1~500 字元且不可空白。因前端異動理由欄位位於表單最底層（清洗時間 JSON 與相容程序下方），使用者調整設備狀態為異常或維修中後常漏填理由直接提交，引發驗證失敗。
+    2. **相容程序（procedure_template_ids）機型衝突**：資料庫 `validate_laundry_equipment_capabilities` 嚴格要求關聯程序中每一個程序必須包含該機型階段；先前表單未依機型過濾程序（如洗衣機勾選了圍兜純烘乾程序），導致送出時觸發例外 `procedure requires a different equipment type` 遭到拒絕。
+    3. **錯誤反饋黑箱化**：先前 `actions.ts` 與 `page.tsx` 將所有失敗（無論理由空、權限拒絕、程序不合）一律轉為 `?equipment=failed` 並統包顯示模糊的「設備異動失敗，未套用任何變更」，致使使用者不知如何修正。
+  - **修復與防護機制**：
+    1. **智慧預填與快捷理由標籤（Pills）**：切換設備狀態時（`abnormal`、`maintenance`、`normal`、`inactive`）自動帶入預設理由（如「`⚠️ 設備故障異常待修`」、「`🔧 設備例行保養維修中`」），並提供快速點選 Pills 膠囊按鈕，標示 `* 必填稽核項目`。
+    2. **機型專屬程序相容性過濾**：依設備機型（`selected.equipment_type`）過濾相容程序（洗衣機自動排除純烘乾程序，烘衣機自動排除免烘乾程序），杜絕不相容程序送出。
+    3. **精確錯誤代碼反饋**：`updateLaundryEquipment` 識別並回傳 `reason_required`、`procedure_incompatible`、`site_scope_denied` 等具體原因代碼，並在 `page.tsx` 顯示精準操作指引，徹底解決使用者改狀態碰壁問題。
+  - **測試與建置覆核**：
+    - 新增單元測試 `tests/unit/equipment-edit.spec.ts` 驗證預設理由自動對齊與相容程序過濾邏輯。
+    - 全專案 41 個測試檔、194 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
+## 2026-10-15 歷史交付快照
 
 - **實體設備故障異常標示與即時看板非正常狀態強化（quick-live-view.tsx, quick-live-view.spec.ts, /app/admin/laundry-equipment）**：
   - **管理維運端設備異常調整機制**：

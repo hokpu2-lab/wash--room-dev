@@ -65,7 +65,7 @@ export type LaundryEquipmentWorkspace = z.infer<typeof workspaceSchema>;
 export type LaundryEquipmentCard = z.infer<typeof equipmentSchema>;
 export type EquipmentChangeResult =
   | { kind: "applied" | "already-applied"; equipmentId: string; qrVersion: number }
-  | { kind: "invalid" | "failed" | "denied" };
+  | { kind: "invalid" | "failed" | "denied"; reasonCode?: string; message?: string };
 export type EquipmentDeletionResult =
   | { kind: "applied" | "already-applied"; equipmentId: string }
   | { kind: "invalid" | "failed" | "denied" | "in-use" | "name-mismatch" };
@@ -407,7 +407,16 @@ export async function registerLaundryEquipment(input: unknown): Promise<Equipmen
 }
 
 export async function updateLaundryEquipment(input: unknown): Promise<EquipmentChangeResult> {
-  await requireRole("laundry_supervisor"); const parsed = updateInput.safeParse(input); if (!parsed.success) return { kind: "invalid" };
+  await requireRole("laundry_supervisor");
+  const parsed = updateInput.safeParse(input);
+  if (!parsed.success) {
+    console.error("updateLaundryEquipment validation error:", parsed.error.format());
+    const hasReasonIssue = parsed.error.issues.some((issue) => issue.path.includes("reason"));
+    if (hasReasonIssue) {
+      return { kind: "invalid", reasonCode: "reason_required", message: "請填寫異動理由（必填稽核項目）" };
+    }
+    return { kind: "invalid", reasonCode: "invalid_fields", message: "表單資料格式不正確或缺少必填資料" };
+  }
   const supabase = await createServerSupabaseClient({ cookieWritesRequired: true });
   let { data, error } = await supabase.rpc("update_laundry_equipment", {
     target_laundry_equipment_id: parsed.data.equipmentId,
@@ -434,7 +443,32 @@ export async function updateLaundryEquipment(input: unknown): Promise<EquipmentC
     data = fallback.data;
     error = fallback.error;
   }
-  const result = changeSchema.safeParse(data); if (error || !result.success || result.data.length !== 1) return { kind: "failed" }; const change = result.data[0]; if (change.outcome === "denied") return { kind: "denied" }; if (!change.laundry_equipment_id || change.qr_version === null) return { kind: "failed" };
+  if (error) {
+    console.error("updateLaundryEquipment RPC error:", error);
+    const msg = error.message || "";
+    if (msg.includes("procedure requires a different equipment type") || msg.includes("incompatible procedure capability")) {
+      return { kind: "failed", reasonCode: "procedure_incompatible", message: "所選相容程序與設備機型不符，請調整相容程序勾選" };
+    }
+    if (msg.includes("is_safe_laundry_equipment_change_reason") || msg.includes("invalid laundry equipment update")) {
+      return { kind: "invalid", reasonCode: "reason_required", message: "異動理由未填寫或不符合安全規範" };
+    }
+    if (msg.includes("authentication required")) {
+      return { kind: "denied", reasonCode: "auth_required", message: "尚未登入或認證過期" };
+    }
+    return { kind: "failed", reasonCode: "database_error", message: msg };
+  }
+  const result = changeSchema.safeParse(data);
+  if (!result.success || result.data.length !== 1) {
+    console.error("updateLaundryEquipment parse error:", result.error, "data:", data);
+    return { kind: "failed", reasonCode: "parse_error" };
+  }
+  const change = result.data[0];
+  if (change.outcome === "denied") {
+    return { kind: "denied", reasonCode: "site_scope_denied", message: "權限不足：你沒有此設備所在作業據點的主管權限" };
+  }
+  if (!change.laundry_equipment_id || change.qr_version === null) {
+    return { kind: "failed", reasonCode: "empty_equipment" };
+  }
   if (parsed.data.cleaningDurationConfig && change.laundry_equipment_id) {
     try {
       await supabase

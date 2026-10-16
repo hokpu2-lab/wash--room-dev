@@ -57,8 +57,12 @@ export async function saveLaundryEquipment(formData: FormData) {
     requestId: text(formData.get("change_request_id")),
     reason: text(formData.get("change_reason")),
   });
-  if (result.kind === "applied" || result.kind === "already-applied") redirect(`/app/admin/laundry-equipment?equipment=saved`);
-  redirect(`/app/admin/laundry-equipment?equipment=${result.kind === "invalid" ? "invalid" : "failed"}`);
+  if (result.kind === "applied" || result.kind === "already-applied") {
+    redirect(`/app/admin/laundry-equipment?equipment=saved`);
+  }
+  const reasonCode = "reasonCode" in result ? result.reasonCode : undefined;
+  const reasonQuery = reasonCode ? `&reason=${encodeURIComponent(reasonCode)}` : "";
+  redirect(`/app/admin/laundry-equipment?equipment=${result.kind}${reasonQuery}`);
 }
 
 export async function reissueLaundryEquipmentQrAction(formData: FormData) {
