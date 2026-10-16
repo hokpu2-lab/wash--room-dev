@@ -36,6 +36,7 @@ const categorySchema = z.object({ id: z.uuid(), code: z.string(), name: z.string
 const procedureSchema = z.object({
   id: z.uuid(),
   operating_site_id: z.uuid(),
+  laundry_categories: z.union([categorySchema, z.array(categorySchema)]).nullish(),
   procedure_template_versions: z.array(z.object({ template_name: z.string(), status: z.string() })).optional(),
 });
 const workspaceSchema = z.object({
@@ -120,7 +121,7 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
   ] = await Promise.all([
     supabase.from("laundry_equipment").select("id, name, equipment_type, capacity_kg, status, occupied, current_qr_version, operating_site_id, operating_sites(code, name)").in("operating_site_id", siteIds).order("name", { ascending: true }),
     supabase.from("laundry_categories").select("id, code, name").eq("active", true).order("sort_order", { ascending: true }),
-    supabase.from("procedure_templates").select("id, operating_site_id, procedure_template_versions(template_name, status)").in("operating_site_id", siteIds),
+    supabase.from("procedure_templates").select("id, operating_site_id, laundry_categories(id, code, name), procedure_template_versions(template_name, status)").in("operating_site_id", siteIds),
     supabase.from("operating_sites").select("id, code, name").in("id", siteIds).order("code", { ascending: true }),
     supabase.from("laundry_equipment_categories").select("laundry_equipment_id, laundry_categories(code)"),
     supabase.from("laundry_equipment_procedures").select("laundry_equipment_id, procedure_template_id"),

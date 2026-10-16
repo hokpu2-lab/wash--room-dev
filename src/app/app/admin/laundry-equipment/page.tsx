@@ -14,10 +14,14 @@ const statusLabels = { normal: "正常", inactive: "停用", abnormal: "異常",
 
 function procedureLabel(procedure: {
   id: string;
+  laundry_categories?: { code?: string; name?: string } | Array<{ code?: string; name?: string }> | null;
   procedure_template_versions?: Array<{ template_name: string; status: string }>;
 }) {
   const published = procedure.procedure_template_versions?.find((version) => version.status === "published");
-  return published?.template_name ?? `程序 ${procedure.id.slice(0, 8)}`;
+  const cat = Array.isArray(procedure.laundry_categories) ? procedure.laundry_categories[0] : procedure.laundry_categories;
+  const catPrefix = cat?.name ? `【${cat.name}】` : "";
+  const name = published?.template_name ?? `程序 ${procedure.id.slice(0, 8)}`;
+  return `${catPrefix}${name}`;
 }
 
 export default async function LaundryEquipmentPage({

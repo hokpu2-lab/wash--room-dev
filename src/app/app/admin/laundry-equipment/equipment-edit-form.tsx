@@ -225,6 +225,9 @@ export function EquipmentEditForm({
 
       <fieldset className={styles.compatList}>
         <legend>相容程序</legend>
+        <p style={{ margin: "0.2rem 0 0.5rem", fontSize: "0.82rem", color: "var(--muted, #94a3b8)" }}>
+          💡 系統已依設備機型（{selected.equipment_type === "washer" ? "洗衣機" : selected.equipment_type === "dryer" ? "烘衣機" : "消毒鍋"}）自動過濾不相容程序。若留空不勾選，預設可處理同據點所有此機型階段作業。
+        </p>
         {visibleProcedures.length === 0 ? <p>此據點尚無已發布程序。</p> : null}
         {visibleProcedures.map((procedure) => (
           <label className={styles.checkboxLabel} key={`${selected.id}-${procedure.id}`}>
