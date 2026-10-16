@@ -16,6 +16,24 @@
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
 
+- **洗衣單與批次冗餘設備清單移除與「洗衣單流程」資料庫即時對齊稽核（live-queue.tsx, laundry-order-flow-3d.tsx, workspace-snapshot.ts, selected-order-meta.spec.ts）**：
+  - **介面調整：移除冗餘 EQUIPMENT 清單**：
+    - 「洗衣單與批次（`/app/dashboard`）」頁面上方已有即時動態看板（`QuickLiveView`）完整呈現全站設備卡片與倒數計時。
+    - 在「洗衣流程」下方原有一組縮小版的靜態 `EQUIPMENT` 條列區塊，排版冗餘且佔據縱向空間，已完全自 `live-queue.tsx` 的 `flowAndDetailsSection` 移除，使洗衣單流程節點與 3D 視覺更清晰專注。
+  - **功能確認與資料庫資料即時對齊修復**：
+    1. **資料流向與一致性確認**：
+       - 使用者於「洗衣排程」點選洗衣單後，前端透過 `/api/app/laundry-orders/[orderId]/detail` 呼叫資料庫 RPC `get_workspace_order_detail`，直接自 PostgreSQL 撈取該單關聯之 `laundry_orders`、`laundry_batches`、`laundry_batch_stage_runs`、`procedure_template_stages`、`laundry_equipment` 與 `laundry_categories`，資料完全來自資料庫即時記錄。
+    2. **徹底清除歷史假資料與寫死單號/車號覆寫**：
+       - 先前程式中殘留了早期原型寫死邏輯（如針對 `MAIN-20261005-0004`、`MAIN-20261008-0001`、車號 `8D-1`、`2C-6` 強行插入「消毒浸泡」階段或強制標記階段為 `active`），導致實際資料庫的真實階段被硬編碼覆蓋。
+       - 已徹底移除所有寫死單號/車號分支，100% 依據資料庫實際批次程序階段（`batch.stages`）與階段執行記錄（`stage_run.status`）渲染流程節點。
+    3. **相容資料庫 Nullable 標準時間與設備欄位**：
+       - 資料庫 `procedure_template_stages.standard_minutes` 允許為 `null`，先前 `procedureStageSchema` 限制為 positive integer 導致解析潛在失敗；已放寬為 `z.number().int().nullable().optional()`，確保所有資料庫自訂程序階段皆能無損載入。
+    4. **節點標籤清晰化**：
+       - 烘衣階段前的等待節點標籤原為重複的「`烘衣`」，已更正為「`等待烘衣`」；消毒與洗衣間之等待節點對齊為「`等待洗衣`」，解決連續出現同名節點的困惑。
+  - **測試與建置覆核**：
+    - 單元測試 `tests/unit/selected-order-meta.spec.ts` 更新並通過。
+    - 全專案 41 個測試檔、196 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
 - **設備清單清洗時間動態對齊與閒置保持空白（page.tsx, administration.ts, duration-config.ts, equipment-edit.spec.ts）**：
   - **根本原因與需求排查**：
     - 「洗衣設備與固定 QR（`/app/admin/laundry-equipment`）」的「設備清單」表格中，「清洗時間」欄位原先靜態顯示設備基準設定值（例如固定顯示 `60 分鐘` 及底下的 JSON 分類配置標籤）。

@@ -753,22 +753,6 @@ export function LiveQueue({
         ) : (
           <p className={styles.flowEmptyNotice}>選取一張洗衣單後，這裡會顯示目前允許的控制點與流程進度。</p>
         )}
-
-        {equipment.length ? (
-          <div className={styles.equipmentList}>
-            <p className={styles.eyebrow}>EQUIPMENT</p>
-            {equipment.slice(0, 6).map((item) => (
-              <div key={item.id} className={styles.equipmentItem}>
-                <i className={item.occupied ? styles.busy : item.status === "normal" ? styles.ready : styles.issue} />
-                <span>
-                  <strong>{item.name}</strong>
-                  <small>{equipmentTypeLabels[item.equipmentType]}</small>
-                </span>
-                <em>{item.occupied ? "使用中" : equipmentStatusLabels[item.status]}</em>
-              </div>
-            ))}
-          </div>
-        ) : null}
       </div>
 
       {portalReady && detailOpen && selected

@@ -52,11 +52,11 @@ const batchProgressSchema = z.object({
 const procedureStageSchema = z.object({
   stage_order: z.number().int().positive(),
   name: z.string().min(1),
-  standard_minutes: z.number().int().positive(),
+  standard_minutes: z.number().int().nullable().optional(),
   equipment_type: z.enum(["manual", "disinfection_tank", "washer", "dryer", "cart"]),
   state: z.enum(["pending", "active", "completed"]),
-  started_at: z.string().nullable(),
-  completed_at: z.string().nullable(),
+  started_at: z.string().nullable().optional(),
+  completed_at: z.string().nullable().optional(),
 });
 
 const orderDetailSchema = z.object({
@@ -74,8 +74,8 @@ const orderDetailSchema = z.object({
     procedure_version: z.number().int().positive(),
     status: batchStatusSchema,
     current_stage_order: z.number().int().positive(),
-    active_equipment_name: z.string().min(1).nullable(),
-    active_equipment_type: z.enum(["disinfection_tank", "washer", "dryer"]).nullable(),
+    active_equipment_name: z.string().nullable().optional(),
+    active_equipment_type: z.enum(["disinfection_tank", "washer", "dryer"]).nullable().optional(),
     progress: batchProgressSchema,
     stages: z.array(procedureStageSchema),
   })),
@@ -150,7 +150,7 @@ export type WorkspaceBatch = {
 export type WorkspaceProcedureStage = {
   stageOrder: number;
   name: string;
-  standardMinutes: number;
+  standardMinutes: number | null;
   equipmentType: "manual" | "disinfection_tank" | "washer" | "dryer" | "cart";
   state: "pending" | "active" | "completed";
   startedAt: string | null;
@@ -202,8 +202,8 @@ export function parseWorkspaceOrderDetail(data: unknown): WorkspaceOrderDetail |
       procedureVersion: batch.procedure_version,
       status: batch.status,
       currentStageOrder: batch.current_stage_order,
-      activeEquipmentName: batch.active_equipment_name,
-      activeEquipmentType: batch.active_equipment_type,
+      activeEquipmentName: batch.active_equipment_name ?? null,
+      activeEquipmentType: batch.active_equipment_type ?? null,
       progress: {
         stageRunId: batch.progress.stage_run_id,
         stageStatus: batch.progress.stage_status,
@@ -217,11 +217,11 @@ export function parseWorkspaceOrderDetail(data: unknown): WorkspaceOrderDetail |
       stages: batch.stages.map((stage) => ({
         stageOrder: stage.stage_order,
         name: stage.name,
-        standardMinutes: stage.standard_minutes,
+        standardMinutes: stage.standard_minutes ?? null,
         equipmentType: stage.equipment_type,
         state: stage.state,
-        startedAt: stage.started_at,
-        completedAt: stage.completed_at,
+        startedAt: stage.started_at ?? null,
+        completedAt: stage.completed_at ?? null,
       })),
     })),
   };
