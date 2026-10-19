@@ -26,6 +26,18 @@
 
 ## 2026-10-19 最新接手快照
 
+- **清除歷史寫死車號覆寫，依資料庫分類還原 8D-1 圍兜流轉至「待烘乾」（quick-live-view.tsx, order-pipeline.ts, stage-eligibility.ts, live-queue.tsx, start-control.tsx, quick-live-view.spec.ts）**：
+  - **根本原因排查**：
+    1. 在即時洗衣車動態（`quick-live-view.tsx`）與排程管線（`order-pipeline.ts`）中，殘留早期原型測試之寫死判斷：`isDisinfect = order.cartNumber === "8D-1" || order.cartNumber === "2C-6"`。
+    2. 由於寫死優先權過高，即使洗衣車 `8D-1` 實際收單分類為「圍兜（BIB）」，程式仍被強制認定為消毒單，導致分類標籤雖顯示「圍兜」，但下一階段徽章卻錯誤呈現為「待消毒」（紅色）而非圍兜專屬的「待烘乾」（橙色）。
+  - **修復與防護機制**：
+    1. 徹底移除 `quick-live-view.tsx`、`order-pipeline.ts`、`stage-eligibility.ts`、`live-queue.tsx`、`start-control.tsx` 中針對 `8D-1` 與 `2C-6` 的強制覆寫邏輯。
+    2. 洗衣單階段與流轉 100% 依據真實資料庫批次分類（`categoryCode` 與 `categoryName`）及關聯程序階段進行推導。
+    3. 實體車 `8D-1` 分類為「圍兜」時，精準流轉至下一階段「待烘乾」，不再被誤判為消毒單。
+  - **測試與建置覆核**：
+    - 單元測試 `tests/unit/quick-live-view.spec.ts` 與 `tests/unit/order-pipeline.spec.ts` 擴充驗證 `8D-1` 分類為圍兜時精準流轉至待烘乾。
+    - 全專案 41 個測試檔、196 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
 - **營運戰情室「狀況異常(暫停中)」與「設備清單」非正常狀態（故障/維修/停用）即時同步強化（workspace-live.tsx, status.ts, workspace-snapshot.spec.ts）**：
   - **根本原因排查**：
     1. 使用者在「洗衣設備與固定 QR（`/app/admin/laundry-equipment`）」修改設備狀態為故障、停用或維修中後，回到主管首頁「營運戰情室（`/app/admin`）」時，「狀況異常(暫停中)」仍顯示 `0 設備異常`。

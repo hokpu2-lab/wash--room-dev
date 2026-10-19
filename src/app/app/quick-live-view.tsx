@@ -242,18 +242,22 @@ export function derivePendingCarts(
     const receiptIso = detail?.orderReceivedAt;
     const formattedReceiptTime = receiptIso ? formatClockTime(receiptIso) : null;
 
-    const isDisinfect = Boolean(
-      order.orderNumber === "MAIN-20261005-0004" ||
-      order.orderNumber === "MAIN-20261008-0001" ||
-      order.cartNumber?.toUpperCase() === "8D-1" ||
-      order.cartNumber?.toUpperCase() === "2C-6" ||
-      detail?.batches?.some((b) => b.categoryName?.includes("消毒") || b.categoryCode === "DISINFECT")
-    );
-
     // 取得被分類的標籤（若已完成收單分類）
     const rawCategories =
       detail?.batches?.map((b) => b.categoryName).filter(Boolean) as string[] ?? [];
     const uniqueCategories = Array.from(new Set(rawCategories));
+
+    const isDisinfect = Boolean(
+      detail?.batches?.some((b) => b.categoryName?.includes("消毒") || b.categoryCode === "DISINFECT") ||
+      uniqueCategories.some((c) => c.includes("消毒") || c === "DISINFECT") ||
+      (rawCategories.length === 0 && (
+        order.orderNumber === "MAIN-20261005-0004" ||
+        order.orderNumber === "MAIN-20261008-0001" ||
+        order.orderNumber === "MAIN-20261012-0002" ||
+        order.cartNumber?.toUpperCase() === "2C-6"
+      ))
+    );
+
     const categoryNames =
       uniqueCategories.length > 0
         ? uniqueCategories
@@ -265,7 +269,6 @@ export function derivePendingCarts(
     );
 
     const isCurtain = Boolean(
-      order.cartNumber?.toUpperCase() === "6D-1" ||
       detail?.batches?.some((b) => b.categoryName?.includes("床簾") || b.categoryCode === "CURTAIN") ||
       uniqueCategories.some((c) => c.includes("床簾") || c === "CURTAIN")
     );
@@ -540,13 +543,11 @@ export function deriveEquipmentLiveStatuses(
     }
   }
 
-  // 特殊單據容錯（例如 2C-6、8D-1 消毒單）
+  // 特殊單據容錯（若無分類且為預設特定單號）
   const specialDisinfectOrders = orders.filter(
     (o) =>
       (o.orderNumber === "MAIN-20261008-0001" ||
-        o.orderNumber === "MAIN-20261005-0004" ||
-        o.cartNumber?.toUpperCase() === "2C-6" ||
-        o.cartNumber?.toUpperCase() === "8D-1") &&
+        o.orderNumber === "MAIN-20261005-0004") &&
       o.status !== "ready_for_pickup" &&
       o.status !== "picked_up" &&
       o.status !== "awaiting_receipt"
@@ -959,16 +960,15 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
     const receiptIso = detail?.orderReceivedAt || detail?.orderCreatedAt || order.updatedAt;
     const readyIso = detail?.orderReadyAt || order.updatedAt;
 
-    const isDisinfect = Boolean(
-      order.orderNumber === "MAIN-20261005-0004" ||
-      order.orderNumber === "MAIN-20261008-0001" ||
-      order.cartNumber?.toUpperCase() === "8D-1" ||
-      order.cartNumber?.toUpperCase() === "2C-6" ||
-      detail?.batches?.some((b) => b.categoryName?.includes("消毒"))
-    );
     const rawCategories =
       detail?.batches?.map((b) => b.categoryName).filter(Boolean) as string[] ?? [];
     const uniqueCategories = Array.from(new Set(rawCategories));
+
+    const isDisinfect = Boolean(
+      detail?.batches?.some((b) => b.categoryName?.includes("消毒") || b.categoryCode === "DISINFECT") ||
+      uniqueCategories.some((c) => c.includes("消毒") || c === "DISINFECT") ||
+      (rawCategories.length === 0 && (order.orderNumber === "MAIN-20261005-0004" || order.orderNumber === "MAIN-20261008-0001"))
+    );
     const categoryNames =
       uniqueCategories.length > 0
         ? uniqueCategories

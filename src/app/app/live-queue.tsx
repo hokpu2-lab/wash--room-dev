@@ -128,9 +128,7 @@ function getEquipmentNameDisplay(
 
   if (
     order.orderNumber === "MAIN-20261005-0004" ||
-    order.orderNumber === "MAIN-20261008-0001" ||
-    order.cartNumber?.toUpperCase() === "8D-1" ||
-    order.cartNumber?.toUpperCase() === "2C-6"
+    order.orderNumber === "MAIN-20261008-0001"
   ) {
     return "本館消毒鍋";
   }
@@ -407,11 +405,8 @@ export function LiveQueue({
   }, [closeDetail, detailOpen]);
 
   const isDisinfectOrder = Boolean(
-    selected?.orderNumber === "MAIN-20261005-0004" ||
-    selected?.orderNumber === "MAIN-20261008-0001" ||
-    selected?.cartNumber?.toUpperCase() === "8D-1" ||
-    selected?.cartNumber?.toUpperCase() === "2C-6" ||
-    selectedDetail?.batches?.some((b) => b.categoryName?.includes("消毒"))
+    selectedDetail?.batches?.some((b) => b.categoryName?.includes("消毒") || b.categoryCode === "DISINFECT") ||
+    (!selectedDetail?.batches?.length && (selected?.orderNumber === "MAIN-20261005-0004" || selected?.orderNumber === "MAIN-20261008-0001"))
   );
 
   const selectedActiveBatch = selectedDetail?.batches?.[0];

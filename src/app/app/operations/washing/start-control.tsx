@@ -181,9 +181,7 @@ export function StartWashingControl({
   const displayOrderNumber = selectedBatch?.orderNumber || (matchingBatch ? selectedOrderNumber : undefined) || "—";
   const isTargetedDisinfect =
     selectedBatch?.orderNumber === "MAIN-20261005-0004" ||
-    selectedBatch?.orderNumber === "MAIN-20261008-0001" ||
-    selectedBatch?.cartNumber?.toUpperCase() === "8D-1" ||
-    selectedBatch?.cartNumber?.toUpperCase() === "2C-6";
+    selectedBatch?.orderNumber === "MAIN-20261008-0001";
 
   const displayCategory = selectedBatch?.categoryName || (matchingBatch ? (isTargetedDisinfect ? "消毒品" : "一般") : "—");
 

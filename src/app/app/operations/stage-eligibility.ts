@@ -42,17 +42,14 @@ export function resolveRequiredEquipmentForBatch(
   let category: "DISINFECT" | "BIB" | "CURTAIN" | "SOILED" | "GENERAL" = "GENERAL";
 
   if (
-    orderNum === "MAIN-20261005-0004" ||
-    orderNum === "MAIN-20261008-0001" ||
-    cartNum === "8D-1" ||
-    cartNum === "2C-6" ||
     catCode.includes("DISINFECT") ||
     catName.includes("消毒") ||
-    catName.includes("感染")
+    catName.includes("感染") ||
+    orderNum === "MAIN-20261005-0004" ||
+    orderNum === "MAIN-20261008-0001"
   ) {
     category = "DISINFECT";
   } else if (
-    cartNum === "6D-1" ||
     catCode.includes("CURTAIN") ||
     catName.includes("床簾")
   ) {

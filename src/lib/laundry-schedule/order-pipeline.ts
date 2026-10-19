@@ -36,21 +36,7 @@ export function resolveOrderCategory(
   const cartUpper = (order.cartNumber || "").trim().toUpperCase();
   const orderNum = (order.orderNumber || "").trim().toUpperCase();
 
-  // 1. 特殊單據與車號直接判定
-  if (
-    orderNum === "MAIN-20261005-0004" ||
-    orderNum === "MAIN-20261008-0001" ||
-    cartUpper === "8D-1" ||
-    cartUpper === "2C-6"
-  ) {
-    return { categoryCode: "DISINFECT", categoryName: "消毒品", categoryTone: "disinfect" };
-  }
-
-  if (cartUpper === "6D-1") {
-    return { categoryCode: "CURTAIN", categoryName: "床簾", categoryTone: "curtain" };
-  }
-
-  // 2. 從批次分類資訊判定
+  // 1. 優先從真實批次分類資訊判定（確保即使車號歷史相同，分類已設定時 100% 依分類為準）
   if (detail?.batches && detail.batches.length > 0) {
     for (const b of detail.batches) {
       const code = (b.categoryCode || "").toUpperCase();
@@ -69,6 +55,18 @@ export function resolveOrderCategory(
         return { categoryCode: "SOILED", categoryName: "汙衣", categoryTone: "soiled" };
       }
     }
+  }
+
+  // 2. 僅在完全沒有批次分類資訊時的特殊單據回退判定
+  if (
+    orderNum === "MAIN-20261005-0004" ||
+    orderNum === "MAIN-20261008-0001"
+  ) {
+    return { categoryCode: "DISINFECT", categoryName: "消毒品", categoryTone: "disinfect" };
+  }
+
+  if (cartUpper === "6D-1") {
+    return { categoryCode: "CURTAIN", categoryName: "床簾", categoryTone: "curtain" };
   }
 
   return { categoryCode: "GENERAL", categoryName: "一般", categoryTone: "general" };

@@ -538,6 +538,37 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
     expect(pending[0].nextStageName).toBe("待烘乾");
     expect(pending[0].nextStageTone).toBe("dry");
     expect(pending[0].categoryNames).toEqual(["圍兜"]);
+
+    // 特別驗證 8D-1 實體車：若分類為圍兜，必須進入「待烘乾」，不可被舊車號誤判為「待消毒」
+    const bib8D1Order: WorkspaceOrder = {
+      id: "order-bib-8d1",
+      orderNumber: "MAIN-20261019-0001",
+      cartNumber: "8D-1",
+      institutionName: "三館",
+      status: "awaiting_cleaning",
+      updatedAt: "2026-10-19T09:00:00.000Z",
+    };
+    const bib8D1Details: WorkspaceOrderDetail[] = [
+      makeDetail({
+        orderId: "order-bib-8d1",
+        orderReceivedAt: "2026-10-19T09:00:00.000Z",
+        batches: [
+          makeBatch({
+            categoryCode: "BIB",
+            categoryName: "圍兜",
+            stages: [
+              makeStage({ stageOrder: 1, name: "烘乾", equipmentType: "dryer", state: "pending" }),
+            ],
+          }),
+        ],
+      }),
+    ];
+    const pending8D1 = derivePendingCarts([bib8D1Order], bib8D1Details);
+    expect(pending8D1.length).toBe(1);
+    expect(pending8D1[0].cartNumber).toBe("8D-1");
+    expect(pending8D1[0].categoryNames).toEqual(["圍兜"]);
+    expect(pending8D1[0].nextStageName).toBe("待烘乾");
+    expect(pending8D1[0].nextStageTone).toBe("dry");
   });
 
   it("床簾（CURTAIN）在洗衣機清洗完畢後不須烘衣，不應進入待烘乾階段", () => {

@@ -60,14 +60,48 @@ describe("洗衣排程品項與流程管線推導 (Order Pipeline & Stages)", ()
   });
 
   it("依車號與批次分類準確推導品項", () => {
-    // 特殊消毒單
-    expect(resolveOrderCategory({ ...baseOrder, cartNumber: "8D-1" }).categoryCode).toBe("DISINFECT");
-    expect(resolveOrderCategory({ ...baseOrder, cartNumber: "2C-6" }).categoryCode).toBe("DISINFECT");
+    // 批次詳情包含消毒分類
+    const disinfectDetail: WorkspaceOrderDetail = {
+      orderId: baseOrder.id,
+      orderCreatedAt: "2026-10-14T09:00:00Z",
+      orderReceivedAt: "2026-10-14T09:10:00Z",
+      orderReadyAt: null,
+      orderClosedAt: null,
+      batches: [
+        {
+          id: "batch-disinfect",
+          batchSequence: 1,
+          categoryCode: "DISINFECT",
+          categoryName: "消毒品",
+          procedureName: "消毒程序",
+          procedureVersion: 1,
+          status: "in_progress",
+          currentStageOrder: 1,
+          activeEquipmentName: "本館消毒鍋",
+          activeEquipmentType: "disinfection_tank",
+          progress: {
+            stageRunId: null,
+            stageStatus: "in_progress",
+            stageProgressPercent: 50,
+            overallProgressPercent: 50,
+            estimatedStageCompletedAt: null,
+            overdueMinutes: 0,
+            totalStandardMinutes: 150,
+            isEstimate: false,
+          },
+          stages: [
+            { stageOrder: 1, name: "消毒", standardMinutes: 30, equipmentType: "disinfection_tank", state: "active", startedAt: null, completedAt: null },
+          ],
+        },
+      ],
+    };
+    expect(resolveOrderCategory({ ...baseOrder, cartNumber: "8D-1" }, disinfectDetail).categoryCode).toBe("DISINFECT");
+    expect(resolveOrderCategory({ ...baseOrder, cartNumber: "2C-6" }, disinfectDetail).categoryCode).toBe("DISINFECT");
 
-    // 床簾 6D-1
-    expect(resolveOrderCategory({ ...baseOrder, cartNumber: "6D-1" }).categoryCode).toBe("CURTAIN");
+    // 特殊單號回退判定
+    expect(resolveOrderCategory({ ...baseOrder, orderNumber: "MAIN-20261005-0004" }).categoryCode).toBe("DISINFECT");
 
-    // 圍兜
+    // 圍兜 8D-1 實體車：若批次分類為圍兜，必須推導為 BIB 圍兜，不可被車號誤判為消毒品
     const bibDetail: WorkspaceOrderDetail = {
       orderId: baseOrder.id,
       orderCreatedAt: "2026-10-14T09:00:00Z",
