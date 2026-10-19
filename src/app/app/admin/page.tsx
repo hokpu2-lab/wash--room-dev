@@ -46,7 +46,10 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             <h2 id="operations-summary-title">今日現場指揮中心</h2>
             <p>先處理暫停、異常與待收件，再追蹤處理中與待取件；實際狀態與預估進度分開計算。</p>
           </div>
-          <AppLink href={withWorkspaceScope("/app/dashboard", scope)}>開啟洗衣單與批次 <span aria-hidden="true">→</span></AppLink>
+          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+            <AppLink href={withWorkspaceScope("/app/dashboard", scope)}>開啟洗衣單與批次 <span aria-hidden="true">→</span></AppLink>
+            <AppLink href={withWorkspaceScope("/app/operations", scope)}>開啟洗衣員作業台 <span aria-hidden="true">→</span></AppLink>
+          </div>
         </section>
 
         <Suspense fallback={<SupervisorKpiFallback />}>
@@ -67,6 +70,20 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             <AppLink href={withWorkspaceScope("/app/admin/laundry-equipment", scope)}><span>04</span><strong>管理洗衣設備與固定 QR<small>能力、占用與設備狀態</small></strong></AppLink>
             <AppLink href={withWorkspaceScope("/app/admin/notifications", scope)}><span>05</span><strong>通知矩陣與 LINE／Telegram<small>事件、嚴重度與失敗回退</small></strong></AppLink>
             <AppLink href={withWorkspaceScope("/app/admin/bi", scope)}><span>06</span><strong>分析與 BI<small>模型、報表、匯出、摘要與舊單匯入</small></strong></AppLink>
+            <AppLink href={withWorkspaceScope("/app/operations/control-center", scope)}><span>07</span><strong>批次控制與重排<small>異常、暫停、合併與重排建議</small></strong></AppLink>
+          </div>
+
+          <div className={styles.sectionHeadingRow} style={{ marginTop: "2rem" }}>
+            <div><p className={styles.eyebrow}>WORKER OPERATIONS</p><h2 id="operation-controls-title">洗衣員作業台 · 作業控制點</h2></div>
+            <p>主管可直接調閱現場作業台，並執行各階段控制點與批次重排。</p>
+          </div>
+          <div className={styles.quickGrid}>
+            <AppLink href={withWorkspaceScope("/app/operations/receive", scope)}><span>01</span><strong>收單分類與檢查清單<small>掃洗衣車、核對送洗機構並建立批次</small></strong></AppLink>
+            <AppLink href={withWorkspaceScope("/app/operations/disinfection", scope)}><span>02</span><strong>消毒浸泡<small>消毒分類在清洗前的必要階段</small></strong></AppLink>
+            <AppLink href={withWorkspaceScope("/app/operations/washing", scope)}><span>03</span><strong>開始清洗<small>掃描相容且可用的洗衣機</small></strong></AppLink>
+            <AppLink href={withWorkspaceScope("/app/operations/drying", scope)}><span>04</span><strong>清洗完成與烘乾<small>原子完成清洗並啟動烘衣機</small></strong></AppLink>
+            <AppLink href={withWorkspaceScope("/app/operations/split", scope)}><span>05</span><strong>拆分必要批次<small>依分類、容量與程序拆分</small></strong></AppLink>
+            <AppLink href={withWorkspaceScope("/app/operations/control-center", scope)}><span>06</span><strong>批次控制與重排<small>異常、暫停、合併與重排建議</small></strong></AppLink>
           </div>
         </section>
 

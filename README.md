@@ -16,6 +16,24 @@
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
 
+- **洗衣主管「營運總覽」新增「洗衣員作業台 · 作業控制點」與「批次控制與重排」（admin/page.tsx, workspace-shell.tsx, supervisor-navigation.spec.ts）**：
+  - **需求與根本原因排查**：
+    1. 當使用者具有「洗衣主管（`laundry_supervisor`）」身分登入時，左側導覽列的「營運總覽」預設導向 `/app/admin`（洗衣主管工作台）。
+    2. 主管首頁先前僅包含「即時營運」與「主管快速控制（00 帳號 ~ 06 BI）」，缺乏現場作業控制點；主管無法直接在營運總覽存取洗衣員各階段控制點，亦無「批次控制與重排（`/app/operations/control-center`）」之操作入口。
+    3. 洗衣主管的左側導覽清單（`supervisorLinks`）中，先前未加入「洗衣員作業台（`/app/operations`）」與「批次控制與重排」，導致現場排程調度時主管需手動輸入網址。
+  - **修復與入口全面打通架構**：
+    1. **主管首頁快速控制新增「洗衣員作業台 · 作業控制點」全套控制點與「07 批次控制與重排」（`admin/page.tsx`）**：
+       - 在「主管快速控制」網格中新增 `07 批次控制與重排`（副標：異常、暫停、合併與重排建議，連結至 `/app/operations/control-center`）。
+       - 在下方新增專屬區塊 `WORKER OPERATIONS` / `洗衣員作業台 · 作業控制點`，完整呈現：
+         `01 收單分類與檢查清單`、`02 消毒浸泡`、`03 開始清洗`、`04 清洗完成與烘乾`、`05 拆分必要批次`、`06 批次控制與重排`。
+       - 主管工作台頂部 Hero 區塊新增 `開啟洗衣員作業台 →` 快捷導覽按鈕。
+    2. **左側選單（`workspace-shell.tsx`）納入主管專屬現場工作台與批次控制**：
+       - `supervisorLinks` 新增 `{ href: "/app/operations", label: "洗衣員作業台", marker: "作" }` 與 `{ href: "/app/operations/control-center", label: "批次控制與重排", marker: "控" }`。
+       - 強化導覽連結去重邏輯（以 `link.href` 為鍵），確保同時具備多重角色之帳號不會出現重複項目。
+  - **測試與建置覆核**：
+    - 新增單元測試 `tests/unit/supervisor-navigation.spec.ts` 驗證主管與洗衣員導覽連結包含「洗衣員作業台」與「批次控制與重排」。
+    - 全專案 42 個測試檔、201 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
 - **設備停用/故障異常即時連動批次暫停、倒數徹底停止與洗衣流程 3D/排程管線同步標示暫停（administration.ts, quick-live-view.tsx, order-pipeline.ts, live-queue.tsx, laundry-order-flow-3d.tsx, workspace.module.css, quick-live-view.spec.ts, order-pipeline.spec.ts）**：
   - **根本原因排查**：
     1. 使用者在「管理洗衣設備與固定 QR（`/app/admin/laundry-equipment`）」將設備設定為非正常（已停用 `inactive`、異常故障 `abnormal` 或維修中 `maintenance`）時，後端 `update_laundry_equipment` 僅變更了設備主表狀態，未連動暫停該設備上正在運轉中（`in_progress`）的批次與程序階段。

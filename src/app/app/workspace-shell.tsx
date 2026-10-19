@@ -12,9 +12,11 @@ export type WorkspaceLink = {
   marker: string;
 };
 
-const supervisorLinks: WorkspaceLink[] = [
+export const supervisorLinks: WorkspaceLink[] = [
   { href: "/app/admin", label: "營運總覽", description: "今日 KPI 與主管控制", group: "workspace", marker: "總" },
+  { href: "/app/operations", label: "洗衣員作業台", description: "現場作業控制點與佇列", group: "workspace", marker: "作" },
   { href: "/app/dashboard", label: "洗衣單與批次", description: "待收件、處理中與待取件", group: "workspace", marker: "單" },
+  { href: "/app/operations/control-center", label: "批次控制與重排", description: "批次控制、異常與重排", group: "workspace", marker: "控" },
   { href: "/app/history", label: "歷史查詢紀錄", description: "查詢歷史取件紀錄", group: "workspace", marker: "歷" },
   { href: "/app/admin/laundry-equipment", label: "設備狀態", description: "設備能力、狀態與固定 QR", group: "workspace", marker: "機" },
   { href: "/app/admin/notifications", label: "異常與通知", description: "通知矩陣與外部目的地", group: "workspace", marker: "訊" },
@@ -27,7 +29,7 @@ const supervisorLinks: WorkspaceLink[] = [
   { href: "/app/admin/system-guide", label: "系統說明", description: "使用手冊、管理設定與交接指南", group: "management", marker: "導" },
 ];
 
-const workerLinks: WorkspaceLink[] = [
+export const workerLinks: WorkspaceLink[] = [
   { href: "/app/operations", label: "營運總覽", description: "授權據點與工作入口", group: "workspace", marker: "總" },
   { href: "/app/operations/receive", label: "收單分類與檢查清單", description: "掃描洗衣車並建立批次", group: "workspace", marker: "收" },
   { href: "/app/operations/control-center", label: "洗衣單與批次", description: "批次控制、異常與重排", group: "workspace", marker: "單" },
@@ -85,7 +87,7 @@ export async function WorkspaceShellNavigation() {
   const links = Array.from(
     new Map(
       linkPool.map((link) => [
-        `${link.href}:${link.label}`,
+        link.href,
         { ...link, href: withWorkspaceScope(link.href, activeScope) },
       ]),
     ).values(),
