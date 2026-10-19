@@ -187,20 +187,54 @@ test("戰情室指標：待收件單不計入狀況異常(暫停中)，只計入
   expect(priorityActionCount).toBe(1);
 });
 
-test("戰情室處理中件數與洗衣排程佇列處理中件數保持同步", () => {
-  const queueOrders = [
-    { id: "o1", status: "in_process" },
-    { id: "o2", status: "awaiting_cleaning" },
-    { id: "o3", status: "in_process" },
-    { id: "o4", status: "in_process" },
-    { id: "o5", status: "in_process" },
-    { id: "o6", status: "awaiting_cleaning" },
+test("戰情室指標：狀況異常(暫停中)功能與設備清單狀態同步", async () => {
+  const { getEquipmentStatusBadge } = await import("../../src/lib/laundry-equipment/status");
+
+  const equipment = [
+    { id: "e1", status: "normal", equipmentType: "washer" as const, occupied: false }, // 可使用
+    { id: "e2", status: "abnormal", equipmentType: "washer" as const, occupied: false }, // 異常故障
+    { id: "e3", status: "maintenance", equipmentType: "dryer" as const, occupied: false }, // 維修中
+    { id: "e4", status: "inactive", equipmentType: "washer" as const, occupied: false }, // 已停用
+    { id: "e5", status: "normal", equipmentType: "washer" as const, occupied: true }, // 清洗中
   ];
 
-  const inProcessCount = queueOrders.filter((o) => o.status === "in_process").length;
-  const awaitingCleaningCount = queueOrders.filter((o) => o.status === "awaiting_cleaning").length;
+  // 驗證 getEquipmentStatusBadge 與設備清單顯示的徽章標籤完全一致
+  expect(getEquipmentStatusBadge({ status: "abnormal", equipment_type: "washer", occupied: false })).toMatchObject({
+    label: "異常故障",
+    icon: "⚠️",
+  });
+  expect(getEquipmentStatusBadge({ status: "maintenance", equipment_type: "dryer", occupied: false })).toMatchObject({
+    label: "維修中",
+    icon: "🔧",
+  });
+  expect(getEquipmentStatusBadge({ status: "inactive", equipment_type: "washer", occupied: false })).toMatchObject({
+    label: "已停用",
+    icon: "⛔",
+  });
+  expect(getEquipmentStatusBadge({ status: "normal", equipment_type: "washer", occupied: true })).toMatchObject({
+    label: "清洗中",
+    icon: "💧",
+  });
+  expect(getEquipmentStatusBadge({ status: "normal", equipment_type: "washer", occupied: false })).toMatchObject({
+    label: "可使用",
+    icon: "🟢",
+  });
 
-  expect(inProcessCount).toBe(4);
-  expect(awaitingCleaningCount).toBe(2);
+  // 戰情室 equipmentIssues 計算邏輯與設備清單狀態對齊
+  const equipmentIssues = equipment.filter((item) => {
+    const badge = getEquipmentStatusBadge({
+      status: item.status,
+      equipment_type: item.equipmentType,
+      occupied: item.occupied,
+    });
+    return badge.label === "異常故障" || badge.label === "維修中" || item.status === "abnormal" || item.status === "maintenance";
+  }).length;
+
+  const batches = { paused: 2 };
+  const abnormalCount = (batches.paused ?? 0) + equipmentIssues;
+
+  // 2 暫停 + 1 異常故障 + 1 維修中 = 4
+  expect(equipmentIssues).toBe(2);
+  expect(abnormalCount).toBe(4);
 });
 

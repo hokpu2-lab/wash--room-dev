@@ -10,6 +10,7 @@ import {
 import { AppLink } from "./app-link";
 import { LiveQueue } from "./live-queue";
 import { PendingReceiptModal } from "./operations/receive/pending-receipt-modal";
+import { getEquipmentStatusBadge } from "@/lib/laundry-equipment/status";
 import { equipmentStatusLabels, equipmentTypeLabels } from "./status-labels";
 import { useWorkspaceLive } from "./use-workspace-live";
 import { hrefWithClientScope } from "./workspace-scope-client";
@@ -109,7 +110,14 @@ function SupervisorCommandRoom({
     (orders?.in_process ?? (inProcessCount + awaitingCleaningCount)) +
     (orders?.ready_for_pickup ?? readyForPickupCount);
 
-  const equipmentIssues = equipment.filter((item) => item.status === "abnormal" || item.status === "maintenance").length;
+  const equipmentIssues = equipment.filter((item) => {
+    const badge = getEquipmentStatusBadge({
+      status: item.status,
+      equipment_type: item.equipmentType,
+      occupied: item.occupied,
+    });
+    return badge.label === "異常故障" || badge.label === "維修中" || item.status === "abnormal" || item.status === "maintenance";
+  }).length;
   const abnormalCount = (batches?.paused ?? 0) + equipmentIssues;
   const priorityActionCount = (batches?.paused ?? 0) + (orders?.awaiting_receipt ?? awaitingReceiptCount) + equipmentIssues;
   const todayShiftOrderCount = calculateTodayShiftOrdersCount(snapshot, syncedAt);
@@ -189,9 +197,28 @@ function SupervisorCommandRoom({
         <div className={styles.commandPanelHead}><div><p className={styles.eyebrow}>EQUIPMENT RADAR</p><h3 id="command-equipment-title">設備雷達</h3></div><span>{equipment.length} 台授權設備</span></div>
         <div className={styles.commandEquipmentGrid}>
           {equipment.slice(0, 8).map((item) => {
-            const state = item.occupied ? "使用中" : equipmentStatusLabels[item.status];
-            const stateClass = item.occupied ? styles.equipmentBusy : item.status === "normal" ? styles.equipmentReady : styles.equipmentIssue;
-            return <div key={item.id} className={styles.commandEquipmentItem}><span className={stateClass} aria-hidden="true" /><div><strong>{item.name}</strong><small>{equipmentTypeLabels[item.equipmentType]}</small></div><em>{state}</em></div>;
+            const statusBadge = getEquipmentStatusBadge({
+              status: item.status,
+              equipment_type: item.equipmentType,
+              occupied: item.occupied,
+            });
+            const stateClass = item.status === "abnormal" || item.status === "maintenance"
+              ? styles.equipmentIssue
+              : item.status === "inactive"
+                ? styles.equipmentInactive
+                : item.occupied
+                  ? styles.equipmentBusy
+                  : styles.equipmentReady;
+            return (
+              <div key={item.id} className={styles.commandEquipmentItem}>
+                <span className={stateClass} aria-hidden="true" />
+                <div>
+                  <strong>{item.name}</strong>
+                  <small>{equipmentTypeLabels[item.equipmentType]}</small>
+                </div>
+                <em>{statusBadge.icon} {statusBadge.label}</em>
+              </div>
+            );
           })}
           {!equipment.length ? <p className={styles.emptyQueue}>目前沒有可顯示的設備快照。</p> : null}
         </div>

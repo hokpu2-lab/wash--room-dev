@@ -3405,6 +3405,7 @@
 .equipmentReady { background: #6be1b3; box-shadow: 0 0 0 4px rgba(107, 225, 179, .1); }
 .equipmentBusy { background: #efb05e; box-shadow: 0 0 0 4px rgba(239, 176, 94, .1); }
 .equipmentIssue { background: #f27c6d; box-shadow: 0 0 0 4px rgba(242, 124, 109, .1); }
+.equipmentInactive { background: #94a3b8; box-shadow: 0 0 0 4px rgba(148, 163, 184, .1); }
 
 .biStudio { display: grid; gap: 18px; }
 .biIntroBand { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 22px 24px; border: 1px solid #bcded0; border-radius: 20px; color: #eafff7; background: radial-gradient(circle at 90% 10%, rgba(90, 198, 161, .35), transparent 34%), linear-gradient(135deg, #0e3936, #146151); box-shadow: 0 16px 38px rgba(20, 78, 64, .13); }
