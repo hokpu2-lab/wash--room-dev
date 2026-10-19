@@ -10,7 +10,7 @@ import {
 import { AppLink } from "./app-link";
 import { LiveQueue } from "./live-queue";
 import { PendingReceiptModal } from "./operations/receive/pending-receipt-modal";
-import { getEquipmentStatusBadge } from "@/lib/laundry-equipment/status";
+import { getEquipmentStatusBadge, isEquipmentIssue } from "@/lib/laundry-equipment/status";
 import { equipmentStatusLabels, equipmentTypeLabels } from "./status-labels";
 import { useWorkspaceLive } from "./use-workspace-live";
 import { hrefWithClientScope } from "./workspace-scope-client";
@@ -110,20 +110,35 @@ function SupervisorCommandRoom({
     (orders?.in_process ?? (inProcessCount + awaitingCleaningCount)) +
     (orders?.ready_for_pickup ?? readyForPickupCount);
 
-  const equipmentIssues = equipment.filter((item) => {
-    const badge = getEquipmentStatusBadge({
-      status: item.status,
-      equipment_type: item.equipmentType,
-      occupied: item.occupied,
-    });
-    return badge.label === "異常故障" || badge.label === "維修中" || item.status === "abnormal" || item.status === "maintenance";
-  }).length;
+  const issueEquipmentList = equipment.filter((item) => isEquipmentIssue(item.status));
+  const equipmentIssues = issueEquipmentList.length;
   const abnormalCount = (batches?.paused ?? 0) + equipmentIssues;
   const priorityActionCount = (batches?.paused ?? 0) + (orders?.awaiting_receipt ?? awaitingReceiptCount) + equipmentIssues;
   const todayShiftOrderCount = calculateTodayShiftOrdersCount(snapshot, syncedAt);
   const liveLabel = liveMode === "realtime" ? "即時連線" : liveMode === "poll" ? "定時同步" : "伺服器快照";
   const equipmentHref = hrefWithClientScope("/app/admin/laundry-equipment", { siteId: siteId ?? null, institutionId: null });
   const [pendingReceiptModalOpen, setPendingReceiptModalOpen] = useState(false);
+
+  // 設備細分統計（異常故障、維修中、已停用）
+  const abnormalEqCount = equipment.filter((item) => item.status === "abnormal").length;
+  const maintenanceEqCount = equipment.filter((item) => item.status === "maintenance").length;
+  const inactiveEqCount = equipment.filter((item) => item.status === "inactive").length;
+
+  const equipmentDetailParts: string[] = [];
+  if (abnormalEqCount > 0) equipmentDetailParts.push(`${abnormalEqCount} 故障`);
+  if (maintenanceEqCount > 0) equipmentDetailParts.push(`${maintenanceEqCount} 維修`);
+  if (inactiveEqCount > 0) equipmentDetailParts.push(`${inactiveEqCount} 停用`);
+  const equipmentDetailText = equipmentDetailParts.length > 0
+    ? equipmentDetailParts.join(" · ")
+    : "0 設備異常";
+
+  // 將有狀況的設備（異常/維修/停用）排在設備雷達最前面
+  const sortedEquipment = [...equipment].sort((a, b) => {
+    const aIssue = isEquipmentIssue(a.status) ? 1 : 0;
+    const bIssue = isEquipmentIssue(b.status) ? 1 : 0;
+    if (aIssue !== bIssue) return bIssue - aIssue;
+    return a.name.localeCompare(b.name, "zh-Hant");
+  });
 
   return (
     <section className={styles.commandRoom} aria-labelledby="command-room-title">
@@ -144,7 +159,7 @@ function SupervisorCommandRoom({
         <article><span>當日送件<br />(0800-1700截止)</span><strong>{todayShiftOrderCount}</strong><small>今日 08:00–17:00 已送件之洗衣單</small></article>
         <article className={styles.commandKpiPrimary}><span>未結案</span><strong>{openOrders}</strong><small>待收件、處理中與待取件</small></article>
         <article><span>處理中(占用設備中)</span><strong>{inProcessCount}</strong><small>{inProcessCount} 個批次正在設備上</small></article>
-        <article className={abnormalCount ? styles.commandKpiAlert : styles.commandKpiGood}><span>狀況異常(暫停中)</span><strong>{abnormalCount}</strong><small>{batches?.paused ?? 0} 暫停 · {equipmentIssues} 設備異常</small></article>
+        <article className={abnormalCount ? styles.commandKpiAlert : styles.commandKpiGood}><span>狀況異常(暫停中)</span><strong>{abnormalCount}</strong><small>{batches?.paused ?? 0} 暫停 · {equipmentDetailText}</small></article>
         <article><span>待取件</span><strong>{orders?.ready_for_pickup ?? readyForPickupCount ?? "—"}</strong><small>送洗人員掃車 QR 後結案</small></article>
       </div>
 
@@ -177,7 +192,7 @@ function SupervisorCommandRoom({
                 <b>{orders?.awaiting_receipt ?? awaitingReceiptCount}</b>
               </button>
             ) : null}
-            {equipmentIssues ? <AppLink href={equipmentHref} className={`${styles.priorityItem} ${styles.priorityAlert}`}><i aria-hidden="true" /><span><strong>設備狀態需確認</strong><small>異常或維修中的設備</small></span><b>{equipmentIssues}</b></AppLink> : null}
+            {equipmentIssues ? <AppLink href={equipmentHref} className={`${styles.priorityItem} ${styles.priorityAlert}`}><i aria-hidden="true" /><span><strong>設備狀態需確認</strong><small>異常、維修中或已停用的設備</small></span><b>{equipmentIssues}</b></AppLink> : null}
             {!priorityActionCount ? <div className={styles.priorityClear}><span aria-hidden="true">✓</span><strong>目前沒有需要主管介入的項目</strong><small>維持目前作業節奏，持續觀察待取件佇列。</small></div> : null}
           </div>
         </section>
@@ -196,7 +211,7 @@ function SupervisorCommandRoom({
       <section className={styles.commandEquipment} aria-labelledby="command-equipment-title">
         <div className={styles.commandPanelHead}><div><p className={styles.eyebrow}>EQUIPMENT RADAR</p><h3 id="command-equipment-title">設備雷達</h3></div><span>{equipment.length} 台授權設備</span></div>
         <div className={styles.commandEquipmentGrid}>
-          {equipment.slice(0, 8).map((item) => {
+          {sortedEquipment.slice(0, 8).map((item) => {
             const statusBadge = getEquipmentStatusBadge({
               status: item.status,
               equipment_type: item.equipmentType,

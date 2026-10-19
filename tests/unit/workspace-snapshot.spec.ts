@@ -187,8 +187,8 @@ test("戰情室指標：待收件單不計入狀況異常(暫停中)，只計入
   expect(priorityActionCount).toBe(1);
 });
 
-test("戰情室指標：狀況異常(暫停中)功能與設備清單狀態同步", async () => {
-  const { getEquipmentStatusBadge } = await import("../../src/lib/laundry-equipment/status");
+test("戰情室指標：狀況異常(暫停中)功能與設備清單狀態同步（涵蓋故障、維修、停用）", async () => {
+  const { getEquipmentStatusBadge, isEquipmentIssue } = await import("../../src/lib/laundry-equipment/status");
 
   const equipment = [
     { id: "e1", status: "normal", equipmentType: "washer" as const, occupied: false }, // 可使用
@@ -220,21 +220,20 @@ test("戰情室指標：狀況異常(暫停中)功能與設備清單狀態同步
     icon: "🟢",
   });
 
-  // 戰情室 equipmentIssues 計算邏輯與設備清單狀態對齊
-  const equipmentIssues = equipment.filter((item) => {
-    const badge = getEquipmentStatusBadge({
-      status: item.status,
-      equipment_type: item.equipmentType,
-      occupied: item.occupied,
-    });
-    return badge.label === "異常故障" || badge.label === "維修中" || item.status === "abnormal" || item.status === "maintenance";
-  }).length;
+  // 驗證 isEquipmentIssue 準確判定非正常狀態
+  expect(isEquipmentIssue("abnormal")).toBe(true);
+  expect(isEquipmentIssue("maintenance")).toBe(true);
+  expect(isEquipmentIssue("inactive")).toBe(true);
+  expect(isEquipmentIssue("normal")).toBe(false);
+
+  // 戰情室 equipmentIssues 計算邏輯與設備清單狀態完全同步
+  const equipmentIssues = equipment.filter((item) => isEquipmentIssue(item.status)).length;
 
   const batches = { paused: 2 };
   const abnormalCount = (batches.paused ?? 0) + equipmentIssues;
 
-  // 2 暫停 + 1 異常故障 + 1 維修中 = 4
-  expect(equipmentIssues).toBe(2);
-  expect(abnormalCount).toBe(4);
+  // 2 暫停 + 1 異常故障 + 1 維修中 + 1 已停用 = 5
+  expect(equipmentIssues).toBe(3);
+  expect(abnormalCount).toBe(5);
 });
 

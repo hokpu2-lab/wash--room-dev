@@ -24,7 +24,27 @@
 - 頂級角色與權限防護：`system_administrator`（系統管理員）具備最高優先權，預設導向 `/app/admin`；`src/lib/auth/principal.ts` 之
   `principalSatisfiesRole` 確保系統管理員完全滿足 `laundry_supervisor` 之檢查，徹底杜絕無窮重定向死循環。
 
-## 2026-10-16 最新接手快照
+## 2026-10-19 最新接手快照
+
+- **營運戰情室「狀況異常(暫停中)」與「設備清單」非正常狀態（故障/維修/停用）即時同步強化（workspace-live.tsx, status.ts, workspace-snapshot.spec.ts）**：
+  - **根本原因排查**：
+    1. 使用者在「洗衣設備與固定 QR（`/app/admin/laundry-equipment`）」修改設備狀態為故障、停用或維修中後，回到主管首頁「營運戰情室（`/app/admin`）」時，「狀況異常(暫停中)」仍顯示 `0 設備異常`。
+    2. 原因在於戰情室先前的 `equipmentIssues` 計算邏輯僅嚴格比對 `item.status === "abnormal" || item.status === "maintenance"`，未涵蓋已停用（`status: "inactive"`）或非正常（`status !== "normal"`）的設備。當設備被標記為停用（`inactive`）時，戰情室未被計入設備異常。
+    3. 戰情室「設備雷達（EQUIPMENT RADAR）」先前僅截取清單前 8 台（`equipment.slice(0, 8)`），未優先排序異常設備，導致異常設備若排在 8 名之外不會呈現在雷達畫面上。
+  - **修復與全面對齊機制**：
+    1. **建立統一設備異常判定核心（`status.ts`）**：
+       - 匯出 `isEquipmentIssue(status)` 核心判斷：凡 `abnormal`（異常故障）、`maintenance`（維修中）、`inactive`（已停用）或非 `normal` 設備均判定為問題設備。
+    2. **戰情室指標與副標細分統計完整同步（`workspace-live.tsx`）**：
+       - `equipmentIssues` 統一使用 `isEquipmentIssue` 計算，任何不可用設備皆精準計入「狀況異常(暫停中)」。
+       - 卡片副標動態呈現具體細分數量（如 `0 暫停 · 2 停用`、`1 故障 · 1 維修`、`1 故障 · 1 停用`），一目了然。
+       - 「現在要處理（PRIORITY QUEUE）」之「設備狀態需確認」同步調整提示文字為「異常、維修中或已停用的設備」。
+    3. **設備雷達優先排序列示（`workspace-live.tsx`）**：
+       - 設備雷達自動將有狀況（故障、維修、停用）的設備優先排在最前列，讓主管第一時間直觀掌握風險機台。
+  - **測試與建置覆核**：
+    - 單元測試 `tests/unit/workspace-snapshot.spec.ts` 擴充涵蓋 `inactive`、`abnormal`、`maintenance` 與細分判定。
+    - 全專案 41 個測試檔、196 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
+## 2026-10-16 歷史交付快照
 
 - **洗衣單與批次冗餘設備清單移除與「洗衣單流程」資料庫即時對齊稽核（live-queue.tsx, laundry-order-flow-3d.tsx, workspace-snapshot.ts, selected-order-meta.spec.ts）**：
   - **介面調整：移除冗餘 EQUIPMENT 清單**：

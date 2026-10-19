@@ -90,3 +90,7 @@ export function getEquipmentStatusBadge(equipment: {
     icon: "🟢",
   };
 }
+
+export function isEquipmentIssue(status: string): boolean {
+  return status === "abnormal" || status === "maintenance" || status === "inactive" || status !== "normal";
+}
