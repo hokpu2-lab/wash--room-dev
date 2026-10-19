@@ -1678,6 +1678,14 @@
   font-weight: 850;
 }
 
+.pipelineChipPaused {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1.5px solid #f87171;
+  box-shadow: 0 1px 4px rgba(239, 68, 68, 0.35);
+  font-weight: 850;
+}
+
 .pipelineChipPending {
   background: #f3f4f6;
   color: #9ca3af;

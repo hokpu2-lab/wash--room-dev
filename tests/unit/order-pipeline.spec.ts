@@ -211,4 +211,109 @@ describe("洗衣排程品項與流程管線推導 (Order Pipeline & Stages)", ()
     expect(pipeline.steps[1].name).toBe("待取件");
     expect(pipeline.steps[1].status).toBe("current");
   });
+
+  it("當設備被設定為停用（inactive）時，洗衣單排程階段立即標記為烘乾暫停", () => {
+    const bibDetail: WorkspaceOrderDetail = {
+      orderId: baseOrder.id,
+      orderCreatedAt: "2026-10-19T07:00:00Z",
+      orderReceivedAt: "2026-10-19T07:05:00Z",
+      orderReadyAt: null,
+      orderClosedAt: null,
+      batches: [
+        {
+          id: "batch-bib",
+          batchSequence: 1,
+          categoryCode: "BIB",
+          categoryName: "圍兜",
+          procedureName: "圍兜烘乾",
+          procedureVersion: 1,
+          status: "in_progress",
+          currentStageOrder: 1,
+          activeEquipmentName: "本館烘衣-1",
+          activeEquipmentType: "dryer",
+          progress: {
+            stageRunId: null,
+            stageStatus: "in_progress",
+            stageProgressPercent: 40,
+            overallProgressPercent: 40,
+            estimatedStageCompletedAt: null,
+            overdueMinutes: 0,
+            totalStandardMinutes: 20,
+            isEstimate: false,
+          },
+          stages: [
+            { stageOrder: 1, name: "烘乾", standardMinutes: 20, equipmentType: "dryer", state: "active", startedAt: "2026-10-19T07:10:00Z", completedAt: null },
+          ],
+        },
+      ],
+    };
+
+    const equipmentList = [
+      {
+        id: "dryer-1",
+        name: "本館烘衣-1",
+        equipmentType: "dryer" as const,
+        status: "inactive" as const,
+        occupied: true,
+      },
+    ];
+
+    const pipeline = deriveOrderPipeline(
+      { ...baseOrder, cartNumber: "7E-1", status: "in_process" },
+      bibDetail,
+      equipmentList
+    );
+
+    expect(pipeline.categoryName).toBe("圍兜");
+    expect(pipeline.steps[0].name).toBe("烘衣機");
+    expect(pipeline.steps[0].status).toBe("current");
+    expect(pipeline.steps[0].statusLabel).toBe("烘乾暫停");
+    expect(pipeline.currentStageName).toBe("烘乾暫停");
+  });
+
+  it("當批次狀態為 paused 時，排程階段準確標記為暫停", () => {
+    const pausedDetail: WorkspaceOrderDetail = {
+      orderId: baseOrder.id,
+      orderCreatedAt: "2026-10-19T07:00:00Z",
+      orderReceivedAt: "2026-10-19T07:05:00Z",
+      orderReadyAt: null,
+      orderClosedAt: null,
+      batches: [
+        {
+          id: "batch-paused",
+          batchSequence: 1,
+          categoryCode: "GENERAL",
+          categoryName: "一般被服",
+          procedureName: "標準洗滌",
+          procedureVersion: 1,
+          status: "paused",
+          currentStageOrder: 1,
+          activeEquipmentName: "本館洗衣-1",
+          activeEquipmentType: "washer",
+          progress: {
+            stageRunId: null,
+            stageStatus: "paused",
+            stageProgressPercent: 30,
+            overallProgressPercent: 15,
+            estimatedStageCompletedAt: null,
+            overdueMinutes: 0,
+            totalStandardMinutes: 120,
+            isEstimate: false,
+          },
+          stages: [
+            { stageOrder: 1, name: "清洗", standardMinutes: 60, equipmentType: "washer", state: "active", startedAt: "2026-10-19T07:10:00Z", completedAt: null },
+            { stageOrder: 2, name: "烘乾", standardMinutes: 60, equipmentType: "dryer", state: "pending", startedAt: null, completedAt: null },
+          ],
+        },
+      ],
+    };
+
+    const pipeline = deriveOrderPipeline(
+      { ...baseOrder, cartNumber: "1A-1", status: "in_process" },
+      pausedDetail
+    );
+
+    expect(pipeline.steps[0].statusLabel).toBe("清洗暫停");
+    expect(pipeline.currentStageName).toBe("清洗暫停");
+  });
 });

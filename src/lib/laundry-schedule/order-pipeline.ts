@@ -214,15 +214,33 @@ export function deriveOrderPipeline(
   const activeStage = batch?.stages.find((s) => s.state === "active");
   const batchCurrentOrder = activeStage?.stageOrder ?? batch?.currentStageOrder ?? 1;
 
+  // 檢查關聯設備是否處於非正常狀態（停用、異常故障或維修中）
+  const activeEq = equipment.find(
+    (e) =>
+      Boolean(batch?.activeEquipmentName) &&
+      e.name.trim().toLowerCase() === batch!.activeEquipmentName!.trim().toLowerCase()
+  );
+  const isEquipmentNotNormal = activeEq ? activeEq.status !== "normal" : false;
+  const isBatchPaused =
+    isEquipmentNotNormal ||
+    batch?.status === "paused" ||
+    batch?.progress?.stageStatus === "paused";
+
   if (categoryCode === "DISINFECT") {
     // 消毒品：1: 消毒鍋 (30m) ➔ 2: 洗衣機 (60m) ➔ 3: 烘衣機 (60m) ➔ 4: 待取件
-    const isDisinfectRunning = activeStage?.equipmentType === "disinfection_tank" || (batchCurrentOrder === 1 && batch?.status === "in_progress");
-    const isWashRunning = activeStage?.equipmentType === "washer" || (batchCurrentOrder === 2 && batch?.status === "in_progress");
-    const isDryRunning = activeStage?.equipmentType === "dryer" || (batchCurrentOrder >= 3 && batch?.status === "in_progress");
+    const isDisinfectRunning =
+      (activeStage?.equipmentType === "disinfection_tank" || (batchCurrentOrder === 1 && batch?.status === "in_progress")) &&
+      !isBatchPaused;
+    const isWashRunning =
+      (activeStage?.equipmentType === "washer" || (batchCurrentOrder === 2 && batch?.status === "in_progress")) &&
+      !isBatchPaused;
+    const isDryRunning =
+      (activeStage?.equipmentType === "dryer" || (batchCurrentOrder >= 3 && batch?.status === "in_progress")) &&
+      !isBatchPaused;
 
     if (isDisinfectRunning || batchCurrentOrder <= 1) {
       steps[0].status = "current";
-      steps[0].statusLabel = isDisinfectRunning ? "消毒中 (30分)" : "待消毒";
+      steps[0].statusLabel = isBatchPaused ? "消毒暫停" : isDisinfectRunning ? "消毒中 (30分)" : "待消毒";
       return {
         categoryCode,
         categoryName,
@@ -236,7 +254,7 @@ export function deriveOrderPipeline(
       steps[0].status = "completed";
       steps[0].statusLabel = "已完成";
       steps[1].status = "current";
-      steps[1].statusLabel = isWashRunning ? "清洗中 (60分)" : "待清洗";
+      steps[1].statusLabel = isBatchPaused ? "清洗暫停" : isWashRunning ? "清洗中 (60分)" : "待清洗";
       return {
         categoryCode,
         categoryName,
@@ -252,7 +270,7 @@ export function deriveOrderPipeline(
       steps[1].status = "completed";
       steps[1].statusLabel = "已完成";
       steps[2].status = "current";
-      steps[2].statusLabel = isDryRunning ? "烘乾中 (60分)" : "待烘乾";
+      steps[2].statusLabel = isBatchPaused ? "烘乾暫停" : isDryRunning ? "烘乾中 (60分)" : "待烘乾";
       return {
         categoryCode,
         categoryName,
@@ -267,9 +285,10 @@ export function deriveOrderPipeline(
 
   if (categoryCode === "BIB") {
     // 圍兜：1: 烘衣機 (20m) ➔ 2: 待取件
-    const isDryRunning = activeStage?.equipmentType === "dryer" || batch?.status === "in_progress";
+    const isDryRunning =
+      (activeStage?.equipmentType === "dryer" || batch?.status === "in_progress") && !isBatchPaused;
     steps[0].status = "current";
-    steps[0].statusLabel = isDryRunning ? "烘衣中 (20分)" : "待烘乾";
+    steps[0].statusLabel = isBatchPaused ? "烘乾暫停" : isDryRunning ? "烘衣中 (20分)" : "待烘乾";
     return {
       categoryCode,
       categoryName,
@@ -299,9 +318,10 @@ export function deriveOrderPipeline(
         steps,
       };
     }
-    const isWashRunning = activeStage?.equipmentType === "washer" || batch?.status === "in_progress";
+    const isWashRunning =
+      (activeStage?.equipmentType === "washer" || batch?.status === "in_progress") && !isBatchPaused;
     steps[0].status = "current";
-    steps[0].statusLabel = isWashRunning ? "清洗中 (40分)" : "待清洗";
+    steps[0].statusLabel = isBatchPaused ? "清洗暫停" : isWashRunning ? "清洗中 (40分)" : "待清洗";
     return {
       categoryCode,
       categoryName,
@@ -317,12 +337,16 @@ export function deriveOrderPipeline(
   const isWashDone =
     batchCurrentOrder >= 2 ||
     batch?.stages.some((s) => s.equipmentType === "washer" && (s.state === "completed" || s.completedAt));
-  const isWashRunning = activeStage?.equipmentType === "washer" || (batchCurrentOrder === 1 && batch?.status === "in_progress");
-  const isDryRunning = activeStage?.equipmentType === "dryer" || (batchCurrentOrder >= 2 && batch?.status === "in_progress");
+  const isWashRunning =
+    (activeStage?.equipmentType === "washer" || (batchCurrentOrder === 1 && batch?.status === "in_progress")) &&
+    !isBatchPaused;
+  const isDryRunning =
+    (activeStage?.equipmentType === "dryer" || (batchCurrentOrder >= 2 && batch?.status === "in_progress")) &&
+    !isBatchPaused;
 
   if (!isWashDone) {
     steps[0].status = "current";
-    steps[0].statusLabel = isWashRunning ? "清洗中 (60分)" : "待清洗";
+    steps[0].statusLabel = isBatchPaused ? "清洗暫停" : isWashRunning ? "清洗中 (60分)" : "待清洗";
     return {
       categoryCode,
       categoryName,
@@ -336,7 +360,7 @@ export function deriveOrderPipeline(
     steps[0].status = "completed";
     steps[0].statusLabel = "已完成";
     steps[1].status = "current";
-    steps[1].statusLabel = isDryRunning ? "烘乾中 (60分)" : "待烘乾";
+    steps[1].statusLabel = isBatchPaused ? "烘乾暫停" : isDryRunning ? "烘乾中 (60分)" : "待烘乾";
     return {
       categoryCode,
       categoryName,

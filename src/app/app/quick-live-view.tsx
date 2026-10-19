@@ -55,7 +55,7 @@ function getNonNormalStatusInfo(status: string) {
     return { statusLabel: "維修中", statusTone: "paused" as const, descText: "🔧 設備維修保養中" };
   }
   if (status === "inactive") {
-    return { statusLabel: "已停用", statusTone: "idle" as const, descText: "⛔ 設備已停用" };
+    return { statusLabel: "已停用", statusTone: "paused" as const, descText: "⛔ 設備已停用" };
   }
   return { statusLabel: "暫停服務", statusTone: "paused" as const, descText: "設備暫停服務" };
 }
@@ -627,13 +627,31 @@ export function deriveEquipmentLiveStatuses(
       eq.equipmentType
     );
 
-    if (isCompletedLocally) {
-      const isAvailable = eq.status === "normal";
-      const nonNormal = !isAvailable ? getNonNormalStatusInfo(eq.status) : null;
+    const isAvailable = eq.status === "normal";
+    const nonNormal = !isAvailable ? getNonNormalStatusInfo(eq.status) : null;
+
+    // 若設備非正常（停用、異常故障或維修中）：徹底停止倒數計時，狀態標籤顯示停用/故障/維修
+    if (!isAvailable) {
       return {
         equipment: eq,
-        statusLabel: isAvailable ? "閒置待機" : (nonNormal?.statusLabel ?? "暫停服務"),
-        statusTone: isAvailable ? "idle" : (nonNormal?.statusTone ?? "paused"),
+        statusLabel: nonNormal?.statusLabel ?? "暫停服務",
+        statusTone: nonNormal?.statusTone ?? "paused",
+        activeCartNumber: match?.cartNumber || null,
+        activeInstitutionName: match?.institutionName || null,
+        cleaningDurationMinutes,
+        remainingSeconds: null,
+        formattedCountdown: null,
+        activeBatchId: match?.batchId || null,
+        activeCategoryName: match?.categoryName || null,
+        activeCategoryCode: match?.categoryCode || null,
+      };
+    }
+
+    if (isCompletedLocally) {
+      return {
+        equipment: eq,
+        statusLabel: "閒置待機",
+        statusTone: "idle",
         activeCartNumber: null,
         activeInstitutionName: null,
         cleaningDurationMinutes,
@@ -657,11 +675,13 @@ export function deriveEquipmentLiveStatuses(
       const isPaused = match.stageStatus === "paused";
       const isServerCompleted = match.stageState === "completed" || match.stageStatus === "completed";
 
-      let remainingSeconds = isServerCompleted
+      let remainingSeconds: number | null = isPaused
+        ? null
+        : isServerCompleted
         ? 0
         : calculateEquipmentRemainingSeconds(startedAt, cleaningDurationMinutes, nowMs);
 
-      const isTimeUp = remainingSeconds <= 0 && !isPaused && !isServerCompleted;
+      const isTimeUp = remainingSeconds !== null && remainingSeconds <= 0 && !isPaused && !isServerCompleted;
 
       let statusLabel = "運作中";
       let statusTone: EquipmentLiveStatus["statusTone"] = "idle";
@@ -704,7 +724,8 @@ export function deriveEquipmentLiveStatuses(
         }
       }
 
-      const formattedCountdown = formatCountdown(remainingSeconds);
+      const formattedCountdown =
+        remainingSeconds !== null ? formatCountdown(remainingSeconds) : null;
 
       return {
         equipment: eq,
@@ -762,12 +783,10 @@ export function deriveEquipmentLiveStatuses(
     // 閒置設備
     clearEquipmentStartedAt(eq.id, startTimesMap);
 
-    const isAvailable = eq.status === "normal";
-    const nonNormal = !isAvailable ? getNonNormalStatusInfo(eq.status) : null;
     return {
       equipment: eq,
-      statusLabel: isAvailable ? "閒置待機" : (nonNormal?.statusLabel ?? "暫停服務"),
-      statusTone: isAvailable ? "idle" : (nonNormal?.statusTone ?? "paused"),
+      statusLabel: "閒置待機",
+      statusTone: "idle",
       activeCartNumber: null,
       activeInstitutionName: null,
       cleaningDurationMinutes,
@@ -1151,6 +1170,22 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
               <span className={styles.runningCartBadge}>
                 🛒 {item.activeCartNumber || "作業中"}
               </span>
+              {item.equipment.status !== "normal" ? (
+                <span
+                  style={{
+                    fontSize: "0.75rem",
+                    color:
+                      item.equipment.status === "abnormal"
+                        ? "#f87171"
+                        : item.equipment.status === "maintenance"
+                        ? "#fbbf24"
+                        : "#cbd5e1",
+                    fontWeight: 800,
+                  }}
+                >
+                  ({getNonNormalStatusInfo(item.equipment.status).descText.replace(/^[^\s]+\s*/, "")})
+                </span>
+              ) : null}
             </div>
           ) : item.equipment.status !== "normal" ? (
             <div className={styles.idleRunningInfo}>

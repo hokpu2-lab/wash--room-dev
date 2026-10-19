@@ -42,6 +42,7 @@ type FlowStep = {
   equipmentType?: FlowEquipmentType;
   activeEquipmentName?: string | null;
   timing: FlowTiming;
+  isPaused?: boolean;
 };
 
 type LaundryOrderFlow3DProps = {
@@ -311,6 +312,14 @@ function getFlowSteps(
   procedureStages.forEach((stage, index) => {
     const matchingBatch = batches.find((b) => b.stages.some((s) => s.stageOrder === stage.stageOrder && (s.state === "active" || s.startedAt)));
     const activeEquip = matchingBatch?.activeEquipmentName ?? null;
+    const matchingEq = activeEquip
+      ? equipment.find((e) => e.name.trim().toLowerCase() === activeEquip.trim().toLowerCase())
+      : null;
+    const isEquipNotNormal = matchingEq ? matchingEq.status !== "normal" : false;
+    const isStagePaused =
+      isEquipNotNormal ||
+      matchingBatch?.status === "paused" ||
+      matchingBatch?.progress?.stageStatus === "paused";
 
     if (stage.equipmentType === "washer" && index > 0 && procedureStages[index - 1]?.equipmentType === "disinfection_tank") {
       steps.push({
@@ -344,16 +353,30 @@ function getFlowSteps(
       });
     }
 
+    const stageStatus = getStageState(orderStatus, batches, stage, index);
+    const isThisStageActiveAndPaused = stageStatus === "active" && isStagePaused;
+    const baseLabel = stageLabel(stage);
+    const finalLabel = isThisStageActiveAndPaused ? `${baseLabel} (暫停中)` : baseLabel;
+
+    let baseDetail = stageDetail(stage, activeEquip, cartNumber);
+    if (isThisStageActiveAndPaused) {
+      const pauseNote = isEquipNotNormal
+        ? `設備${matchingEq?.status === "inactive" ? "已停用" : "異常"}暫停`
+        : "作業暫停中";
+      baseDetail = `${baseDetail} · ⏸️ ${pauseNote}`;
+    }
+
     steps.push({
       id: `stage-${stage.stageOrder}-${stage.name}`,
-      label: stageLabel(stage),
-      detail: stageDetail(stage, activeEquip, cartNumber),
-      state: getStageState(orderStatus, batches, stage, index),
+      label: finalLabel,
+      detail: baseDetail,
+      state: stageStatus,
       kind: "stage",
       visual: stageVisual(stage),
       equipmentType: stage.equipmentType,
       activeEquipmentName: activeEquip,
       timing: flowTiming(stage.startedAt, stage.completedAt, stage.standardMinutes),
+      isPaused: isThisStageActiveAndPaused,
     });
   });
 
@@ -391,7 +414,9 @@ function getFlowSummary(steps: FlowStep[], orderStatus: WorkspaceOrder["status"]
   const currentStep = activeStep ?? steps.find((step) => step.state === "pending") ?? steps.at(-1);
   return {
     label: currentStep?.label ?? orderStatusLabels[orderStatus],
-    detail: activeStep ? `${activeStep.detail} · ${stateLabels.active}` : orderStatusLabels[orderStatus],
+    detail: activeStep
+      ? `${activeStep.detail} · ${activeStep.isPaused ? "作業暫停" : stateLabels.active}`
+      : orderStatusLabels[orderStatus],
     completedCount,
     currentStep,
   };
@@ -427,17 +452,23 @@ function elapsedMinutes(timing: FlowTiming, state: FlowState, now: number | null
   return Math.max(0, (end - start) / 60000);
 }
 
-function formatFlowTimingRange(timing: FlowTiming, state: FlowState) {
+function formatFlowTimingRange(timing: FlowTiming, state: FlowState, isPaused?: boolean) {
   const start = formatFlowDateTime(timing.startedAt);
   const end = formatFlowDateTime(timing.completedAt);
   if (start && end && start === end) return `紀錄 ${start}`;
   if (start && end) return `${start} → ${end}`;
-  if (start) return `${start} → ${state === "active" ? "進行中" : "完成時間待補"}`;
+  if (start) return `${start} → ${isPaused ? "作業暫停中" : state === "active" ? "進行中" : "完成時間待補"}`;
   if (end) return `完成 ${end} · 開始時間待補`;
   return "尚無實際時間紀錄";
 }
 
-function formatFlowDuration(timing: FlowTiming, state: FlowState, now: number | null) {
+function formatFlowDuration(timing: FlowTiming, state: FlowState, now: number | null, isPaused?: boolean) {
+  if (isPaused) {
+    const elapsed = elapsedMinutes(timing, state, now);
+    return elapsed !== null
+      ? `作業暫停中 · 已運轉 ${formatMinutes(elapsed)}`
+      : "作業暫停中";
+  }
   const elapsed = elapsedMinutes(timing, state, now);
   const actual = elapsed === null
     ? state === "active" ? "進行中 · 計時中" : "實際耗時待補"
@@ -449,11 +480,21 @@ function formatFlowDuration(timing: FlowTiming, state: FlowState, now: number | 
     : actual;
 }
 
-function FlowTimingDetails({ timing, state, now }: { timing: FlowTiming; state: FlowState; now: number | null }) {
+function FlowTimingDetails({
+  timing,
+  state,
+  now,
+  isPaused,
+}: {
+  timing: FlowTiming;
+  state: FlowState;
+  now: number | null;
+  isPaused?: boolean;
+}) {
   return (
     <span className={styles.flowTiming}>
-      <span>{formatFlowTimingRange(timing, state)}</span>
-      <strong>{formatFlowDuration(timing, state, now)}</strong>
+      <span>{formatFlowTimingRange(timing, state, isPaused)}</span>
+      <strong>{formatFlowDuration(timing, state, now, isPaused)}</strong>
     </span>
   );
 }
@@ -1405,7 +1446,9 @@ export function LaundryOrderFlow3D({
             const step = sceneSteps[index];
             if (!animateAllNodes && step.state !== "active") return;
             const glowColor = step.state === "active"
-              ? `#${brandColor.getHexString()}`
+              ? step.isPaused
+                ? "#ef4444"
+                : `#${brandColor.getHexString()}`
               : step.state === "completed"
                 ? `#${completedColor.getHexString()}`
                 : "#d8d0cc";
@@ -1574,7 +1617,12 @@ export function LaundryOrderFlow3D({
         <strong>{summary.label}</strong>
         <small>{summary.detail}</small>
         {summary.currentStep ? (
-          <FlowTimingDetails timing={summary.currentStep.timing} state={summary.currentStep.state} now={clock} />
+          <FlowTimingDetails
+            timing={summary.currentStep.timing}
+            state={summary.currentStep.state}
+            now={clock}
+            isPaused={summary.currentStep.isPaused}
+          />
         ) : null}
         <span className={styles.orderFlowProgress} aria-label={`已完成 ${summary.completedCount} / ${steps.length} 個節點`}>
           <i style={{ width: `${completionPercent}%` }} />
@@ -1590,7 +1638,12 @@ export function LaundryOrderFlow3D({
               <span>LIVE PROCESS MAP</span>
               <strong>{inspectStep.label}</strong>
               <small>{inspectStep.detail} · {stateLabels[inspectStep.state]}</small>
-              <FlowTimingDetails timing={inspectStep.timing} state={inspectStep.state} now={clock} />
+              <FlowTimingDetails
+                timing={inspectStep.timing}
+                state={inspectStep.state}
+                now={clock}
+                isPaused={inspectStep.isPaused}
+              />
             </div>
             <div className={styles.flowCanvasGuide} aria-hidden="true">
               <span>交接</span>
@@ -1615,7 +1668,12 @@ export function LaundryOrderFlow3D({
                       >
                         <strong>{step.label}</strong>
                         <em>{stateLabels[step.state]}</em>
-                        <FlowTimingDetails timing={step.timing} state={step.state} now={clock} />
+                        <FlowTimingDetails
+                          timing={step.timing}
+                          state={step.state}
+                          now={clock}
+                          isPaused={step.isPaused}
+                        />
                       </button>
                     </li>
                   );
@@ -1642,17 +1700,33 @@ export function LaundryOrderFlow3D({
                   loading="eager"
                 />
                 {selectedStep.state === "active" ? (
-                  <span className={styles.flowActiveBadge}>進行中</span>
+                  <span
+                    className={styles.flowActiveBadge}
+                    style={
+                      selectedStep.isPaused
+                        ? { background: "#991b1b", borderColor: "#f87171", color: "#fef2f2" }
+                        : undefined
+                    }
+                  >
+                    {selectedStep.isPaused ? "暫停中" : "進行中"}
+                  </span>
                 ) : selectedStep.state === "completed" ? (
                   <span className={styles.flowCompletedBadge}>已完成</span>
                 ) : null}
                 <i>{selectedStep.state === "completed" ? "✓" : selectedStepIndex + 1}</i>
               </span>
               <span className={styles.flowSelectionCopy}>
-                <span className={styles.flowSelectionTag}>STEP {String(selectedStepIndex + 1).padStart(2, "0")} · {stateLabels[selectedStep.state]}</span>
+                <span className={styles.flowSelectionTag}>
+                  STEP {String(selectedStepIndex + 1).padStart(2, "0")} · {selectedStep.isPaused ? "作業暫停" : stateLabels[selectedStep.state]}
+                </span>
                 <strong>{selectedStep.label}</strong>
                 <span className={styles.flowSelectionDetail}>{selectedStep.detail}</span>
-                <FlowTimingDetails timing={selectedStep.timing} state={selectedStep.state} now={clock} />
+                <FlowTimingDetails
+                  timing={selectedStep.timing}
+                  state={selectedStep.state}
+                  now={clock}
+                  isPaused={selectedStep.isPaused}
+                />
               </span>
             </div>
           </div>

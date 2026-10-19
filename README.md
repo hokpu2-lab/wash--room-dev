@@ -10,11 +10,30 @@
 - GitHub 串接 Vercel 部署
 - Playwright 公開介面驗收測試
 
-## 2026-10-16 最新接手快照
+## 2026-10-19 最新接手快照
 
 本節是目前接手的第一個入口。先執行 `git status --short --branch`、`git log -5 --oneline`，再閱讀
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
+
+- **設備停用/故障異常即時連動批次暫停、倒數徹底停止與洗衣流程 3D/排程管線同步標示暫停（administration.ts, quick-live-view.tsx, order-pipeline.ts, live-queue.tsx, laundry-order-flow-3d.tsx, workspace.module.css, quick-live-view.spec.ts, order-pipeline.spec.ts）**：
+  - **根本原因排查**：
+    1. 使用者在「管理洗衣設備與固定 QR（`/app/admin/laundry-equipment`）」將設備設定為非正常（已停用 `inactive`、異常故障 `abnormal` 或維修中 `maintenance`）時，後端 `update_laundry_equipment` 僅變更了設備主表狀態，未連動暫停該設備上正在運轉中（`in_progress`）的批次與程序階段。
+    2. 即時看板（`quick-live-view.tsx`）的 `getEquipmentLiveStatus` 在推導時，只要配對到進行中批次（`match` 存在），就直接進入倒數計時與運轉計算，未優先阻擋非正常設備（`eq.status !== "normal"`），導致設備已停用卻依然在倒數計時。
+    3. 洗衣排程管線（`order-pipeline.ts`）與洗衣單流程 3D（`laundry-order-flow-3d.tsx`）未連動檢驗關聯機具狀態或 `paused` 狀態，仍顯示為「烘乾中 (20分)」與正常進行中。
+  - **修復與連動防護架構**：
+    1. **設備非正常狀態後端連動自動暫停批次（`administration.ts`）**：
+       - 主管於管理後台將機台調整為停用、異常或維修時，系統自動掃描該機台上運行中（`in_progress`）的 `laundry_batch_stage_runs`，並調用 `pause_laundry_batch_stage` RPC 連動寫入停用/故障原因並將批次切換為 `paused`。
+    2. **即時洗衣車與設備看板（`quick-live-view.tsx`）倒數徹底停止與狀態告警**：
+       - `getEquipmentLiveStatus` 優先檢驗 `eq.status !== "normal"`，一旦為停用/故障/維修，倒數計時徹底停止（`remainingSeconds: null`、`formattedCountdown: null`），狀態標籤顯示為「已停用 / 異常故障 / 維修中」，邊框呈紅色警示 `eqPaused`。
+       - 卡片保留機構與車號資訊，並加註 `(設備已停用)` / `(設備故障待修)` 警示說明，使現場人員清楚掌握內部卡置衣物。
+    3. **洗衣排程管線（`order-pipeline.ts`, `live-queue.tsx`, `workspace.module.css`）標籤與視覺同步暫停**：
+       - 當批次暫停或機台非正常時，當前階段精準標示為「烘乾暫停 / 清洗暫停 / 消毒暫停」，標籤圖示由閃電 `⚡` 自動切換為暫停 `⏸️`，並套用柔和紅底琥珀框之 `.pipelineChipPaused` 風格。
+    4. **洗衣單流程 3D（`laundry-order-flow-3d.tsx`）即時節點與耗時標記**：
+       - 流程節點標題標示為 `烘衣 (暫停中)`，節點明細標註 `⏸️ 設備停用暫停 / 作業暫停中`，節點光暈自動切換為警戒紅光（`#ef4444`），計時器顯示 `作業暫停中`。
+  - **測試與建置覆核**：
+    - 單元測試 `tests/unit/quick-live-view.spec.ts` 與 `tests/unit/order-pipeline.spec.ts` 新增測試驗證停用設備停止計時與排程標記暫停。
+    - 全專案 41 個測試檔、199 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
 
 - **洗衣單與批次冗餘設備清單移除與「洗衣單流程」資料庫即時對齊稽核（live-queue.tsx, laundry-order-flow-3d.tsx, workspace-snapshot.ts, selected-order-meta.spec.ts）**：
   - **介面調整：移除冗餘 EQUIPMENT 清單**：

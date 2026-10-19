@@ -559,6 +559,45 @@ export async function updateLaundryEquipment(input: unknown): Promise<EquipmentC
         .eq("id", change.laundry_equipment_id);
     } catch {}
   }
+
+  // 若設備被更新為「已停用」、「異常故障」或「維修中」，自動將該設備上運行中的批次暫停
+  const isTargetNotNormal = parsed.data.status !== "normal";
+  if (isTargetNotNormal && change.laundry_equipment_id) {
+    try {
+      const { data: runningRuns } = await supabase
+        .from("laundry_batch_stage_runs")
+        .select("id, laundry_batch_id")
+        .eq("laundry_equipment_id", change.laundry_equipment_id)
+        .eq("status", "in_progress");
+
+      if (runningRuns && runningRuns.length > 0) {
+        const statusText =
+          parsed.data.status === "inactive"
+            ? "設備已停用"
+            : parsed.data.status === "abnormal"
+            ? "設備故障異常"
+            : "設備維修保養中";
+        const pauseReason = `設備狀態變更為【${statusText}】：${parsed.data.reason}`;
+
+        for (const run of runningRuns) {
+          if (run.laundry_batch_id) {
+            try {
+              await supabase.rpc("pause_laundry_batch_stage", {
+                target_laundry_batch_id: run.laundry_batch_id,
+                pause_reason: pauseReason.slice(0, 500),
+                change_request_id: crypto.randomUUID(),
+              });
+            } catch (pauseErr) {
+              console.error("Auto pause batch error on equipment status change:", pauseErr);
+            }
+          }
+        }
+      }
+    } catch (queryErr) {
+      console.error("Query running runs for auto-pause error:", queryErr);
+    }
+  }
+
   return { kind: change.already_applied ? "already-applied" : "applied", equipmentId: change.laundry_equipment_id, qrVersion: change.qr_version };
 }
 

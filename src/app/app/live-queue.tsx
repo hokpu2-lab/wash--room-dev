@@ -417,8 +417,18 @@ export function LiveQueue({
     selectedActiveBatch?.stages[0];
   const selectedCurrentStageOrder = selectedCurrentStage?.stageOrder ?? selectedActiveBatch?.currentStageOrder ?? 1;
   const selectedCurrentEquipmentType = selectedCurrentStage?.equipmentType;
+  const selectedActiveBatchEq = selectedActiveBatch?.activeEquipmentName
+    ? equipment.find((e) => e.name.trim().toLowerCase() === selectedActiveBatch.activeEquipmentName?.trim().toLowerCase())
+    : null;
+  const isSelectedBatchEquipmentNotNormal = selectedActiveBatchEq ? selectedActiveBatchEq.status !== "normal" : false;
+  const isSelectedBatchPaused =
+    isSelectedBatchEquipmentNotNormal ||
+    selectedActiveBatch?.status === "paused" ||
+    selectedActiveBatch?.progress?.stageStatus === "paused";
+
   const isSelectedStageRunning = Boolean(
-    selectedActiveStage || (selected?.status === "in_process" && selectedActiveBatch?.status === "in_progress")
+    !isSelectedBatchPaused &&
+    (selectedActiveStage || (selected?.status === "in_process" && selectedActiveBatch?.status === "in_progress"))
   );
 
   const isOrderAtDisinfection = Boolean(
@@ -633,34 +643,41 @@ export function LiveQueue({
                       {pipeline.categoryName}
                     </span>
                     <div className={styles.orderItemPipeline} title={`目前階段：${pipeline.currentStageName}`}>
-                      {pipeline.steps.map((step, idx) => (
-                        <span key={step.order} className={styles.pipelineStepItem}>
-                          <span
-                            className={`${styles.pipelineChip} ${
-                              step.status === "completed"
-                                ? styles.pipelineChipCompleted
-                                : step.status === "current"
-                                ? styles.pipelineChipCurrent
-                                : styles.pipelineChipPending
-                            }`}
-                          >
-                            {step.status === "completed" ? (
-                              <span className={styles.chipCheck}>✓</span>
-                            ) : step.status === "current" ? (
-                              <span className={styles.chipPulse}>⚡</span>
-                            ) : (
-                              <span className={styles.chipNum}>{step.order}</span>
-                            )}
-                            <span className={styles.chipName}>{step.name}</span>
-                            {step.durationMinutes ? (
-                              <span className={styles.chipTime}>{step.durationMinutes}m</span>
+                      {pipeline.steps.map((step, idx) => {
+                        const isStepPaused = step.status === "current" && pipeline.currentStageName.includes("暫停");
+                        return (
+                          <span key={step.order} className={styles.pipelineStepItem}>
+                            <span
+                              className={`${styles.pipelineChip} ${
+                                step.status === "completed"
+                                  ? styles.pipelineChipCompleted
+                                  : isStepPaused
+                                  ? styles.pipelineChipPaused
+                                  : step.status === "current"
+                                  ? styles.pipelineChipCurrent
+                                  : styles.pipelineChipPending
+                              }`}
+                            >
+                              {step.status === "completed" ? (
+                                <span className={styles.chipCheck}>✓</span>
+                              ) : isStepPaused ? (
+                                <span className={styles.chipPulse}>⏸️</span>
+                              ) : step.status === "current" ? (
+                                <span className={styles.chipPulse}>⚡</span>
+                              ) : (
+                                <span className={styles.chipNum}>{step.order}</span>
+                              )}
+                              <span className={styles.chipName}>{step.name}</span>
+                              {step.durationMinutes ? (
+                                <span className={styles.chipTime}>{step.durationMinutes}m</span>
+                              ) : null}
+                            </span>
+                            {idx < pipeline.steps.length - 1 ? (
+                              <span className={styles.pipelineArrow}>➔</span>
                             ) : null}
                           </span>
-                          {idx < pipeline.steps.length - 1 ? (
-                            <span className={styles.pipelineArrow}>➔</span>
-                          ) : null}
-                        </span>
-                      ))}
+                        );
+                      })}
                     </div>
                     <span className={styles.orderItemTime}>
                       {formatReceiptTime(timeValue)}

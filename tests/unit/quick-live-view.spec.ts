@@ -935,6 +935,62 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
     expect(equipList[1].status).toBe("maintenance");
     expect(equipList[2].status).toBe("normal");
   });
+
+  it("設備在運轉中被設定停用（inactive）時，倒數計時徹底停止，狀態標籤顯示為已停用且標示為暫停", () => {
+    const equipList: WorkspaceEquipment[] = [
+      {
+        id: "dryer-1",
+        name: "本館烘衣-1",
+        equipmentType: "dryer",
+        status: "inactive",
+        occupied: true,
+      },
+    ];
+
+    const orders: WorkspaceOrder[] = [
+      {
+        id: "order-1",
+        orderNumber: "MAIN-20261019-0008",
+        cartNumber: "7E-1",
+        institutionName: "清泉",
+        status: "in_process",
+        updatedAt: "2026-10-19T07:00:00.000Z",
+      },
+    ];
+
+    const details: WorkspaceOrderDetail[] = [
+      makeDetail({
+        orderId: "order-1",
+        batches: [
+          makeBatch({
+            id: "batch-1",
+            status: "in_progress",
+            activeEquipmentName: "本館烘衣-1",
+            activeEquipmentType: "dryer",
+            stages: [
+              makeStage({
+                stageOrder: 1,
+                name: "烘衣",
+                equipmentType: "dryer",
+                state: "active",
+                startedAt: "2026-10-19T07:10:00.000Z",
+              }),
+            ],
+          }),
+        ],
+      }),
+    ];
+
+    const { dryingEquipment } = deriveEquipmentLiveStatuses(equipList, orders, details);
+    expect(dryingEquipment).toHaveLength(1);
+    const dryer = dryingEquipment[0];
+    expect(dryer.statusLabel).toBe("已停用");
+    expect(dryer.statusTone).toBe("paused");
+    expect(dryer.remainingSeconds).toBeNull();
+    expect(dryer.formattedCountdown).toBeNull();
+    expect(dryer.activeCartNumber).toBe("7E-1");
+    expect(dryer.activeInstitutionName).toBe("清泉");
+  });
 });
 
 
