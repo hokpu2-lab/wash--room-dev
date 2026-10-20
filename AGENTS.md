@@ -26,6 +26,21 @@
 
 ## 2026-10-20 最新接手快照
 
+- **烘衣機作業控制台精準抓取「快烘」與免洗純烘乾品項（stage-eligibility.ts, operations-control.spec.ts）**：
+  - **根本原因排查**：
+    1. 在 stage-eligibility.ts 的 resolveRequiredEquipmentForBatch 中，原先只嚴格檢查「圍兜」，任何自訂純烘乾分類（如「快烘」）因為未命中「圍兜」，全部 fallback 歸入 GENERAL，導致 stageOrder === 1 時被錯誤推導為需要 "washer"（洗衣機）。
+    2. 烘乾作業控制台（/app/operations/drying）在後端 loadSiteBatches 與前端 useLiveBatches 皆使用 isBatchEligibleForEquipment(b, "dryer") 過濾候選批次；由於「快烘」在第一階段被推導為 "washer"，導致在烘衣機下拉選單中被過濾排除，顯示「【本館】目前沒有可烘乾批次」。
+    3. resolveRequiredEquipmentForBatch 先前未優先採納批次上已從資料庫 procedure_template_stages 解析出的真實設備類型（batch.equipment_type）。
+  - **修復與連動架構**：
+    1. **真實程序範本設備第一優先（stage-eligibility.ts）**：
+       - 若批次帶有資料庫定義之 batch.equipment_type（dryer / washer / disinfection_tank），直接以真實程序範本設定為最高優先權。
+    2. **免洗純烘乾品項分類判定擴充支援「快烘」**：
+       - 判定涵蓋 catCode.includes("DRY")、catName.includes("快烘") 與 catName.includes("烘")，在未指定 equipment_type 時首階段精準對齊烘衣機（dryer）。
+       - 烘衣機控制台可順利抓取並列出「快烘」批次；洗衣機與消毒鍋控制台則精準排除，不會誤抓。
+  - **測試與建置覆核**：
+    - 單元測試 operations-control.spec.ts 新增「快烘」純烘乾品項與真實 equipment_type 優先權驗證。
+    - 全專案 20 個測試檔案、129 個 tests 全數通過；npm run typecheck 0 錯誤；npm run build 正式生產建置成功。
+
 - **自訂純烘乾分類（如「快烘」）流程與狀態精準對齊純烘乾（order-pipeline.ts, quick-live-view.tsx, laundry-order-flow-3d.tsx, order-pipeline.spec.ts, quick-live-view.spec.ts）**：
   - **根本原因排查**：
     1. 在 order-pipeline.ts 的 resolveOrderCategory 中，先前硬編碼僅辨識 4 個預設分類（消毒、圍兜、床簾、汙衣），未納入使用者於程序範本中新增的純烘乾分類（如「快烘」）。

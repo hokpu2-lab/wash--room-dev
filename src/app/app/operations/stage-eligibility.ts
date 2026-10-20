@@ -15,11 +15,12 @@ export interface BatchEligibilityCandidate {
  * 依據洗衣批次的分類品項與目前階段次序，推導該階段唯一需要的設備類型。
  *
  * 五大洗滌分類專屬流轉流程與階段設備規範：
+ * 0. 真實程序範本優先：若批次帶有資料庫 procedure_template_stages 定義之 equipment_type，優先直接採用。
  * 1. 消毒品 (DISINFECT)：
  *    第 1 階段：消毒鍋 (disinfection_tank)
  *    第 2 階段：洗衣機 (washer)
  *    第 3 階段：烘衣機 (dryer)
- * 2. 圍兜 (BIB)：
+ * 2. 圍兜 / 純烘乾品項 (BIB / DRY / 快烘)：
  *    不須消毒、不須清洗，直接第 1 階段：烘衣機 (dryer)
  * 3. 床簾 (CURTAIN)：
  *    不須消毒，第 1 階段：洗衣機 (washer)，洗完直接待取件，不須烘衣
@@ -33,6 +34,15 @@ export interface BatchEligibilityCandidate {
 export function resolveRequiredEquipmentForBatch(
   batch: BatchEligibilityCandidate,
 ): OperableEquipmentType | null {
+  // 1. 若資料庫程序範本已明確指定該階段設備類型，以真實程序階段設備為第一優先
+  if (
+    batch.equipment_type === "disinfection_tank" ||
+    batch.equipment_type === "washer" ||
+    batch.equipment_type === "dryer"
+  ) {
+    return batch.equipment_type;
+  }
+
   const stageOrder = batch.current_stage_order ?? batch.stageOrder ?? 1;
   const orderNum = (batch.orderNumber || "").trim().toUpperCase();
   const cartNum = (batch.cartNumber || "").trim().toUpperCase();
@@ -56,7 +66,10 @@ export function resolveRequiredEquipmentForBatch(
     category = "CURTAIN";
   } else if (
     catCode.includes("BIB") ||
-    catName.includes("圍兜")
+    catCode.includes("DRY") ||
+    catName.includes("圍兜") ||
+    catName.includes("快烘") ||
+    catName.includes("烘")
   ) {
     category = "BIB";
   } else if (

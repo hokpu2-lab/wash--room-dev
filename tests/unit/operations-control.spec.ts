@@ -360,6 +360,17 @@ describe("操作控制點與批次標籤 (Operations Control & Batch Labels)", (
     expect(isBatchEligibleForEquipment(generalStage2, "disinfection_tank")).toBe(false);
     expect(isBatchEligibleForEquipment(generalStage2, "washer")).toBe(false);
     expect(isBatchEligibleForEquipment(generalStage2, "dryer")).toBe(true);
+
+    // 5. 快烘 / 純烘乾品項：第 1 階段直接需要烘衣機，烘衣機可順利抓取，絕不進入洗衣機或消毒鍋
+    const quickDryStage1 = { categoryName: "快烘", current_stage_order: 1 };
+    expect(isBatchEligibleForEquipment(quickDryStage1, "disinfection_tank")).toBe(false);
+    expect(isBatchEligibleForEquipment(quickDryStage1, "washer")).toBe(false);
+    expect(isBatchEligibleForEquipment(quickDryStage1, "dryer")).toBe(true);
+
+    // 6. 程序範本明確指定 equipment_type 時具備最高優先權
+    const explicitDryerBatch = { categoryName: "一般", current_stage_order: 1, equipment_type: "dryer" };
+    expect(isBatchEligibleForEquipment(explicitDryerBatch, "dryer")).toBe(true);
+    expect(isBatchEligibleForEquipment(explicitDryerBatch, "washer")).toBe(false);
   });
 
   it("在消毒鍋控制點，若選到圍兜或非消毒分類項目，候選清單與卡片均不顯示並停用按鈕", () => {
