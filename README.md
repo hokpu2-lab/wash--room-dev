@@ -10,11 +10,21 @@
 - GitHub 串接 Vercel 部署
 - Playwright 公開介面驗收測試
 
-## 2026-10-19 最新接手快照
+## 2026-10-20 最新接手快照
 
 本節是目前接手的第一個入口。先執行 `git status --short --branch`、`git log -5 --oneline`，再閱讀
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。
+
+- **洗衣主管工作台保留「洗衣員作業台 · 作業控制點」，移除主管快速控制中的「07批次控制與重排」（admin/page.tsx）**：
+  - **調整說明**：
+    1. 主管快速控制（quickGrid）回歸標準主管設定與維運模組（00 帳號 ~ 06 BI），移除冗餘重複的「07 批次控制與重排」。
+    2. 主管工作台下方完整保留 **WORKER OPERATIONS / 洗衣員作業台 · 作業控制點** 專屬控制區（包含 01 收單分類與檢查清單至 06 批次控制與重排全套現場作業點），現場重排功能由作業控制點 06 統一承載，介面結構更專注清晰。
+    3. 主管首頁 Hero 區塊保留「開啟洗衣員作業台 →」按鈕，左側導覽列 supervisorLinks 亦完整保留「洗衣員作業台」與「批次控制與重排」入口。
+  - **測試與建置覆核**：
+    - 全專案 42 個測試檔、201 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
+## 2026-10-19 歷史交付快照
 
 - **洗衣主管「營運總覽」新增「洗衣員作業台 · 作業控制點」與「批次控制與重排」（admin/page.tsx, workspace-shell.tsx, supervisor-navigation.spec.ts）**：
   - **需求與根本原因排查**：

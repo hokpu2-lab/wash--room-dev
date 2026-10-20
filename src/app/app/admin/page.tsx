@@ -70,7 +70,6 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             <AppLink href={withWorkspaceScope("/app/admin/laundry-equipment", scope)}><span>04</span><strong>管理洗衣設備與固定 QR<small>能力、占用與設備狀態</small></strong></AppLink>
             <AppLink href={withWorkspaceScope("/app/admin/notifications", scope)}><span>05</span><strong>通知矩陣與 LINE／Telegram<small>事件、嚴重度與失敗回退</small></strong></AppLink>
             <AppLink href={withWorkspaceScope("/app/admin/bi", scope)}><span>06</span><strong>分析與 BI<small>模型、報表、匯出、摘要與舊單匯入</small></strong></AppLink>
-            <AppLink href={withWorkspaceScope("/app/operations/control-center", scope)}><span>07</span><strong>批次控制與重排<small>異常、暫停、合併與重排建議</small></strong></AppLink>
           </div>
 
           <div className={styles.sectionHeadingRow} style={{ marginTop: "2rem" }}>
