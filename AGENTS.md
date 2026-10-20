@@ -26,6 +26,25 @@
 
 ## 2026-10-20 最新接手快照
 
+- **自訂純烘乾分類（如「快烘」）流程與狀態精準對齊純烘乾（order-pipeline.ts, quick-live-view.tsx, laundry-order-flow-3d.tsx, order-pipeline.spec.ts, quick-live-view.spec.ts）**：
+  - **根本原因排查**：
+    1. 在 order-pipeline.ts 的 resolveOrderCategory 中，先前硬編碼僅辨識 4 個預設分類（消毒、圍兜、床簾、汙衣），未納入使用者於程序範本中新增的純烘乾分類（如「快烘」）。
+    2. 這導致「快烘」單據（如車號 2C-2）被錯誤歸入 GENERAL，分類名稱被覆寫為「一般」，且被套用預設的「洗衣機 60m ➔ 2 烘衣機 60m」流程，首階段錯誤出現「洗衣機」與「待清洗」。
+    3. 在 quick-live-view.tsx 的 derivePendingCarts 中，純烘乾判定僅判斷了 isBib（圍兜），導致「快烘」單據在「即時洗衣車與設備流轉動態」中下一階段錯誤標示為藍色的「待清洗」。
+  - **修復與相容架構**：
+    1. **保留真實分類名稱並識別純烘乾類（order-pipeline.ts）**：
+       - resolveOrderCategory 擴充支援純烘乾品項判定（包含「快烘」、「烘」、「DRY」，或批次階段僅包含烘衣機之程序），分類名稱完整保留真實名稱（「快烘」），不再被改寫為「一般」。
+       - 流程步驟精準對齊純烘乾標準（烘衣機 ➔ 待取件），絕無「洗衣機」！
+       - 單據處於待處理或初收單狀態時，當前階段與狀態膠囊精準呈現為橙色的「待烘乾」。
+    2. **即時流轉動態下一階段對齊「待烘乾」（quick-live-view.tsx）**：
+       - derivePendingCarts 的免洗純烘判定擴充支援「快烘」與純烘乾批次，待處理洗衣車（如 2C-2）下一階段精準標示為「待烘乾」（橙色徽章 nextStageDry）。
+       - getCartCategoryBadgeClass 同步支援「快烘」套用質感藍紫色徽章。
+    3. **3D 洗衣單流程同步支援純烘乾範本（laundry-order-flow-3d.tsx）**：
+       - 階段解析優先以資料庫批次實際階段為準，fallback 階段亦同步納入純烘乾判定，確保流程節點只有烘衣階段。
+  - **測試與建置覆核**：
+    - 單元測試 order-pipeline.spec.ts 與 quick-live-view.spec.ts 新增測試驗證「快烘」保留真實名稱、流程僅有烘衣機、狀態與下一階段標籤皆為「待烘乾」。
+    - 全專案 20 個單元測試檔案、129 個 tests 全數通過；npm run typecheck 0 錯誤；npm run build 正式生產建置成功。
+
 - **營運戰情室解除「當日送件」0800-1700 時間區間限制，改為當日全天（workspace-live.tsx, workspace-snapshot.ts, workspace-snapshot.spec.ts）**：
   - **根本原因排查**：
     1. 在 src/lib/analytics/workspace-snapshot.ts 的 calculateTodayShiftOrdersCount 中，原先硬編碼限制了 shiftStart = 08:00 至 shiftEnd = 17:00，導致清晨、夜間或非 08:00-17:00 時段送件的洗衣單被排除，戰情室在非上班時間顯示為 0。

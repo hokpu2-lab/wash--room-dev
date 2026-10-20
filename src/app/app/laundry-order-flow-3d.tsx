@@ -142,7 +142,11 @@ function getProcedureStages(batches: WorkspaceBatchDetail[], _orderNumber?: stri
     ];
   }
   const hasBibBatch = batches.some(
-    (b) => b.categoryCode?.toUpperCase().includes("BIB") || b.categoryName?.includes("圍兜")
+    (b) =>
+      b.categoryCode?.toUpperCase().includes("BIB") ||
+      b.categoryCode?.toUpperCase().includes("DRY") ||
+      b.categoryName?.includes("圍兜") ||
+      b.categoryName?.includes("烘")
   );
   if (hasBibBatch) {
     return [

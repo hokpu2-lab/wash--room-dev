@@ -43,17 +43,36 @@ export function resolveOrderCategory(
       const name = (b.categoryName || "").toUpperCase();
 
       if (code.includes("DISINFECT") || name.includes("消毒") || name.includes("感染")) {
-        return { categoryCode: "DISINFECT", categoryName: "消毒品", categoryTone: "disinfect" };
+        return { categoryCode: "DISINFECT", categoryName: b.categoryName || "消毒品", categoryTone: "disinfect" };
       }
-      if (code.includes("BIB") || name.includes("圍兜")) {
-        return { categoryCode: "BIB", categoryName: "圍兜", categoryTone: "bib" };
+      // 純烘乾類品項（圍兜、快烘、或任何包含「烘」/「DRY」的品項，或只有烘衣階段的批次）
+      const isDryOnly =
+        code.includes("BIB") ||
+        name.includes("圍兜") ||
+        name.includes("烘") ||
+        code.includes("DRY") ||
+        (b.stages && b.stages.length > 0 && b.stages.every((s) => s.equipmentType === "dryer" || s.equipmentType === "cart" || s.equipmentType === "manual") && !b.stages.some((s) => s.equipmentType === "washer" || s.equipmentType === "disinfection_tank"));
+
+      if (isDryOnly) {
+        return { categoryCode: "BIB", categoryName: b.categoryName || "快烘", categoryTone: "bib" };
       }
       if (code.includes("CURTAIN") || name.includes("床簾")) {
-        return { categoryCode: "CURTAIN", categoryName: "床簾", categoryTone: "curtain" };
+        return { categoryCode: "CURTAIN", categoryName: b.categoryName || "床簾", categoryTone: "curtain" };
       }
       if (code.includes("SOIL") || name.includes("汙") || name.includes("污")) {
-        return { categoryCode: "SOILED", categoryName: "汙衣", categoryTone: "soiled" };
+        return { categoryCode: "SOILED", categoryName: b.categoryName || "汙衣", categoryTone: "soiled" };
       }
+    }
+
+    // 若有自訂分類名稱，保留該真實分類名稱
+    const firstBatch = detail.batches[0];
+    if (firstBatch?.categoryName) {
+      const rawName = firstBatch.categoryName;
+      const isDry = rawName.includes("烘") || (firstBatch.stages && firstBatch.stages.length > 0 && firstBatch.stages.every((s) => s.equipmentType === "dryer"));
+      if (isDry) {
+        return { categoryCode: "BIB", categoryName: rawName, categoryTone: "bib" };
+      }
+      return { categoryCode: "GENERAL", categoryName: rawName, categoryTone: "general" };
     }
   }
 
@@ -194,7 +213,7 @@ export function deriveOrderPipeline(
     steps[0].statusLabel =
       categoryCode === "DISINFECT"
         ? "待消毒"
-        : categoryCode === "BIB"
+        : (categoryCode === "BIB" || steps[0].equipmentType === "dryer")
         ? "待烘乾"
         : "待清洗";
     return {
@@ -283,12 +302,12 @@ export function deriveOrderPipeline(
     }
   }
 
-  if (categoryCode === "BIB") {
-    // 圍兜：1: 烘衣機 (20m) ➔ 2: 待取件
+  if (categoryCode === "BIB" || steps[0].equipmentType === "dryer") {
+    // 純烘乾程序（圍兜、快烘等）：1: 烘衣機 ➔ 2: 待取件
     const isDryRunning =
       (activeStage?.equipmentType === "dryer" || batch?.status === "in_progress") && !isBatchPaused;
     steps[0].status = "current";
-    steps[0].statusLabel = isBatchPaused ? "烘乾暫停" : isDryRunning ? "烘衣中 (20分)" : "待烘乾";
+    steps[0].statusLabel = isBatchPaused ? "烘乾暫停" : isDryRunning ? `烘乾中 (${steps[0].durationMinutes ?? 20}分)` : "待烘乾";
     return {
       categoryCode,
       categoryName,

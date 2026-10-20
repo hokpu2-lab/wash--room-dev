@@ -387,4 +387,66 @@ describe("排程佇列狀態膠囊文字與色彩樣式對齊 (Order Queue Statu
     expect(result.label).toBe("待取件");
     expect(result.className).toContain("statusPillGreen");
   });
+
+  it("自訂分類「快烘」應被識別為純烘乾品項，流程僅有烘衣機與待取件，且狀態為「待烘乾」", () => {
+    const quickDryDetail: WorkspaceOrderDetail = {
+      orderId: "order-quick-dry",
+      orderCreatedAt: "2026-10-20T08:00:00Z",
+      orderReceivedAt: "2026-10-20T08:05:00Z",
+      orderReadyAt: null,
+      orderClosedAt: null,
+      batches: [
+        {
+          id: "batch-quick-dry",
+          batchSequence: 1,
+          categoryCode: "CUSTOM_DRY",
+          categoryName: "快烘",
+          procedureName: "快速烘乾程序",
+          procedureVersion: 1,
+          status: "not_started",
+          currentStageOrder: 1,
+          activeEquipmentName: null,
+          activeEquipmentType: null,
+          progress: {
+            stageRunId: null,
+            stageStatus: null,
+            stageProgressPercent: 0,
+            overallProgressPercent: 0,
+            estimatedStageCompletedAt: null,
+            overdueMinutes: 0,
+            totalStandardMinutes: 20,
+            isEstimate: false,
+          },
+          stages: [
+            { stageOrder: 1, name: "烘衣", standardMinutes: 20, equipmentType: "dryer", state: "pending", startedAt: null, completedAt: null },
+          ],
+        },
+      ],
+    };
+
+    const order: WorkspaceOrder = {
+      id: "order-quick-dry",
+      orderNumber: "MAIN-20261020-0099",
+      cartNumber: "2C-2",
+      institutionName: "護家",
+      status: "awaiting_cleaning",
+      updatedAt: "2026-10-20T08:05:00Z",
+    };
+
+    // 1. 分類名稱必須保留「快烘」，不可被改為「一般」
+    const categoryInfo = resolveOrderCategory(order, quickDryDetail);
+    expect(categoryInfo.categoryName).toBe("快烘");
+    expect(categoryInfo.categoryTone).toBe("bib");
+
+    // 2. 流程步驟應只有烘衣機與待取件，絕對不可有洗衣機
+    const pipeline = deriveOrderPipeline(order, quickDryDetail);
+    expect(pipeline.steps.map((s) => s.name)).toEqual(["烘衣機", "待取件"]);
+    expect(pipeline.steps.some((s) => s.equipmentType === "washer")).toBe(false);
+
+    // 3. 狀態應為「待烘乾」，不可為「待清洗」
+    expect(pipeline.currentStageName).toBe("待烘乾");
+    const statusDisplay = getOrderQueueStatusDisplay(order, pipeline);
+    expect(statusDisplay.label).toBe("待烘乾");
+    expect(statusDisplay.className).toContain("statusPillOrange");
+  });
 });

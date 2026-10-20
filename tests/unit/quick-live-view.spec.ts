@@ -1002,9 +1002,11 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
       cartCategoryGeneral: "general-class",
     };
 
-    it("圍兜 (BIB) 品項應精準套用藍紫色 cartCategoryBib 樣式", () => {
+    it("圍兜與快烘等純烘乾品項應精準套用藍紫色 cartCategoryBib 樣式", () => {
       expect(getCartCategoryBadgeClass("圍兜", mockStyles)).toBe("bib-class");
       expect(getCartCategoryBadgeClass("成人圍兜", mockStyles)).toBe("bib-class");
+      expect(getCartCategoryBadgeClass("快烘", mockStyles)).toBe("bib-class");
+      expect(getCartCategoryBadgeClass("快速烘乾", mockStyles)).toBe("bib-class");
     });
 
     it("床簾 (CURTAIN) 品項應精準套用深墨綠色 cartCategoryCurtain 樣式", () => {
@@ -1026,6 +1028,42 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
       expect(getCartCategoryBadgeClass("一般被服", mockStyles)).toBe("general-class");
       expect(getCartCategoryBadgeClass("一般", mockStyles)).toBe("general-class");
       expect(getCartCategoryBadgeClass("", mockStyles)).toBe("general-class");
+    });
+
+    it("待處理洗衣車中，分類為「快烘」的單據下一階段應為「待烘乾」，不可為「待清洗」", () => {
+      const orders: WorkspaceOrder[] = [
+        {
+          id: "order-quick-dry-cart",
+          orderNumber: "MAIN-20261020-0099",
+          cartNumber: "2C-2",
+          institutionName: "護家",
+          status: "awaiting_cleaning",
+          updatedAt: "2026-10-20T08:00:00Z",
+        },
+      ];
+      const details: WorkspaceOrderDetail[] = [
+        makeDetail({
+          orderId: "order-quick-dry-cart",
+          orderCreatedAt: "2026-10-20T08:00:00Z",
+          batches: [
+            makeBatch({
+              id: "batch-quick-dry-1",
+              categoryCode: "CUSTOM_DRY",
+              categoryName: "快烘",
+              stages: [
+                makeStage({ stageOrder: 1, name: "烘衣", equipmentType: "dryer", state: "pending" }),
+              ],
+            }),
+          ],
+        }),
+      ];
+
+      const pending = derivePendingCarts(orders, details);
+      expect(pending).toHaveLength(1);
+      expect(pending[0].cartNumber).toBe("2C-2");
+      expect(pending[0].categoryNames).toContain("快烘");
+      expect(pending[0].nextStageName).toBe("待烘乾");
+      expect(pending[0].nextStageTone).toBe("dry");
     });
   });
 });

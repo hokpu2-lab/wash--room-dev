@@ -97,7 +97,7 @@ export function getCartCategoryBadgeClass(
   if (cat.includes("消毒") || cat.includes("感染")) {
     return styles.cartCategoryDisinfect;
   }
-  if (cat.includes("圍兜")) {
+  if (cat.includes("圍兜") || cat.includes("烘")) {
     return styles.cartCategoryBib;
   }
   if (cat.includes("床簾")) {
@@ -288,8 +288,14 @@ export function derivePendingCarts(
         : [isDisinfect ? "消毒品" : "一般"];
 
     const isBib = Boolean(
-      detail?.batches?.some((b) => b.categoryName?.includes("圍兜") || b.categoryCode === "BIB") ||
-      uniqueCategories.some((c) => c.includes("圍兜") || c === "BIB")
+      detail?.batches?.some((b) =>
+        b.categoryName?.includes("圍兜") ||
+        b.categoryName?.includes("烘") ||
+        b.categoryCode === "BIB" ||
+        b.categoryCode?.toUpperCase().includes("DRY") ||
+        (b.stages && b.stages.length > 0 && b.stages.every((s) => s.equipmentType === "dryer" || s.equipmentType === "cart" || s.equipmentType === "manual") && !b.stages.some((s) => s.equipmentType === "washer" || s.equipmentType === "disinfection_tank"))
+      ) ||
+      uniqueCategories.some((c) => c.includes("圍兜") || c.includes("烘") || c === "BIB" || c.toUpperCase().includes("DRY"))
     );
 
     const isCurtain = Boolean(
