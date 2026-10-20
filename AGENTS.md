@@ -26,6 +26,21 @@
 
 ## 2026-10-20 最新接手快照
 
+- **主工作區介面大小隨畫面比例自適應變更（workspace-shell.module.css, system-guide.module.css, workspace-responsive.spec.ts）**：
+  - **根本原因排查**：
+    1. 原先 workspace-shell.module.css 中的 .content > main 和 .ssoFlashNotice 硬編碼限制為 max-width: 1340px; margin: 0 auto;，導致寬螢幕、超寬螢幕或在不同畫面比例縮放時，主工作區被鎖死在 1340px，兩側出現大片固定留白，無法隨畫面比例自適應展開。
+    2. system-guide.module.css 亦限制於固定寬度（1280px / 1180px），未能隨瀏覽器畫面比例流暢延展。
+  - **修復與響應式流體架構**：
+    1. **解開主工作區固定寬度束縛，全面支援 100% 畫面比例自適應**（workspace-shell.module.css）：
+       - .content：設定 width: 100%，搭配流體邊距 padding: clamp(16px, 2.5vw, 40px)，在各種長寬比（16:9、16:10、21:9、4:3）與高解析度下平滑縮放。
+       - .content > main：調整為 width: 100%; max-width: 100%; margin: 0 auto;，使所有子頁面（Dashboard、營運總覽、現場作業台、設備清單等）皆能隨著視窗畫面比例流動延展，大螢幕時排版大器，窄螢幕時自然縮放。
+       - .ssoFlashNotice：同步更新為 width: 100%; max-width: 100%;。
+    2. **系統指引同步支援滿版流體響應**：
+       - admin/system-guide/system-guide.module.css 與 system-guide/system-guide.module.css 調整為 max-width: 100%，閱讀區與章節目錄隨畫面比例舒適展開。
+  - **測試與建置覆核**：
+    - 新增單元測試 tests/unit/workspace-responsive.spec.ts 驗證主工作區與系統說明無 1340px / 1280px 硬編碼限制且支援 100% 畫面比例自適應。
+    - 全專案單元測試 20 個檔案、127 個 tests 全數通過；npm run typecheck 0 錯誤；npm run build 正式生產建置成功。
+
 - **統一「即時洗衣車與設備流轉動態」和「洗衣排程」洗滌品項顏色（quick-live-view.module.css, quick-live-view.tsx, workspace.module.css, quick-live-view.spec.ts）**：
   - **根本原因排查**：
     1. 在「即時洗衣車與設備流轉動態」（quick-live-view.tsx）的待處理洗衣車與完成待取件中，原先推導品項樣式時僅有「消毒」與「汙/污」，缺少「圍兜」與「床簾」的分支判斷，導致「圍兜」與「床簾」全部被歸入 cartCategoryGeneral，在即時動態中被渲染成深玄黑藍色（#0f172a）。

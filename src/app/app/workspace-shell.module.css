@@ -311,13 +311,20 @@
 
 .content {
   min-width: 0;
-  padding: clamp(22px, 3.5vw, 48px);
+  width: 100%;
+  padding: clamp(16px, 2.5vw, 40px);
+  box-sizing: border-box;
 }
 
-.content > main { max-width: 1340px; margin: 0 auto; }
+.content > main {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+}
 
 .ssoFlashNotice {
-  max-width: 1340px;
+  width: 100%;
+  max-width: 100%;
   margin: 0 auto 18px;
   padding: 12px 16px;
   border: 1px solid #a9d9c8;
@@ -326,6 +333,7 @@
   background: #e8f7f0;
   font-size: .82rem;
   font-weight: 800;
+  box-sizing: border-box;
 }
 
 .searchArea { position: relative; margin-bottom: 18px; }
