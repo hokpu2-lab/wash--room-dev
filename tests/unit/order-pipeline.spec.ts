@@ -448,5 +448,8 @@ describe("排程佇列狀態膠囊文字與色彩樣式對齊 (Order Queue Statu
     const statusDisplay = getOrderQueueStatusDisplay(order, pipeline);
     expect(statusDisplay.label).toBe("待烘乾");
     expect(statusDisplay.className).toContain("statusPillOrange");
+
+    // 4. 「快烘」烘衣階段標準時間必須為 20 分鐘
+    expect(pipeline.steps[0].durationMinutes).toBe(20);
   });
 });

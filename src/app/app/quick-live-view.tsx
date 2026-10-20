@@ -648,14 +648,22 @@ export function deriveEquipmentLiveStatuses(
     const match = equipmentMatchMap.get(eq.id) ?? null;
 
     const matchCategory = match?.categoryName || match?.categoryCode || null;
-    const defaultDuration =
-      eq.cleaningDurationMinutes ?? (eq.equipmentType === "disinfection_tank" ? 30 : 60);
-    const cleaningDurationMinutes = resolveEquipmentDurationFromConfig(
-      eq.cleaningDurationConfig,
-      matchCategory,
-      defaultDuration,
-      eq.equipmentType
+    const isQuickDry = Boolean(
+      match?.categoryName?.includes("快烘") ||
+      match?.stageName?.includes("快烘") ||
+      match?.categoryCode?.includes("DRY")
     );
+    const defaultDuration = isQuickDry
+      ? 20
+      : (eq.cleaningDurationMinutes ?? (eq.equipmentType === "disinfection_tank" ? 30 : 60));
+    const cleaningDurationMinutes = isQuickDry
+      ? 20
+      : resolveEquipmentDurationFromConfig(
+          eq.cleaningDurationConfig,
+          matchCategory,
+          defaultDuration,
+          eq.equipmentType
+        );
 
     const isAvailable = eq.status === "normal";
     const nonNormal = !isAvailable ? getNonNormalStatusInfo(eq.status) : null;

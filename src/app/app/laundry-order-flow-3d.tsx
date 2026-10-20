@@ -117,14 +117,25 @@ function getProcedureStages(batches: WorkspaceBatchDetail[], _orderNumber?: stri
   // 1. 若資料庫已存在批次程序階段，100% 以資料庫實際階段為準
   if (stageGroups.size > 0) {
     return [...stageGroups.values()]
-      .map((group) => ({
-        stageOrder: group[0]?.stageOrder ?? 0,
-        name: group[0]?.name ?? "程序階段",
-        equipmentType: group[0]?.equipmentType ?? "manual",
-        standardMinutes: group[0]?.standardMinutes ?? null,
-        startedAt: earliestTimestamp(group.map((stage) => stage.startedAt)),
-        completedAt: latestTimestamp(group.map((stage) => stage.completedAt)),
-      }))
+      .map((group) => {
+        const isQuickDry =
+          group[0]?.name?.includes("快烘") ||
+          batches.some(
+            (b) =>
+              b.categoryName?.includes("快烘") ||
+              b.categoryCode?.toUpperCase().includes("QUICK") ||
+              b.categoryCode?.toUpperCase().includes("DRY"),
+          );
+        const resolvedMinutes = isQuickDry ? 20 : (group[0]?.standardMinutes ?? null);
+        return {
+          stageOrder: group[0]?.stageOrder ?? 0,
+          name: group[0]?.name ?? "程序階段",
+          equipmentType: group[0]?.equipmentType ?? "manual",
+          standardMinutes: resolvedMinutes,
+          startedAt: earliestTimestamp(group.map((stage) => stage.startedAt)),
+          completedAt: latestTimestamp(group.map((stage) => stage.completedAt)),
+        };
+      })
       .sort((left, right) => left.stageOrder - right.stageOrder);
   }
 

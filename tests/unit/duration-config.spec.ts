@@ -18,6 +18,9 @@ describe("duration-config", () => {
 
     expect(getDefaultDurationForCategory("BIB")).toBe(20);
     expect(getDefaultDurationForCategory("圍兜")).toBe(20);
+    expect(getDefaultDurationForCategory("快烘")).toBe(20);
+    expect(getDefaultDurationForCategory("QUICK_DRY")).toBe(20);
+    expect(getDefaultDurationForCategory("DRY")).toBe(20);
 
     expect(getDefaultDurationForCategory("CURTAIN")).toBe(40);
     expect(getDefaultDurationForCategory("床簾")).toBe(40);
@@ -81,6 +84,8 @@ describe("duration-config", () => {
     // Unconfigured category falls back to default
     expect(resolveEquipmentDurationFromConfig(config, "CURTAIN")).toBe(40);
     expect(resolveEquipmentDurationFromConfig(config, "一般")).toBe(60);
+    expect(resolveEquipmentDurationFromConfig(config, "快烘")).toBe(20);
+    expect(resolveEquipmentDurationFromConfig(config, "QUICK_DRY")).toBe(20);
     expect(resolveEquipmentDurationFromConfig(config, null)).toBe(60);
 
     // Null config falls back to fallback parameter

@@ -12,6 +12,22 @@
 
 ## 2026-10-20 最新接手快照
 
+- **全系統所有功能「快烘」標準時間全面統一為 20 分鐘（duration-config.ts, duration-config-editor.tsx, procedure-stages-field.tsx, laundry-order-flow-3d.tsx, quick-live-view.tsx, workspace-snapshot.ts, order-history-model.ts, duration-config.spec.ts, order-pipeline.spec.ts, quick-live-view.spec.ts）**：
+  - **核心邏輯與設定層**：
+    1. 在 duration-config.ts 中，DEFAULT_CATEGORY_DURATIONS.QUICK_DRY 與 getDefaultDurationForCategory 擴充支援「快烘」、「QUICK」、「DRY」，預設清洗時間皆為 20 分鐘。
+    2. resolveEquipmentDurationFromConfig 強化快烘語意配對與 fallback：當設備執行「快烘」品項時，標準烘衣時間精準推導為 20 分鐘。
+    3. duration-config-editor.tsx 預設時間解析傳入真實分類名稱（catName || code），設備設定勾選「快烘」時自動預設並顯示「預設 20分」。
+  - **管理與範本編輯層**：
+    1. 在 procedure-stages-field.tsx 中，常用階段名稱清單納入「快烘」，且在使用者選取或輸入含「快烘」階段時，自動設定設備為「烘衣機」、標準分鐘為 20 分鐘。
+  - **即時看板與 3D 流程層**：
+    1. quick-live-view.tsx：當烘衣機運轉「快烘」批次時，倒數計時與設備標題以 20 分鐘為基準精準倒數。
+    2. laundry-order-flow-3d.tsx：3D 洗衣單流程主舞台節點針對「快烘」批次精準顯示 20 分鐘。
+    3. order-pipeline.ts 與排程：快烘流程之烘衣機步驟顯示 20m，進行中狀態標示為 烘乾中 (20分)。
+    4. workspace-snapshot.ts 與 order-history-model.ts：快烘批次之 totalStandardMinutes 與階段 standardMinutes 統一回傳 20 分鐘。
+  - **測試與建置覆核**：
+    - 單元測試 duration-config.spec.ts、order-pipeline.spec.ts 與 quick-live-view.spec.ts 新增測試驗證「快烘」時間為 20 分鐘。
+    - 全專案 20 個單元測試檔案、130 個 tests 全數通過；npm run typecheck 0 錯誤；npm run build 正式生產建置成功。
+
 - **烘衣機作業控制台精準抓取「快烘」與免洗純烘乾品項（stage-eligibility.ts, operations-control.spec.ts）**：
   - **根本原因排查**：
     1. 在 stage-eligibility.ts 的 resolveRequiredEquipmentForBatch 中，原先只嚴格檢查「圍兜」，任何自訂純烘乾分類（如「快烘」）因為未命中「圍兜」，全部 fallback 歸入 GENERAL，導致 stageOrder === 1 時被錯誤推導為需要 "washer"（洗衣機）。

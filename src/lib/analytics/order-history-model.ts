@@ -240,18 +240,28 @@ export function parseLaundryOrderHistoryDetail(data: unknown): LaundryOrderHisto
         overallProgressPercent: batch.progress.overall_progress_percent,
         estimatedStageCompletedAt: batch.progress.estimated_stage_completed_at,
         overdueMinutes: batch.progress.overdue_minutes,
-        totalStandardMinutes: batch.progress.total_standard_minutes,
+        totalStandardMinutes:
+          (batch.category_name?.includes("快烘") || batch.category_code?.toUpperCase().includes("DRY")) &&
+          (!batch.progress.total_standard_minutes || batch.progress.total_standard_minutes > 20)
+            ? 20
+            : batch.progress.total_standard_minutes,
         isEstimate: batch.progress.is_estimate,
       },
-      stages: batch.stages.map((stage) => ({
-        stageOrder: stage.stage_order,
-        name: stage.name,
-        standardMinutes: stage.standard_minutes,
-        equipmentType: stage.equipment_type,
-        state: stage.state,
-        startedAt: stage.started_at,
-        completedAt: stage.completed_at,
-      })),
+      stages: batch.stages.map((stage) => {
+        const isQuickDry =
+          stage.name.includes("快烘") ||
+          batch.category_name?.includes("快烘") ||
+          batch.category_code?.toUpperCase().includes("DRY");
+        return {
+          stageOrder: stage.stage_order,
+          name: stage.name,
+          standardMinutes: isQuickDry ? 20 : stage.standard_minutes,
+          equipmentType: stage.equipment_type,
+          state: stage.state,
+          startedAt: stage.started_at,
+          completedAt: stage.completed_at,
+        };
+      }),
     })),
     events: parsed.data.events.map((event) => ({
       id: event.id,

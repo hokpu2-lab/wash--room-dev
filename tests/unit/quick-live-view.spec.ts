@@ -1065,6 +1065,61 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
       expect(pending[0].nextStageName).toBe("待烘乾");
       expect(pending[0].nextStageTone).toBe("dry");
     });
+
+    it("烘衣機執行「快烘」批次時，設定時間應為 20 分鐘", () => {
+      const eq: WorkspaceEquipment = {
+        id: "dryer-quick-1",
+        name: "本館烘衣-1",
+        equipmentType: "dryer",
+        status: "normal",
+        occupied: true,
+        cleaningDurationMinutes: 60,
+      };
+
+      const orders: WorkspaceOrder[] = [
+        {
+          id: "order-qd-1",
+          orderNumber: "MAIN-20261020-0088",
+          cartNumber: "2C-2",
+          institutionName: "本館",
+          status: "in_process",
+          updatedAt: "2026-10-20T08:00:00Z",
+        },
+      ];
+
+      const details: WorkspaceOrderDetail[] = [
+        makeDetail({
+          orderId: "order-qd-1",
+          orderCreatedAt: "2026-10-20T08:00:00Z",
+          batches: [
+            makeBatch({
+              id: "batch-qd-1",
+              status: "in_progress",
+              categoryCode: "CUSTOM_DRY",
+              categoryName: "快烘",
+              activeEquipmentName: "本館烘衣-1",
+              activeEquipmentType: "dryer",
+              stages: [
+                makeStage({
+                  stageOrder: 1,
+                  name: "快烘",
+                  equipmentType: "dryer",
+                  state: "active",
+                  standardMinutes: 20,
+                  startedAt: "2026-10-20T08:00:00Z",
+                }),
+              ],
+            }),
+          ],
+        }),
+      ];
+
+      const { dryingEquipment } = deriveEquipmentLiveStatuses([eq], orders, details);
+      expect(dryingEquipment).toHaveLength(1);
+      const dryerStatus = dryingEquipment[0];
+      expect(dryerStatus.cleaningDurationMinutes).toBe(20);
+      expect(dryerStatus.activeCategoryName).toBe("快烘");
+    });
   });
 });
 

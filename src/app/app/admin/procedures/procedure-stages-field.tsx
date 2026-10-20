@@ -11,7 +11,7 @@ import {
   type ProcedureStageDraft,
 } from "./procedure-stage-draft";
 
-const commonStageNames = ["浸泡", "清洗", "烘乾", "裝車"];
+const commonStageNames = ["浸泡", "清洗", "烘乾", "快烘", "裝車"];
 
 export function ProcedureStagesField({
   initialStages,
@@ -71,7 +71,15 @@ export function ProcedureStagesField({
                   value={stage.name}
                   maxLength={40}
                   required
-                  onChange={(event) => updateStage(index, { name: event.target.value })}
+                  onChange={(event) => {
+                    const newName = event.target.value;
+                    const patch: Partial<ProcedureStageDraft> = { name: newName };
+                    if (newName.includes("快烘")) {
+                      patch.standard_minutes = 20;
+                      patch.equipment_type = "dryer";
+                    }
+                    updateStage(index, patch);
+                  }}
                 />
               </label>
               <label>

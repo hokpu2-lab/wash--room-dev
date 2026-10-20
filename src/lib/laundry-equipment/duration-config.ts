@@ -6,6 +6,7 @@ export const DEFAULT_CATEGORY_DURATIONS: Record<string, number> = {
   CURTAIN: 40,   // 床簾清洗 40 分鐘
   OTHER: 60,     // 其他 60 分鐘
   NORM: 60,      // 一般 60 分鐘
+  QUICK_DRY: 20, // 快烘 20 分鐘
 };
 
 /**
@@ -13,7 +14,7 @@ export const DEFAULT_CATEGORY_DURATIONS: Record<string, number> = {
  *
  * 流程與時間規則：
  * - 消毒品：消毒鍋 (30分鐘) ➔ 洗衣機 (60分鐘) ➔ 烘衣機 (60分鐘)
- * - 圍兜：不須消毒 ➔ 不須清洗 ➔ 烘衣機 (20分鐘)
+ * - 圍兜 / 快烘 / 純烘乾：不須消毒 ➔ 不須清洗 ➔ 烘衣機 (20分鐘)
  * - 汙衣：不須消毒 ➔ 洗衣機 (60分鐘) ➔ 烘衣機 (60分鐘)
  * - 床簾：不須消毒 ➔ 洗衣機 (40分鐘) ➔ 不須烘衣
  * - 其他：不須消毒 ➔ 洗衣機 (60分鐘) ➔ 烘衣機 (60分鐘)
@@ -36,8 +37,14 @@ export function getDefaultDurationForCategory(
     return 30;
   }
 
-  // 2. 圍兜：不須消毒、不須清洗、烘衣機 20 分鐘
-  if (upper.includes("BIB") || upper.includes("圍兜")) {
+  // 2. 圍兜 / 快烘 / 純烘乾：不須消毒、不須清洗、烘衣機 20 分鐘
+  if (
+    upper.includes("BIB") ||
+    upper.includes("圍兜") ||
+    upper.includes("快烘") ||
+    upper.includes("QUICK") ||
+    upper.includes("DRY")
+  ) {
     return 20;
   }
 
@@ -147,6 +154,12 @@ export function resolveEquipmentDurationFromConfig(
         return v;
       }
       if (
+        (upperKey.includes("快烘") || upperKey.includes("QUICK")) &&
+        (ku.includes("快烘") || ku.includes("QUICK"))
+      ) {
+        return v;
+      }
+      if (
         (upperKey.includes("CURTAIN") || upperKey.includes("床簾")) &&
         (ku.includes("CURTAIN") || ku.includes("床簾"))
       ) {
@@ -162,6 +175,9 @@ export function resolveEquipmentDurationFromConfig(
     equipmentType === "disinfection_tank" ||
     upperKey.includes("BIB") ||
     upperKey.includes("圍兜") ||
+    upperKey.includes("快烘") ||
+    upperKey.includes("DRY") ||
+    upperKey.includes("QUICK") ||
     upperKey.includes("CURTAIN") ||
     upperKey.includes("床簾")
   ) {
