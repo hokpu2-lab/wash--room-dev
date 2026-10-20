@@ -5,6 +5,7 @@ import {
   derivePendingCarts,
   formatClockTime,
   formatCountdown,
+  getCartCategoryBadgeClass,
   type ReadyCartItem,
 } from "../../src/app/app/quick-live-view";
 import type {
@@ -990,6 +991,42 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
     expect(dryer.formattedCountdown).toBeNull();
     expect(dryer.activeCartNumber).toBe("7E-1");
     expect(dryer.activeInstitutionName).toBe("清泉");
+  });
+
+  describe("洗滌品項顏色推導統一 (getCartCategoryBadgeClass)", () => {
+    const mockStyles = {
+      cartCategoryDisinfect: "disinfect-class",
+      cartCategoryBib: "bib-class",
+      cartCategoryCurtain: "curtain-class",
+      cartCategorySoiled: "soiled-class",
+      cartCategoryGeneral: "general-class",
+    };
+
+    it("圍兜 (BIB) 品項應精準套用藍紫色 cartCategoryBib 樣式", () => {
+      expect(getCartCategoryBadgeClass("圍兜", mockStyles)).toBe("bib-class");
+      expect(getCartCategoryBadgeClass("成人圍兜", mockStyles)).toBe("bib-class");
+    });
+
+    it("床簾 (CURTAIN) 品項應精準套用深墨綠色 cartCategoryCurtain 樣式", () => {
+      expect(getCartCategoryBadgeClass("床簾", mockStyles)).toBe("curtain-class");
+      expect(getCartCategoryBadgeClass("隔簾/床簾", mockStyles)).toBe("curtain-class");
+    });
+
+    it("消毒品 (DISINFECT) 品項應精準套用洋紅紫 cartCategoryDisinfect 樣式", () => {
+      expect(getCartCategoryBadgeClass("消毒品", mockStyles)).toBe("disinfect-class");
+      expect(getCartCategoryBadgeClass("感染性被服", mockStyles)).toBe("disinfect-class");
+    });
+
+    it("汙衣/污衣 (SOILED) 品項應精準套用琥珀棕褐 cartCategorySoiled 樣式", () => {
+      expect(getCartCategoryBadgeClass("汙衣", mockStyles)).toBe("soiled-class");
+      expect(getCartCategoryBadgeClass("重污被服", mockStyles)).toBe("soiled-class");
+    });
+
+    it("一般被服與其他品項應套用玄灰藍 cartCategoryGeneral 樣式", () => {
+      expect(getCartCategoryBadgeClass("一般被服", mockStyles)).toBe("general-class");
+      expect(getCartCategoryBadgeClass("一般", mockStyles)).toBe("general-class");
+      expect(getCartCategoryBadgeClass("", mockStyles)).toBe("general-class");
+    });
   });
 });
 

@@ -85,6 +85,30 @@ export interface ReadyCartItem {
   categoryNames?: string[];
 }
 
+/**
+ * 依據分類名稱推導即時視圖中的洗滌品項色彩樣式類別，
+ * 與洗衣排程第四欄 (orderItemCategoryBadge) 保持 100% 顏色與邊框一致。
+ */
+export function getCartCategoryBadgeClass(
+  categoryName: string,
+  styles: Record<string, string>
+): string {
+  const cat = (categoryName || "").trim();
+  if (cat.includes("消毒") || cat.includes("感染")) {
+    return styles.cartCategoryDisinfect;
+  }
+  if (cat.includes("圍兜")) {
+    return styles.cartCategoryBib;
+  }
+  if (cat.includes("床簾")) {
+    return styles.cartCategoryCurtain;
+  }
+  if (cat.includes("汙") || cat.includes("污")) {
+    return styles.cartCategorySoiled;
+  }
+  return styles.cartCategoryGeneral;
+}
+
 export function formatClockTime(isoString?: string | null): string {
   if (!isoString) return "—";
   const d = new Date(isoString);
@@ -1275,11 +1299,7 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
                       {item.categoryNames && item.categoryNames.length > 0 ? (
                         <div className={styles.cartCategoryBadges}>
                           {item.categoryNames.map((cat) => {
-                            const catClass = cat.includes("消毒")
-                              ? styles.cartCategoryDisinfect
-                              : cat.includes("汙") || cat.includes("污")
-                              ? styles.cartCategorySoiled
-                              : styles.cartCategoryGeneral;
+                            const catClass = getCartCategoryBadgeClass(cat, styles);
                             return (
                               <span
                                 key={cat}
@@ -1426,11 +1446,7 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
                     {item.categoryNames && item.categoryNames.length > 0 ? (
                       <div className={styles.cartCategoryBadges}>
                         {item.categoryNames.map((cat) => {
-                          const catClass = cat.includes("消毒")
-                            ? styles.cartCategoryDisinfect
-                            : cat.includes("汙") || cat.includes("污")
-                            ? styles.cartCategorySoiled
-                            : styles.cartCategoryGeneral;
+                          const catClass = getCartCategoryBadgeClass(cat, styles);
                           return (
                             <span
                               key={cat}

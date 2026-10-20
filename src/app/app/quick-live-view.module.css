@@ -815,18 +815,35 @@
   background: #831843;
   color: #fdf2f8;
   border-color: #f472b6;
+  box-shadow: 0 1px 3px rgba(131, 24, 67, 0.35);
+}
+
+.cartCategoryBib {
+  background: #4338ca;
+  color: #eef2ff;
+  border-color: #818cf8;
+  box-shadow: 0 1px 3px rgba(67, 56, 202, 0.35);
+}
+
+.cartCategoryCurtain {
+  background: #064e3b;
+  color: #ecfdf5;
+  border-color: #34d399;
+  box-shadow: 0 1px 3px rgba(6, 78, 59, 0.35);
 }
 
 .cartCategorySoiled {
   background: #78350f;
   color: #fffbeb;
   border-color: #fbbf24;
+  box-shadow: 0 1px 3px rgba(120, 53, 15, 0.35);
 }
 
 .cartCategoryGeneral {
-  background: #0f172a;
+  background: #1e293b;
   color: #f8fafc;
-  border-color: #475569;
+  border-color: #64748b;
+  box-shadow: 0 1px 3px rgba(30, 41, 59, 0.35);
 }
 
 .tooltipCategory {

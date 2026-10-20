@@ -26,6 +26,25 @@
 
 ## 2026-10-20 最新接手快照
 
+- **統一「即時洗衣車與設備流轉動態」和「洗衣排程」洗滌品項顏色（quick-live-view.module.css, quick-live-view.tsx, workspace.module.css, quick-live-view.spec.ts）**：
+  - **根本原因排查**：
+    1. 在「即時洗衣車與設備流轉動態」（quick-live-view.tsx）的待處理洗衣車與完成待取件中，原先推導品項樣式時僅有「消毒」與「汙/污」，缺少「圍兜」與「床簾」的分支判斷，導致「圍兜」與「床簾」全部被歸入 cartCategoryGeneral，在即時動態中被渲染成深玄黑藍色（#0f172a）。
+    2. 而在下方「洗衣排程」（live-queue.tsx、workspace.module.css）第四欄「洗滌品項」中，「圍兜」套用了亮眼藍紫色（#4338ca、邊框 #818cf8、文字 #eef2ff），「床簾」套用了深墨綠色（#064e3b、邊框 #34d399、文字 #ecfdf5），使得同一畫面上相同品項的色彩完全脫節。
+    3. quick-live-view.module.css 先前缺少 .cartCategoryBib 與 .cartCategoryCurtain 類別定義，且一般品背景顏色與邊框亦有些微落差。
+  - **修復與統一架構**：
+    1. **五大洗滌品項色彩體系 100% 精準對齊**（quick-live-view.module.css 與 workspace.module.css）：
+       - **圍兜（BIB）**：高質感藍紫（背景 #4338ca、邊框 #818cf8、文字 #eef2ff、立體陰影 rgba(67, 56, 202, 0.35)）
+       - **床簾（CURTAIN）**：翡翠深墨綠（背景 #064e3b、邊框 #34d399、文字 #ecfdf5、立體陰影 rgba(6, 78, 59, 0.35)）
+       - **消毒品（DISINFECT）**：深洋紅紫（背景 #831843、邊框 #f472b6、文字 #fdf2f8、立體陰影 rgba(131, 24, 67, 0.35)）
+       - **汙衣（SOILED）**：深琥珀棕褐（背景 #78350f、邊框 #fbbf24、文字 #fffbeb、立體陰影 rgba(120, 53, 15, 0.35)）
+       - **一般被服 / 一般品（GENERAL）**：深玄灰藍（背景 #1e293b、邊框 #64748b、文字 #f8fafc、立體陰影 rgba(30, 41, 59, 0.35)）
+    2. **即時洗衣車動態封裝統一推導邏輯（quick-live-view.tsx）**：
+       - 匯出 getCartCategoryBadgeClass(categoryName, styles)，完整支援消毒品、圍兜、床簾、汙衣/污衣與一般品判定。
+       - 待處理與待取件洗衣車之洗滌品項徽章全面改用此函式，確保無論是 8D-1 圍兜、床簾或消毒品，顏色與排程完全一致。
+  - **測試與建置覆核**：
+    - 單元測試 tests/unit/quick-live-view.spec.ts 擴充至 26 項 tests，涵蓋五大洗滌品項樣式類別推導驗證。
+    - 全專案 42 個測試檔、209 個 tests 全數通過；npm run typecheck 0 錯誤；npm run build 正式生產建置成功。
+
 - **統一「即時洗衣車與設備流轉動態」和「洗衣排程」狀態顏色與顯示語意（workspace.module.css, quick-live-view.module.css, quick-live-view.tsx, live-queue.tsx, order-pipeline.spec.ts）**：
   - **根本原因排查**：
     1. 「即時動態」（quick-live-view.tsx）使用高質感深底色、白字、微發光邊框與立體陰影（琥珀橙 #b45309、天藍 #0369a1、翡翠綠 #047857、洋紅紫 #831843）；而「洗衣排程」（live-queue.tsx）原先使用扁平亮底色與黑字（如處理中為黃底黑字 #1c1917，無邊框陰影），同一頁面上視覺嚴重脫節。
