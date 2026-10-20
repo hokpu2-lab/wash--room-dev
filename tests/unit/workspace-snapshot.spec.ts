@@ -147,7 +147,7 @@ test("合併即時快照時只保留目前頁面的洗衣單詳情", () => {
   expect(merged?.orderDetails.map((detail) => detail.orderId)).toEqual([secondOrderId]);
 });
 
-test("計算當天 AM 08:00 - 17:00 已送件數量", async () => {
+test("計算當日整天已送件數量 (00:00 - 23:59:59)，解除 0800-1700 區間限制", async () => {
   const { calculateTodayShiftOrdersCount } = await import("../../src/lib/analytics/workspace-snapshot");
 
   const refDate = new Date(2026, 9, 6, 14, 0, 0); // 2026-10-06 14:00
@@ -158,16 +158,18 @@ test("計算當天 AM 08:00 - 17:00 已送件數量", async () => {
       { id: "o2", orderNumber: "O2", status: "awaiting_receipt", updatedAt: null },
       { id: "o3", orderNumber: "O3", status: "in_process", updatedAt: null },
       { id: "o4", orderNumber: "O4", status: "ready_for_pickup", updatedAt: null },
+      { id: "o5", orderNumber: "O5", status: "in_process", updatedAt: null },
     ],
     orderDetails: [
-      { orderId: "o1", orderCreatedAt: new Date(2026, 9, 6, 8, 30, 0).toISOString() }, // In range (08:30)
-      { orderId: "o2", orderCreatedAt: new Date(2026, 9, 6, 16, 59, 0).toISOString() }, // In range (16:59)
-      { orderId: "o3", orderCreatedAt: new Date(2026, 9, 6, 7, 59, 0).toISOString() }, // Out of range (07:59)
-      { orderId: "o4", orderCreatedAt: new Date(2026, 9, 5, 10, 0, 0).toISOString() }, // Out of range (yesterday)
+      { orderId: "o1", orderCreatedAt: new Date(2026, 9, 6, 8, 30, 0).toISOString() }, // 當天白天 (08:30)
+      { orderId: "o2", orderCreatedAt: new Date(2026, 9, 6, 16, 59, 0).toISOString() }, // 當天傍晚 (16:59)
+      { orderId: "o3", orderCreatedAt: new Date(2026, 9, 6, 3, 28, 0).toISOString() }, // 當天清晨 (03:28，解除08:00限制)
+      { orderId: "o4", orderCreatedAt: new Date(2026, 9, 5, 23, 50, 0).toISOString() }, // 昨天 (跨天排除)
+      { orderId: "o5", orderCreatedAt: new Date(2026, 9, 6, 23, 15, 0).toISOString() }, // 當天深夜 (23:15，解除17:00限制)
     ],
   };
 
-  expect(calculateTodayShiftOrdersCount(snapshot, refDate)).toBe(2);
+  expect(calculateTodayShiftOrdersCount(snapshot, refDate)).toBe(4);
   expect(calculateTodayShiftOrdersCount(null)).toBe(0);
 });
 

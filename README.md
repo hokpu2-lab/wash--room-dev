@@ -12,6 +12,19 @@
 
 ## 2026-10-20 最新接手快照
 
+- **營運戰情室解除「當日送件」0800-1700 時間區間限制，改為當日全天（workspace-live.tsx, workspace-snapshot.ts, workspace-snapshot.spec.ts）**：
+  - **根本原因排查**：
+    1. 在 src/lib/analytics/workspace-snapshot.ts 的 calculateTodayShiftOrdersCount 中，原先硬編碼限制了 shiftStart = 08:00 至 shiftEnd = 17:00，導致清晨、夜間或非 08:00-17:00 時段送件的洗衣單被排除，戰情室在非上班時間顯示為 0。
+    2. workspace-live.tsx 戰情室第一張 KPI 卡片標籤寫死為「當日送件 (0800-1700截止)」，說明文字為「今日 08:00–17:00 已送件之洗衣單」。
+  - **修復架構**：
+    1. **解除時間區間限制，改為當日全天（workspace-snapshot.ts）**：
+       - calculateTodayShiftOrdersCount 計算區間改為當日整天：dayStart = 00:00:00.000 至 dayEnd = 23:59:59.999，全天 24 小時內送件之洗衣單皆完整納入計算。
+    2. **戰情室卡片文字同步更新（workspace-live.tsx）**：
+       - KPI 標籤由「當日送件 (0800-1700截止)」更新為「當日送件 (全日)」；說明小字更新為「今日全日已送件之洗衣單」。
+  - **測試與建置覆核**：
+    - tests/unit/workspace-snapshot.spec.ts 更新單元測試，驗證當日白天、清晨 (03:28) 與深夜 (23:15) 皆正確納入，跨日單據精準排除。
+    - 全專案單元測試 20 個檔案、127 個 tests 全數通過；npm run typecheck 0 錯誤；npm run build 正式生產建置成功。
+
 - **主工作區介面大小隨畫面比例自適應變更（workspace-shell.module.css, system-guide.module.css, workspace-responsive.spec.ts）**：
   - **根本原因排查**：
     1. 原先 workspace-shell.module.css 中的 .content > main 和 .ssoFlashNotice 硬編碼限制為 max-width: 1340px; margin: 0 auto;，導致寬螢幕、超寬螢幕或在不同畫面比例縮放時，主工作區被鎖死在 1340px，兩側出現大片固定留白，無法隨畫面比例自適應展開。

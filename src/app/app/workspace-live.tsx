@@ -156,7 +156,7 @@ function SupervisorCommandRoom({
       </header>
 
       <div className={styles.commandKpis} aria-label="戰情室核心指標">
-        <article><span>當日送件<br />(0800-1700截止)</span><strong>{todayShiftOrderCount}</strong><small>今日 08:00–17:00 已送件之洗衣單</small></article>
+        <article><span>當日送件<br />(全日)</span><strong>{todayShiftOrderCount}</strong><small>今日全日已送件之洗衣單</small></article>
         <article className={styles.commandKpiPrimary}><span>未結案</span><strong>{openOrders}</strong><small>待收件、處理中與待取件</small></article>
         <article><span>處理中(占用設備中)</span><strong>{inProcessCount}</strong><small>{inProcessCount} 個批次正在設備上</small></article>
         <article className={abnormalCount ? styles.commandKpiAlert : styles.commandKpiGood}><span>狀況異常(暫停中)</span><strong>{abnormalCount}</strong><small>{batches?.paused ?? 0} 暫停 · {equipmentDetailText}</small></article>

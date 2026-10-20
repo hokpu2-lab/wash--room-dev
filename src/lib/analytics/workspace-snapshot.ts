@@ -365,8 +365,8 @@ export function calculateTodayShiftOrdersCount(
   const year = now.getFullYear();
   const month = now.getMonth();
   const date = now.getDate();
-  const shiftStart = new Date(year, month, date, 8, 0, 0, 0).getTime();
-  const shiftEnd = new Date(year, month, date, 17, 0, 0, 0).getTime();
+  const dayStart = new Date(year, month, date, 0, 0, 0, 0).getTime();
+  const dayEnd = new Date(year, month, date, 23, 59, 59, 999).getTime();
 
   const detailsMap = new Map(
     (snapshot.orderDetails ?? []).map((d) => [d.orderId, d]),
@@ -378,7 +378,7 @@ export function calculateTodayShiftOrdersCount(
     const timeStr = detail?.orderCreatedAt ?? detail?.orderReceivedAt ?? order.updatedAt;
     if (timeStr) {
       const time = new Date(timeStr).getTime();
-      if (!isNaN(time) && time >= shiftStart && time <= shiftEnd) {
+      if (!isNaN(time) && time >= dayStart && time <= dayEnd) {
         count++;
       }
     }
