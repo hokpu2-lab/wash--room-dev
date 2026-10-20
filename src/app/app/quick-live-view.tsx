@@ -1247,7 +1247,9 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
             ) : (
               pendingCarts.map((item) => {
                 const nextBadgeClass =
-                  item.nextStageTone === "disinfect"
+                  item.nextStageName === "待分類" || item.nextStageName.includes("收件")
+                    ? styles.nextStageReceipt
+                    : item.nextStageTone === "disinfect"
                     ? styles.nextStageDisinfect
                     : item.nextStageTone === "wash"
                     ? styles.nextStageWash

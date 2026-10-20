@@ -30,6 +30,63 @@ const statusPillClass = {
   picked_up: styles.statusPillGray,
 } as const;
 
+/** 統一排程狀態膠囊文字與色彩樣式，與即時動態目前狀態 100% 表現一致 */
+export function getOrderQueueStatusDisplay(
+  order: WorkspaceOrder,
+  pipeline: ReturnType<typeof deriveOrderPipeline>,
+): {
+  label: string;
+  className: string;
+} {
+  // 1. 已取件結案
+  if (order.status === "picked_up") {
+    return { label: "已取件", className: styles.statusPillGray };
+  }
+  // 2. 待取件
+  if (order.status === "ready_for_pickup") {
+    return { label: "待取件", className: styles.statusPillGreen };
+  }
+  // 3. 待收件 (未收單分類)
+  if (order.status === "awaiting_receipt") {
+    return { label: "待收件", className: styles.statusPillGray };
+  }
+  // 4. 異常暫停
+  if (pipeline.currentStageName.includes("暫停")) {
+    return { label: "暫停中", className: styles.statusPillPaused };
+  }
+  // 5. 待烘乾 / 烘乾中 (如圍兜免洗直接待烘乾，或清洗完畢待烘乾)
+  if (
+    pipeline.currentStageName.includes("烘乾") ||
+    pipeline.currentStageName.includes("烘衣") ||
+    (order.status === "in_process" && pipeline.currentStageName.includes("烘"))
+  ) {
+    return {
+      label: pipeline.currentStageName.includes("烘乾中") ? "烘乾中" : "待烘乾",
+      className: styles.statusPillOrange,
+    };
+  }
+  // 6. 待消毒 / 消毒中
+  if (pipeline.currentStageName.includes("消毒")) {
+    return {
+      label: pipeline.currentStageName.includes("消毒中") ? "消毒中" : "待消毒",
+      className: styles.statusPillDisinfect,
+    };
+  }
+  // 7. 清洗中
+  if (pipeline.currentStageName.includes("清洗中")) {
+    return { label: "清洗中", className: styles.statusPillBlue };
+  }
+  // 8. 待清洗
+  if (order.status === "awaiting_cleaning" || pipeline.currentStageName.includes("待清洗")) {
+    return { label: "待清洗", className: styles.statusPillBlue };
+  }
+  // 9. 處理中兜底
+  return {
+    label: orderStatusLabel(order.status) || "處理中",
+    className: styles.statusPillOrange,
+  };
+}
+
 type LiveQueueProps = {
   orders: WorkspaceOrder[];
   orderDetails?: WorkspaceOrderDetail[];
@@ -617,6 +674,7 @@ export function LiveQueue({
                 const timeValue = orderDetail?.orderReceivedAt ?? orderDetail?.orderCreatedAt ?? order.updatedAt;
                 const equipmentDisplay = getEquipmentNameDisplay(order, orderDetail ?? null, equipment);
                 const pipeline = deriveOrderPipeline(order, orderDetail, equipment);
+                const queueStatus = getOrderQueueStatusDisplay(order, pipeline);
 
                 return (
                   <button
@@ -624,11 +682,11 @@ export function LiveQueue({
                     type="button"
                     className={active ? `${styles.orderListItem} ${styles.orderListItemActive}` : styles.orderListItem}
                     aria-pressed={active}
-                    aria-label={`選取 ${order.orderNumber}，${orderStatusLabel(order.status)}（品項：${pipeline.categoryName}，目前：${pipeline.currentStageName}）`}
+                    aria-label={`選取 ${order.orderNumber}，${queueStatus.label}（品項：${pipeline.categoryName}，目前：${pipeline.currentStageName}）`}
                     onClick={() => handleSelectOrder(order)}
                   >
-                    <span className={`${styles.statusPill} ${statusPillClass[order.status]}`}>
-                      {orderStatusLabel(order.status)}
+                    <span className={`${styles.statusPill} ${queueStatus.className}`}>
+                      {queueStatus.label}
                     </span>
                     <span className={styles.orderItemInstitution} title={`${order.institutionName} · 設備：${equipmentDisplay}`}>
                       {order.institutionName}

@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+vi.mock("server-only", () => ({}));
+import { getOrderQueueStatusDisplay } from "@/app/app/live-queue";
 import {
   deriveOrderPipeline,
   getStandardStepsForCategory,
@@ -315,5 +317,74 @@ describe("洗衣排程品項與流程管線推導 (Order Pipeline & Stages)", ()
 
     expect(pipeline.steps[0].statusLabel).toBe("清洗暫停");
     expect(pipeline.currentStageName).toBe("清洗暫停");
+  });
+});
+
+describe("排程佇列狀態膠囊文字與色彩樣式對齊 (Order Queue Status Alignment)", () => {
+  const baseOrder: WorkspaceOrder = {
+    id: "order-test-1",
+    orderNumber: "MAIN-20261020-0001",
+    status: "awaiting_cleaning",
+    updatedAt: "2026-10-20T08:00:00Z",
+    institutionName: "晴禾護理之家",
+    cartNumber: "7E-1",
+  };
+
+  it("圍兜單據在待烘乾階段應呈現「待烘乾」與橘色膠囊樣式", () => {
+    const bibDetail: WorkspaceOrderDetail = {
+      orderId: "order-test-1",
+      orderCreatedAt: "2026-10-20T08:00:00Z",
+      orderReceivedAt: "2026-10-20T08:05:00Z",
+      orderReadyAt: null,
+      orderClosedAt: null,
+      batches: [
+        {
+          id: "batch-bib",
+          batchSequence: 1,
+          categoryCode: "BIB",
+          categoryName: "圍兜",
+          procedureName: "圍兜純烘",
+          procedureVersion: 1,
+          status: "not_started",
+          currentStageOrder: 1,
+          activeEquipmentName: null,
+          activeEquipmentType: null,
+          progress: {
+            stageRunId: null,
+            stageStatus: null,
+            stageProgressPercent: 0,
+            overallProgressPercent: 0,
+            estimatedStageCompletedAt: null,
+            overdueMinutes: 0,
+            totalStandardMinutes: 20,
+            isEstimate: false,
+          },
+          stages: [
+            { stageOrder: 1, name: "烘乾", standardMinutes: 20, equipmentType: "dryer", state: "pending", startedAt: null, completedAt: null },
+          ],
+        },
+      ],
+    };
+
+    const pipeline = deriveOrderPipeline({ ...baseOrder, cartNumber: "7E-1" }, bibDetail);
+    const result = getOrderQueueStatusDisplay({ ...baseOrder, cartNumber: "7E-1" }, pipeline);
+    expect(result.label).toBe("待烘乾");
+    expect(result.className).toContain("statusPillOrange");
+  });
+
+  it("待收件單據應呈現「待收件」與灰藍色膠囊樣式", () => {
+    const order: WorkspaceOrder = { ...baseOrder, status: "awaiting_receipt" };
+    const pipeline = deriveOrderPipeline(order, null);
+    const result = getOrderQueueStatusDisplay(order, pipeline);
+    expect(result.label).toBe("待收件");
+    expect(result.className).toContain("statusPillGray");
+  });
+
+  it("待取件單據應呈現「待取件」與綠色膠囊樣式", () => {
+    const order: WorkspaceOrder = { ...baseOrder, status: "ready_for_pickup" };
+    const pipeline = deriveOrderPipeline(order, null);
+    const result = getOrderQueueStatusDisplay(order, pipeline);
+    expect(result.label).toBe("待取件");
+    expect(result.className).toContain("statusPillGreen");
   });
 });

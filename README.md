@@ -12,6 +12,28 @@
 
 ## 2026-10-20 最新接手快照
 
+- **統一「即時洗衣車與設備流轉動態」和「洗衣排程」狀態顏色與顯示語意（workspace.module.css, quick-live-view.module.css, quick-live-view.tsx, live-queue.tsx, order-pipeline.spec.ts）**：
+  - **根本原因排查**：
+    1. 「即時動態」（quick-live-view.tsx）使用高質感深底色、白字、微發光邊框與立體陰影（琥珀橙 #b45309、天藍 #0369a1、翡翠綠 #047857、洋紅紫 #831843）；而「洗衣排程」（live-queue.tsx）原先使用扁平亮底色與黑字（如處理中為黃底黑字 #1c1917，無邊框陰影），同一頁面上視覺嚴重脫節。
+    2. 待收件單據在即時動態中誤給了藍色 nextStageWash，標記為「待分類」，但在下方排程中卻是灰色的「待收件」，顏色產生歧異。
+    3. 圍兜等免洗純烘乾品項，在即時動態中正確顯示「待烘乾」（橙色），但在排程第一欄卻因直接取 order.status = "awaiting_cleaning" 被硬編碼顯示為「待清洗」（藍色）。
+  - **修復與統一架構**：
+    1. **建立統一的狀態色彩體系（workspace.module.css 與 quick-live-view.module.css）**：
+       - 待取件：翡翠綠（#047857、邊框 #34d399、白字 #ecfdf5）
+       - 待清洗 / 清洗中：深天藍（#0369a1、邊框 #38bdf8、白字 #f0f9ff）
+       - 待烘乾 / 烘乾中 / 處理中：深琥珀橙（#b45309、邊框 #fbbf24、白字 #fffbeb）
+       - 待消毒 / 消毒中：深洋紅紫（#831843、邊框 #f472b6、白字 #fdf2f8）
+       - 待收件 / 待分類：深灰藍（#475569、邊框 #94a3b8、白字 #f8fafc）
+       - 異常暫停：警戒紅（#991b1b、邊框 #f87171、白字 #fef2f2）
+    2. **排程狀態欄與當前階段精準連動（live-queue.tsx）**：
+       - 新增 getOrderQueueStatusDisplay(order, pipeline)，排程第一欄不再死板顯示粗略的 awaiting_cleaning，而是與即時動態連動：圍兜及等烘單據顯示「待烘乾」（橙色）、消毒品顯示「待消毒」（紫色）、清洗中/待清洗顯示藍色、待取件顯示綠色、待收件顯示灰藍色，兩邊狀態與色彩 100% 表現一致。
+    3. **即時動態待收件/待分類色彩對齊（quick-live-view.tsx）**：
+       - 待收件（未收單分類）單據統一採用灰藍色質感膠囊（nextStageReceipt），徹底解決待分類與待收件顏色矛盾。
+  - **測試與建置覆核**：
+    - tests/unit/order-pipeline.spec.ts 擴充涵蓋排程隊列狀態膠囊文字與色彩樣式對齊測試。
+    - 全專案 42 個測試檔、204 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
+
 本節是目前接手的第一個入口。先執行 `git status --short --branch`、`git log -5 --oneline`，再閱讀
 `AGENTS.md`、`CONTEXT.md`、`docs/requirements.md`、`docs/system-guide/` 及本次修改相關的 ADR；本節的 commit、測試與部署
 資訊仍須以實際環境重新覆核。

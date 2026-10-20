@@ -226,6 +226,13 @@
   box-shadow: 0 1px 4px rgba(4, 120, 87, 0.45);
 }
 
+.nextStageReceipt {
+  background: #475569;
+  color: #f8fafc;
+  border: 1px solid #94a3b8;
+  box-shadow: 0 1px 4px rgba(71, 85, 105, 0.45);
+}
+
 .cartChipReady {
   background: var(--lv-ready-bg, rgba(16, 185, 129, 0.12));
   border-color: var(--lv-ready-border, rgba(16, 185, 129, 0.45));

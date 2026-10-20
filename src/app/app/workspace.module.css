@@ -1511,6 +1511,24 @@
   box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
 }
 
+.filterPillGreen {
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  background: #ecfdf5;
+}
+
+.filterPillGreen:hover {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+}
+
+.filterPillGreen.filterPillActive {
+  background: #047857;
+  border-color: #34d399;
+  color: #ecfdf5;
+  box-shadow: 0 2px 6px rgba(4, 120, 87, 0.45);
+}
+
 .filterPillTeal {
   border: 1px solid #99f6e4;
   color: #0f766e;
@@ -1800,31 +1818,61 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 12px;
+  padding: 3px 10px;
   border-radius: 6px;
-  font-size: 0.8rem;
-  font-weight: 800;
+  font-size: 0.78rem;
+  font-weight: 850;
   white-space: nowrap;
+  letter-spacing: 0.02em;
+  transition: all 0.15s ease;
 }
 
+/* 待烘乾 / 烘乾中 / 處理中：與即時動態 nextStageDry 完全一致 */
 .statusPillOrange {
-  color: #1c1917;
-  background: #f59e0b;
+  background: #b45309;
+  color: #fffbeb;
+  border: 1px solid #fbbf24;
+  box-shadow: 0 1px 4px rgba(180, 83, 9, 0.45);
 }
 
+/* 待清洗 / 清洗中：與即時動態 nextStageWash 完全一致 */
 .statusPillBlue {
-  color: #ffffff;
-  background: #0284c7;
+  background: #0369a1;
+  color: #f0f9ff;
+  border: 1px solid #38bdf8;
+  box-shadow: 0 1px 4px rgba(3, 105, 161, 0.45);
 }
 
+/* 待取件：與即時動態 nextStagePickup 完全一致 */
 .statusPillGreen {
-  color: #ffffff;
-  background: #16a34a;
+  background: #047857;
+  color: #ecfdf5;
+  border: 1px solid #34d399;
+  box-shadow: 0 1px 4px rgba(4, 120, 87, 0.45);
 }
 
+/* 待收件 / 待分類：與即時動態 nextStageReceipt 完全一致 */
 .statusPillGray {
-  color: #334155;
-  background: #cbd5e1;
+  background: #475569;
+  color: #f8fafc;
+  border: 1px solid #94a3b8;
+  box-shadow: 0 1px 4px rgba(71, 85, 105, 0.45);
+}
+
+/* 待消毒 / 消毒中：與即時動態 nextStageDisinfect 完全一致 */
+.statusPillDisinfect {
+  background: #831843;
+  color: #fdf2f8;
+  border: 1px solid #f472b6;
+  box-shadow: 0 1px 4px rgba(131, 24, 67, 0.45);
+}
+
+/* 暫停中：與即時動態 eqPaused 完全一致 */
+.statusPillPaused {
+  background: #991b1b;
+  color: #fef2f2;
+  border: 1px solid #f87171;
+  box-shadow: 0 1px 4px rgba(153, 27, 27, 0.45);
 }
 
 .selectedOrderCardContent {
