@@ -395,10 +395,10 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
   const workspace = workspaceSchema.safeParse({
     equipment: equipmentRows.map((item) => {
       const usage = equipmentUsageMap.get(item.id);
-      const isOccupied = Boolean(item.occupied || (usage && usage.cartCount > 0));
+      const isOccupied = item.status === "normal" && Boolean(item.occupied || (usage && usage.cartCount > 0));
       const config = item.cleaning_duration_config ?? { default: item.cleaning_duration_minutes ?? 60 };
-      const activeCategoryCode = usage && usage.categoryCodes.size > 0 ? Array.from(usage.categoryCodes)[0] : null;
-      const activeCategoryName = usage && usage.categoryNames.size > 0 ? Array.from(usage.categoryNames)[0] : null;
+      const activeCategoryCode = isOccupied && usage && usage.categoryCodes.size > 0 ? Array.from(usage.categoryCodes)[0] : null;
+      const activeCategoryName = isOccupied && usage && usage.categoryNames.size > 0 ? Array.from(usage.categoryNames)[0] : null;
       const activeDuration = isOccupied
         ? resolveEquipmentDurationFromConfig(
             config,
@@ -416,9 +416,9 @@ export async function getLaundryEquipmentWorkspace(): Promise<LaundryEquipmentWo
         cleaning_duration_config: config,
         category_codes: categoryCaps.get(item.id) ?? [],
         procedure_template_ids: procedureCaps.get(item.id) ?? [],
-        active_institutions: usage && usage.institutions.size > 0 ? Array.from(usage.institutions) : [],
-        active_cart_count: usage ? usage.cartCount : (isOccupied ? 1 : 0),
-        active_cart_numbers: usage && usage.cartNumbers.size > 0 ? Array.from(usage.cartNumbers) : [],
+        active_institutions: isOccupied && usage && usage.institutions.size > 0 ? Array.from(usage.institutions) : [],
+        active_cart_count: isOccupied ? (usage ? usage.cartCount : 1) : 0,
+        active_cart_numbers: isOccupied && usage && usage.cartNumbers.size > 0 ? Array.from(usage.cartNumbers) : [],
         active_category_code: activeCategoryCode,
         active_category_name: activeCategoryName,
         active_duration_minutes: activeDuration,
@@ -560,41 +560,158 @@ export async function updateLaundryEquipment(input: unknown): Promise<EquipmentC
     } catch {}
   }
 
-  // 若設備被更新為「已停用」、「異常故障」或「維修中」，自動將該設備上運行中的批次暫停
+  // 若設備被更新為「已停用」、「異常故障」或「維修中」，在洗衣設備中的洗衣車自動返回上一步，釋放設備並聯動所有相關狀態
   const isTargetNotNormal = parsed.data.status !== "normal";
   if (isTargetNotNormal && change.laundry_equipment_id) {
     try {
-      const { data: runningRuns } = await supabase
+      // 1. 強制確保設備狀態解除佔用
+      await supabase
+        .from("laundry_equipment")
+        .update({
+          occupied: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", change.laundry_equipment_id);
+
+      // 2. 查詢該設備上所有進行中或暫停中的 stage runs
+      const { data: activeRuns } = await supabase
         .from("laundry_batch_stage_runs")
-        .select("id, laundry_batch_id")
+        .select("id, laundry_batch_id, stage_order, status")
         .eq("laundry_equipment_id", change.laundry_equipment_id)
-        .eq("status", "in_progress");
+        .in("status", ["in_progress", "paused"]);
 
-      if (runningRuns && runningRuns.length > 0) {
-        const statusText =
-          parsed.data.status === "inactive"
-            ? "設備已停用"
-            : parsed.data.status === "abnormal"
-            ? "設備故障異常"
-            : "設備維修保養中";
-        const pauseReason = `設備狀態變更為【${statusText}】：${parsed.data.reason}`;
-
-        for (const run of runningRuns) {
+      const batchIdsToRevert = new Set<string>();
+      if (activeRuns && activeRuns.length > 0) {
+        for (const run of activeRuns) {
           if (run.laundry_batch_id) {
-            try {
-              await supabase.rpc("pause_laundry_batch_stage", {
-                target_laundry_batch_id: run.laundry_batch_id,
-                pause_reason: pauseReason.slice(0, 500),
-                change_request_id: crypto.randomUUID(),
-              });
-            } catch (pauseErr) {
-              console.error("Auto pause batch error on equipment status change:", pauseErr);
-            }
+            batchIdsToRevert.add(run.laundry_batch_id);
           }
         }
       }
-    } catch (queryErr) {
-      console.error("Query running runs for auto-pause error:", queryErr);
+
+      const statusText =
+        parsed.data.status === "inactive"
+          ? "設備已停用"
+          : parsed.data.status === "abnormal"
+          ? "設備故障異常"
+          : "設備維修保養中";
+      const revertReason = `設備狀態變更為【${statusText}】自動退回待處理：${parsed.data.reason || "機台異常/維修/停用退回"}`;
+
+      for (const batchId of batchIdsToRevert) {
+        let reversedViaRpc = false;
+        try {
+          const rpcRes = await supabase.rpc("reverse_last_laundry_batch_operation", {
+            target_laundry_batch_id: batchId,
+            reversal_reason: revertReason.slice(0, 500),
+            change_request_id: crypto.randomUUID(),
+          });
+          if (rpcRes.data && Array.isArray(rpcRes.data) && rpcRes.data[0]?.outcome === "applied") {
+            reversedViaRpc = true;
+          }
+        } catch (rpcErr) {
+          console.warn("reverse_last_laundry_batch_operation RPC failed, fallback to direct revert:", rpcErr);
+        }
+
+        // 若 RPC 未能還原（例如批次處於 paused 或 RPC 限制），執行安全直接更新退回上一步
+        if (!reversedViaRpc) {
+          try {
+            // 查詢批次詳細資訊
+            const { data: batchData } = await supabase
+              .from("laundry_batches")
+              .select("id, laundry_order_id, operating_site_id, current_stage_order, status, active_stage_run_id")
+              .eq("id", batchId)
+              .single();
+
+            // 將該設備上關聯的 stage runs 設為 cancelled
+            await supabase
+              .from("laundry_batch_stage_runs")
+              .update({
+                status: "cancelled",
+                updated_at: new Date().toISOString(),
+              })
+              .eq("laundry_equipment_id", change.laundry_equipment_id)
+              .in("status", ["in_progress", "paused"]);
+
+            // 將批次狀態重設為 not_started，清空 active_stage_run_id
+            await supabase
+              .from("laundry_batches")
+              .update({
+                status: "not_started",
+                active_stage_run_id: null,
+                completed_at: null,
+                loaded_at: null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", batchId);
+
+            // 更新洗衣單狀態
+            if (batchData?.laundry_order_id) {
+              const isFirstStage = (batchData.current_stage_order ?? 1) <= 1;
+              let targetOrderStatus = "in_process";
+              if (isFirstStage) {
+                const { data: siblingBatches } = await supabase
+                  .from("laundry_batches")
+                  .select("id, status")
+                  .eq("laundry_order_id", batchData.laundry_order_id)
+                  .neq("id", batchId);
+
+                const anySiblingActive = siblingBatches?.some(
+                  (b) => b.status !== "not_started" && b.status !== "cancelled"
+                );
+                if (!anySiblingActive) {
+                  targetOrderStatus = "awaiting_cleaning";
+                }
+              }
+              await supabase
+                .from("laundry_orders")
+                .update({
+                  status: targetOrderStatus,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", batchData.laundry_order_id);
+            }
+
+            // 寫入更正稽核紀錄
+            try {
+              const userRes = await supabase.auth.getUser();
+              const userId = userRes?.data?.user?.id;
+              if (userId) {
+                await supabase.from("laundry_data_corrections").insert({
+                  laundry_batch_id: batchId,
+                  correction_kind: "reopen",
+                  reason: revertReason.slice(0, 500),
+                  before_state: {
+                    equipment_id: change.laundry_equipment_id,
+                    equipment_status: parsed.data.status,
+                    previous_batch_status: batchData?.status,
+                  },
+                  after_state: {
+                    equipment_occupied: false,
+                    batch_status: "not_started",
+                    stage_run_status: "cancelled",
+                  },
+                  corrected_by_auth_user_id: userId,
+                });
+              }
+            } catch (auditErr) {
+              console.warn("Insert laundry_data_corrections failed:", auditErr);
+            }
+          } catch (directErr) {
+            console.error("Direct batch revert failed:", directErr);
+          }
+        }
+      }
+
+      // 最後再度確認設備 occupied 為 false
+      await supabase
+        .from("laundry_equipment")
+        .update({
+          occupied: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", change.laundry_equipment_id);
+    } catch (err) {
+      console.error("Auto revert cart on equipment status change error:", err);
     }
   }
 

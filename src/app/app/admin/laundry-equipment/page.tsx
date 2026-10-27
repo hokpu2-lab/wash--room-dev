@@ -167,7 +167,7 @@ export default async function LaundryEquipmentPage({
                 </thead>
                 <tbody>
                   {workspace.equipment.map((equipment) => {
-                    const isOccupied = Boolean(equipment.occupied || (equipment.active_cart_count && equipment.active_cart_count > 0));
+                    const isOccupied = equipment.status === "normal" && Boolean(equipment.occupied || (equipment.active_cart_count && equipment.active_cart_count > 0));
                     const institutionText = isOccupied
                       ? equipment.active_institutions && equipment.active_institutions.length > 0
                         ? equipment.active_institutions.join("、")

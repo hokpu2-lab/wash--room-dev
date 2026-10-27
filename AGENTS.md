@@ -24,7 +24,28 @@
 - 頂級角色與權限防護：`system_administrator`（系統管理員）具備最高優先權，預設導向 `/app/admin`；`src/lib/auth/principal.ts` 之
   `principalSatisfiesRole` 確保系統管理員完全滿足 `laundry_supervisor` 之檢查，徹底杜絕無窮重定向死循環。
 
-## 2026-10-20 最新接手快照
+## 2026-10-27 最新接手快照
+
+- **設備狀態進入「停用」、「異常故障」或「維修中」時，洗衣車自動退回上一步並全面連動所有系統顯示（administration.ts, page.tsx, quick-live-view.tsx, fake-supabase-server.mjs, equipment-edit.spec.ts, quick-live-view.spec.ts）**：
+  - **核心連動與退回機制**：
+    1. 在 `administration.ts` 的 `updateLaundryEquipment` 中，當設備更新為非正常狀態（`inactive`、`abnormal`、`maintenance`）時：
+       - 自動查詢該機台上運行中或暫停中的 stage runs（`status in ('in_progress', 'paused')`）。
+       - 優先調用 `reverse_last_laundry_batch_operation` RPC，並提供完整安全退回理由。
+       - 若處於 paused 或 RPC 限制，自動執行安全直接退回：將 stage run 設為 `cancelled`、批次設為 `not_started` 且清空 `active_stage_run_id`、訂單依階段恢復為 `awaiting_cleaning`（首階段）或 `in_process`、設備解除佔用（`occupied = false`），並寫入更正稽核紀錄 `laundry_data_corrections`。
+    2. 在 `getLaundryEquipmentWorkspace` 與設備管理清單頁面（`laundry-equipment/page.tsx`）：
+       - 當設備狀態為非正常（維修中 / 異常故障 / 已停用）時，強制判定 `occupied = false`，車號、機構與清洗時間均自動顯示為空白（`—`），狀態徽章精準顯示維修/異常/停用。
+  - **即時看板與現場作業台連動**：
+    1. `quick-live-view.tsx`：非正常設備卡片徹底停止倒數計時，機台內部不再顯示車號與機構（`activeCartNumber: null`），清空機台佔用並呈現設備保養維修/故障待修說明。
+    2. 洗衣車自動回到「待處理洗衣車（Pending Carts）」清單中：
+       - 第一階段機具故障：洗衣車立即回到待處理清單，下一階段標籤正確標示為「待清洗」、「待烘乾」或「待消毒」。
+       - 第二階段機具故障（如烘乾）：洗衣車立即回到待處理清單，標示「清洗完畢 · 待烘乾」。
+    3. 現場作業控制台（`/app/operations/washing`, `/drying`, `/disinfection`）：
+       - 退回的批次狀態為 `not_started`，立即重新出現在現場控制台候選下拉選單中，現場人員可立即改派至其他正常機台繼續作業。
+  - **測試與建置覆核**：
+    - 單元測試 `equipment-edit.spec.ts` 與 `quick-live-view.spec.ts` 驗證設備異常時自動退回上一步、佔用清空與待處理清單無縫連動。
+    - 全專案 43 個測試檔案、217 個 tests（單元與合約測試）全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
+## 2026-10-20 歷史接手快照
 
 - **全系統所有功能「快烘」標準時間全面統一為 20 分鐘（duration-config.ts, duration-config-editor.tsx, procedure-stages-field.tsx, laundry-order-flow-3d.tsx, quick-live-view.tsx, workspace-snapshot.ts, order-history-model.ts, duration-config.spec.ts, order-pipeline.spec.ts, quick-live-view.spec.ts）**：
   - **核心邏輯與設定層**：

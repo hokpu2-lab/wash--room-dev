@@ -254,5 +254,45 @@ describe("equipment-edit-form logic", () => {
       })
     ).toBe("15 分鐘 (圍兜)");
   });
-});
 
+  it("當設備進入停用、異常故障或維修中時，設備佔用清空且車號、機構與清洗時間均顯示為空白（—）", () => {
+    // 設備異常故障（abnormal）
+    const abnormalEq = {
+      status: "abnormal",
+      equipment_type: "washer" as const,
+      occupied: false,
+      active_cart_count: 0,
+      active_cart_numbers: [],
+      active_institutions: [],
+    };
+    const abnormalBadge = getEquipmentStatusBadge(abnormalEq);
+    expect(abnormalBadge.label).toBe("異常故障");
+    expect(getEquipmentCleaningDurationText(abnormalEq)).toBe("—");
+
+    // 設備維修中（maintenance）
+    const maintEq = {
+      status: "maintenance",
+      equipment_type: "dryer" as const,
+      occupied: false,
+      active_cart_count: 0,
+      active_cart_numbers: [],
+      active_institutions: [],
+    };
+    const maintBadge = getEquipmentStatusBadge(maintEq);
+    expect(maintBadge.label).toBe("維修中");
+    expect(getEquipmentCleaningDurationText(maintEq)).toBe("—");
+
+    // 設備已停用（inactive）
+    const inactiveEq = {
+      status: "inactive",
+      equipment_type: "washer" as const,
+      occupied: false,
+      active_cart_count: 0,
+      active_cart_numbers: [],
+      active_institutions: [],
+    };
+    const inactiveBadge = getEquipmentStatusBadge(inactiveEq);
+    expect(inactiveBadge.label).toBe("已停用");
+    expect(getEquipmentCleaningDurationText(inactiveEq)).toBe("—");
+  });
+});

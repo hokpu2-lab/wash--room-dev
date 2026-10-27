@@ -989,8 +989,16 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
     expect(dryer.statusTone).toBe("paused");
     expect(dryer.remainingSeconds).toBeNull();
     expect(dryer.formattedCountdown).toBeNull();
-    expect(dryer.activeCartNumber).toBe("7E-1");
-    expect(dryer.activeInstitutionName).toBe("清泉");
+    expect(dryer.activeCartNumber).toBeNull();
+    expect(dryer.activeInstitutionName).toBeNull();
+
+    // 驗證洗衣車自動返回待處理洗衣車清單，且下一階段正確對齊待烘乾
+    const pending = derivePendingCarts(orders, details, {
+      nonNormalEquipmentNames: new Set(["本館烘衣-1"]),
+    });
+    expect(pending).toHaveLength(1);
+    expect(pending[0].cartNumber).toBe("7E-1");
+    expect(pending[0].nextStageName).toBe("待烘乾");
   });
 
   describe("洗滌品項顏色推導統一 (getCartCategoryBadgeClass)", () => {

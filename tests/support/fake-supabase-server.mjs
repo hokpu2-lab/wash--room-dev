@@ -1281,6 +1281,16 @@ const server = createServer(async (request, response) => {
   ) {
     if (!requireSessionBearer(request, response)) return;
     lastOperationReversal = await readJsonBody(request).catch(() => ({}));
+    const revBatch = laundryBatches.find((b) => b.id === lastOperationReversal.target_laundry_batch_id);
+    if (revBatch) {
+      if (revBatch.active_equipment_id) {
+        const eq = laundryEquipment.find((item) => item.id === revBatch.active_equipment_id);
+        if (eq) eq.occupied = false;
+      }
+      revBatch.active_stage_run_id = null;
+      revBatch.active_equipment_id = null;
+      revBatch.status = "not_started";
+    }
     json(response, 200, [{
       laundry_batch_id: lastOperationReversal.target_laundry_batch_id,
       reversed_operation: "stage_started",
@@ -2359,6 +2369,16 @@ const server = createServer(async (request, response) => {
     equipment.name = change.requested_name;
     equipment.capacity_kg = change.target_capacity_kg;
     equipment.status = change.target_status;
+    if (change.target_status !== "normal") {
+      equipment.occupied = false;
+      for (const batch of laundryBatches) {
+        if (batch.active_equipment_id === equipment.id) {
+          batch.active_stage_run_id = null;
+          batch.active_equipment_id = null;
+          batch.status = "not_started";
+        }
+      }
+    }
     equipment.cleaning_duration_minutes = Number(change.target_cleaning_duration_minutes) || 60;
     if (change.target_cleaning_duration_config) {
       equipment.cleaning_duration_config = change.target_cleaning_duration_config;

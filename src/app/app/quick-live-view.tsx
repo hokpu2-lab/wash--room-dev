@@ -228,6 +228,8 @@ export interface DerivePendingCartsOptions {
   completedEquipmentNames?: Set<string>;
   completedEquipmentIds?: Set<string>;
   completedStageCarts?: Map<string, CompletedStageCartInfo>;
+  nonNormalEquipmentNames?: Set<string>;
+  nonNormalEquipmentIds?: Set<string>;
 }
 
 export function derivePendingCarts(
@@ -331,6 +333,10 @@ export function derivePendingCarts(
       if (b.activeEquipmentName && options?.completedEquipmentNames?.has(b.activeEquipmentName)) {
         return false;
       }
+      if (b.activeEquipmentName && options?.nonNormalEquipmentNames?.has(b.activeEquipmentName)) {
+        return false;
+      }
+
       return true;
     });
 
@@ -377,6 +383,10 @@ export function derivePendingCarts(
         const currentStageOrder = activeStage?.stageOrder ?? batch.currentStageOrder ?? 1;
         const currentStage = batch.stages.find((s) => s.stageOrder === currentStageOrder);
 
+        const isEquipNonNormal = Boolean(
+          (batch.activeEquipmentName && options?.nonNormalEquipmentNames?.has(batch.activeEquipmentName))
+        );
+
         const disinfectionStage = batch.stages.find((s) => s.equipmentType === "disinfection_tank");
         const washingStage = batch.stages.find((s) => s.equipmentType === "washer");
         const dryingStage = batch.stages.find((s) => s.equipmentType === "dryer");
@@ -388,8 +398,9 @@ export function derivePendingCarts(
           (isDisinfect && currentStageOrder > 1 && (!activeStage || activeStage.equipmentType !== "disinfection_tank"));
 
         const isWashingStarted =
-          washingStage?.state === "active" ||
-          (washingStage && batch.progress.stageStatus === "in_progress" && currentStage?.equipmentType === "washer");
+          !isEquipNonNormal &&
+          (washingStage?.state === "active" ||
+          (washingStage && batch.progress.stageStatus === "in_progress" && currentStage?.equipmentType === "washer"));
 
         // 情況 2: 清洗階段已完成，且目前尚未開始烘乾
         const isWashingCompleted =
@@ -398,8 +409,9 @@ export function derivePendingCarts(
           (currentStageOrder > (isDisinfect ? 2 : 1) && (!activeStage || activeStage.equipmentType !== "washer"));
 
         const isDryingStarted =
-          dryingStage?.state === "active" ||
-          (dryingStage && batch.progress.stageStatus === "in_progress" && currentStage?.equipmentType === "dryer");
+          !isEquipNonNormal &&
+          (dryingStage?.state === "active" ||
+          (dryingStage && batch.progress.stageStatus === "in_progress" && currentStage?.equipmentType === "dryer"));
 
         if (isDisinfectionCompleted && !isWashingStarted && currentStageOrder <= (isDisinfect ? 2 : 1)) {
           isBetweenStages = true;
@@ -441,19 +453,31 @@ export function derivePendingCarts(
       continue;
     }
 
-    // c) 分類後的洗衣車（已完成收單分類，等待進入對應之首個程序設備）
-    // 包含：order.status === "awaiting_cleaning"，或批次已建立但所有階段皆為 pending / 尚未開始
+    // c) 分類後的洗衣車（已完成收單分類，等待進入對應之首個程序設備，或設備停用異常自動退回）
+    const isOrderReturnedFromNonNormal = detail?.batches?.some((b) =>
+      Boolean(
+        (b.activeEquipmentName && options?.nonNormalEquipmentNames?.has(b.activeEquipmentName))
+      )
+    );
+
     const isAllStagesPending =
       !detail?.batches ||
       detail.batches.length === 0 ||
-      detail.batches.every(
-        (b) =>
+      detail.batches.every((b) => {
+        const isEquipNonNormal = Boolean(
+          (b.activeEquipmentName && options?.nonNormalEquipmentNames?.has(b.activeEquipmentName))
+        );
+        if (isEquipNonNormal && (b.currentStageOrder ?? 1) <= 1) {
+          return true;
+        }
+        return (
           b.stages.every((s) => s.state === "pending") &&
           b.progress.stageStatus !== "in_progress" &&
           b.progress.stageStatus !== "paused"
-      );
+        );
+      });
 
-    if (order.status === "awaiting_cleaning" || isAllStagesPending) {
+    if (order.status === "awaiting_cleaning" || isAllStagesPending || (isOrderReturnedFromNonNormal && !isBetweenStages)) {
       const nextStageName = isDisinfect
         ? "待消毒"
         : isBib
@@ -668,20 +692,20 @@ export function deriveEquipmentLiveStatuses(
     const isAvailable = eq.status === "normal";
     const nonNormal = !isAvailable ? getNonNormalStatusInfo(eq.status) : null;
 
-    // 若設備非正常（停用、異常故障或維修中）：徹底停止倒數計時，狀態標籤顯示停用/故障/維修
+    // 若設備非正常（停用、異常故障或維修中）：徹底停止倒數計時，洗衣車自動退回待處理，設備不顯示佔用
     if (!isAvailable) {
       return {
         equipment: eq,
         statusLabel: nonNormal?.statusLabel ?? "暫停服務",
         statusTone: nonNormal?.statusTone ?? "paused",
-        activeCartNumber: match?.cartNumber || null,
-        activeInstitutionName: match?.institutionName || null,
+        activeCartNumber: null,
+        activeInstitutionName: null,
         cleaningDurationMinutes,
         remainingSeconds: null,
         formattedCountdown: null,
-        activeBatchId: match?.batchId || null,
-        activeCategoryName: match?.categoryName || null,
-        activeCategoryCode: match?.categoryCode || null,
+        activeBatchId: null,
+        activeCategoryName: null,
+        activeCategoryCode: null,
       };
     }
 
@@ -963,10 +987,18 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
   }
 
   // 1. 左側：待處理洗衣車列表
+  const nonNormalEquipNames = new Set(
+    equipment.filter((eq) => eq.status !== "normal").map((eq) => eq.name)
+  );
+  const nonNormalEquipIds = new Set(
+    equipment.filter((eq) => eq.status !== "normal").map((eq) => eq.id)
+  );
   const pendingCarts = derivePendingCarts(orders, orderDetails, {
     completedEquipmentNames: completedEquipNames,
     completedEquipmentIds: completedEquipIds,
     completedStageCarts,
+    nonNormalEquipmentNames: nonNormalEquipNames,
+    nonNormalEquipmentIds: nonNormalEquipIds,
   });
 
   // 2. 右側：完成待取件的洗衣車列表 (ready_for_pickup + 烘乾倒數結束/床簾清洗結束的洗衣車)
