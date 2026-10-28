@@ -27,6 +27,7 @@ type WorkspaceLiveProps = {
   queueTitle?: string;
   selectedOrderId?: string;
   variant: "supervisor" | "worker" | "institution" | "guest";
+  showQuickLiveView?: boolean;
 };
 
 function WorkerKpis({ snapshot }: { snapshot: WorkspaceSnapshot | null }) {
@@ -264,6 +265,7 @@ export function WorkspaceLive({
   queueTitle = "洗衣單流程",
   selectedOrderId,
   variant,
+  showQuickLiveView,
 }: WorkspaceLiveProps) {
   const { snapshot, syncedAt, liveMode } = useWorkspaceLive(initial, {
     siteId,
@@ -295,6 +297,8 @@ export function WorkspaceLive({
           title={queueTitle}
           syncedAt={syncedAt}
           selectedOrderId={selectedOrderId}
+          variant={variant}
+          showQuickLiveView={showQuickLiveView}
         /> : null}
     </>
   );

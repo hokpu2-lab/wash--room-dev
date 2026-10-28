@@ -12,7 +12,7 @@ import { deriveOrderPipeline } from "@/lib/laundry-schedule/order-pipeline";
 
 import { AppLink } from "./app-link";
 import { LaundryOrderFlow3D } from "./laundry-order-flow-3d";
-import { QuickLiveView } from "./quick-live-view";
+import { QuickLiveView, shouldShowQuickLiveViewForRole } from "./quick-live-view";
 import { WashingModalContent } from "./operations/washing/modal-content";
 import {
   equipmentStatusLabels,
@@ -87,6 +87,7 @@ export function getOrderQueueStatusDisplay(
   };
 }
 
+
 type LiveQueueProps = {
   orders: WorkspaceOrder[];
   orderDetails?: WorkspaceOrderDetail[];
@@ -101,6 +102,8 @@ type LiveQueueProps = {
   title?: string;
   syncedAt?: string | null;
   onSelectOrder?: (orderId: string, orderNumber: string) => void;
+  showQuickLiveView?: boolean;
+  variant?: "supervisor" | "worker" | "institution" | "guest";
 };
 
 function formatLastUpdated(syncedAt?: string | null) {
@@ -321,6 +324,8 @@ export function LiveQueue({
   title = "洗衣排程",
   syncedAt,
   onSelectOrder,
+  showQuickLiveView,
+  variant,
 }: LiveQueueProps) {
   const [selectedId, setSelectedId] = useState<string | null>(selectedOrderId ?? orders[0]?.id ?? null);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -512,11 +517,13 @@ export function LiveQueue({
   return (
     <section className={styles.liveQueueSection} aria-labelledby="live-queue-title">
       {/* 簡易即時視圖 (待處理洗衣車 ➔ 設備即時動態 ➔ 完成待取件) */}
-      <QuickLiveView
-        orders={orders}
-        orderDetails={orderDetails}
-        equipment={equipment}
-      />
+      {shouldShowQuickLiveViewForRole({ showQuickLiveView, variant }) ? (
+        <QuickLiveView
+          orders={orders}
+          orderDetails={orderDetails}
+          equipment={equipment}
+        />
+      ) : null}
 
       {/* Top Cards Row: Left + Right */}
       <div className={styles.topCardsGrid}>

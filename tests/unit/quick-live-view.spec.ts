@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  shouldShowQuickLiveViewForRole,
   calculateEquipmentRemainingSeconds,
   deriveEquipmentLiveStatuses,
   derivePendingCarts,
@@ -1127,6 +1128,32 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
       const dryerStatus = dryingEquipment[0];
       expect(dryerStatus.cleaningDurationMinutes).toBe(20);
       expect(dryerStatus.activeCategoryName).toBe("快烘");
+    });
+  });
+  describe("不同權限與角色之即時洗衣車與設備流轉動態顯示控制 (shouldShowQuickLiveViewForRole)", () => {
+    it("當權限為 guest 訪客時，不顯示即時洗衣車與設備流轉動態", () => {
+      expect(shouldShowQuickLiveViewForRole({ variant: "guest" })).toBe(false);
+    });
+
+    it("當權限為 laundry_worker 洗衣員時，在洗衣員作業台必須顯示即時洗衣車與設備流轉動態", () => {
+      expect(shouldShowQuickLiveViewForRole({ variant: "worker" })).toBe(true);
+    });
+
+    it("當權限為 laundry_supervisor 主管時，在洗衣排程正常顯示即時洗衣車與設備流轉動態", () => {
+      expect(shouldShowQuickLiveViewForRole({ variant: "supervisor" })).toBe(true);
+    });
+
+    it("當權限為 institution 送洗機構主管時，不顯示內部機台流轉動態", () => {
+      expect(shouldShowQuickLiveViewForRole({ variant: "institution" })).toBe(false);
+    });
+
+    it("若明確傳入 showQuickLiveView 屬性時，以該屬性設定為最高優先", () => {
+      expect(shouldShowQuickLiveViewForRole({ variant: "guest", showQuickLiveView: true })).toBe(true);
+      expect(shouldShowQuickLiveViewForRole({ variant: "worker", showQuickLiveView: false })).toBe(false);
+    });
+
+    it("未指定任何參數時，預設顯示即時動態", () => {
+      expect(shouldShowQuickLiveViewForRole({})).toBe(true);
     });
   });
 });

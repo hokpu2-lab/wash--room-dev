@@ -10,7 +10,23 @@
 - GitHub 串接 Vercel 部署
 - Playwright 公開介面驗收測試
 
-## 2026-10-27 最新接手快照
+## 2026-10-28 最新接手快照
+
+- **權限顯示設定調整：訪客唯讀總覽不顯示「即時洗衣車與設備流轉動態」，洗衣員作業台正常顯示（quick-live-view.tsx, live-queue.tsx, workspace-live.tsx, quick-live-view.spec.ts）**：
+  - **核心連動與角色顯示機制**：
+    1. 在 `quick-live-view.tsx` 新增純函式 `shouldShowQuickLiveViewForRole({ showQuickLiveView, variant })`：
+       - 當 `variant === "guest"`（訪客唯讀總覽 `/app/guest`）或 `variant === "institution"`（送洗機構主管 `/app/institution`）時，預設回傳 `false`，嚴格隱藏「即時洗衣車與設備流轉動態」（`QuickLiveView` 元件）。
+       - 當 `variant === "worker"`（洗衣員作業台 `/app/operations`）或 `variant === "supervisor"`（主管「洗衣排程」或「洗衣單與批次」`/app/dashboard`）時，回傳 `true`，完整顯示各設備（消毒鍋、洗衣機、烘衣機）運轉倒數、內部車號與待處理洗衣車即時動態。
+       - 支援 `showQuickLiveView` 屬性覆寫，若明確指定布林值則以該屬性為最高優先。
+    2. 在 `live-queue.tsx` 與 `workspace-live.tsx`：
+       - `LiveQueueProps` 與 `WorkspaceLiveProps` 擴充支援 `showQuickLiveView?: boolean;` 與 `variant?: "supervisor" | "worker" | "institution" | "guest";`。
+       - `LiveQueue` 依 `shouldShowQuickLiveViewForRole` 結果條件化渲染 `<QuickLiveView />`，若不符合顯示條件則渲染 `null`，訪客頁面僅保留純單據佇列（洗衣單清單），洗滌機台運作與動態流轉徹底隱藏。
+       - `workspace-live.tsx` 將自身的 `variant` 與 `showQuickLiveView` 屬性同步傳遞給 `LiveQueue`，使 `/app/guest` 自動生效隱藏、`/app/operations` 自動生效顯示。
+  - **測試與建置覆核**：
+    - 單元測試 `quick-live-view.spec.ts` 新增「不同權限與角色之即時洗衣車與設備流轉動態顯示控制」共 6 項測試，完整覆蓋 guest 訪客隱藏、worker 洗衣員顯示、supervisor 主管顯示、institution 機構主管隱藏、明確屬性覆寫與預設值判定。
+    - 全專案 20 個單元測試檔案、137 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+
+## 2026-10-27 歷史接手快照
 
 - **設備狀態進入「停用」、「異常故障」或「維修中」時，洗衣車自動退回上一步並全面連動所有系統顯示（administration.ts, page.tsx, quick-live-view.tsx, fake-supabase-server.mjs, equipment-edit.spec.ts, quick-live-view.spec.ts）**：
   - **核心連動與退回機制**：

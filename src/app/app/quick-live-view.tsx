@@ -27,6 +27,25 @@ function getSafeUUID(): string {
   });
 }
 
+/** 判斷特定角色/視圖是否顯示即時洗衣車與設備流轉動態 */
+export function shouldShowQuickLiveViewForRole({
+  showQuickLiveView,
+  variant,
+}: {
+  showQuickLiveView?: boolean;
+  variant?: "supervisor" | "worker" | "institution" | "guest";
+}): boolean {
+  if (showQuickLiveView !== undefined) {
+    return showQuickLiveView;
+  }
+  // guest (訪客唯讀總覽) 與 institution (送洗機構主管) 不顯示即時設備流轉動態
+  if (variant === "guest" || variant === "institution") {
+    return false;
+  }
+  // laundry_worker (洗衣員作業台) 與 laundry_supervisor (主管洗衣排程) 均顯示
+  return true;
+}
+
 interface QuickLiveViewProps {
   orders: WorkspaceOrder[];
   orderDetails: WorkspaceOrderDetail[];
