@@ -46,6 +46,25 @@ export function shouldShowQuickLiveViewForRole({
   return true;
 }
 
+/** 判斷特定角色/視圖是否顯示即時洗衣車與設備流轉動態下方的洗衣排程與流程清單 */
+export function shouldShowQueueForRole({
+  showQueue,
+  variant,
+}: {
+  showQueue?: boolean;
+  variant?: "supervisor" | "worker" | "institution" | "guest";
+}): boolean {
+  if (showQueue !== undefined) {
+    return showQueue;
+  }
+  // laundry_worker (洗衣員作業台) 僅保留上方即時動態與 KPI，不顯示下方的洗衣排程清單與流程
+  if (variant === "worker") {
+    return false;
+  }
+  // laundry_supervisor (主管洗衣排程)、guest (訪客)、institution (送洗機構) 均顯示單據清單
+  return true;
+}
+
 interface QuickLiveViewProps {
   orders: WorkspaceOrder[];
   orderDetails: WorkspaceOrderDetail[];

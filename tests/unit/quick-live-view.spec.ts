@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   shouldShowQuickLiveViewForRole,
+  shouldShowQueueForRole,
   calculateEquipmentRemainingSeconds,
   deriveEquipmentLiveStatuses,
   derivePendingCarts,
@@ -1156,7 +1157,35 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
       expect(shouldShowQuickLiveViewForRole({})).toBe(true);
     });
   });
+
+  describe("不同權限與角色之洗衣排程與流程清單顯示控制 (shouldShowQueueForRole)", () => {
+    it("當權限為 laundry_worker 洗衣員時，不顯示下方的洗衣排程清單與流程", () => {
+      expect(shouldShowQueueForRole({ variant: "worker" })).toBe(false);
+    });
+
+    it("當權限為 laundry_supervisor 主管時，維持顯示下方的洗衣排程清單與 3D 流程（不變）", () => {
+      expect(shouldShowQueueForRole({ variant: "supervisor" })).toBe(true);
+    });
+
+    it("當權限為 guest 訪客時，維持顯示單據清單供查閱", () => {
+      expect(shouldShowQueueForRole({ variant: "guest" })).toBe(true);
+    });
+
+    it("當權限為 institution 送洗機構主管時，維持顯示單據清單供查閱", () => {
+      expect(shouldShowQueueForRole({ variant: "institution" })).toBe(true);
+    });
+
+    it("若明確傳入 showQueue 屬性時，以該屬性設定為最高優先", () => {
+      expect(shouldShowQueueForRole({ variant: "worker", showQueue: true })).toBe(true);
+      expect(shouldShowQueueForRole({ variant: "supervisor", showQueue: false })).toBe(false);
+    });
+
+    it("未指定任何參數時，預設顯示清單", () => {
+      expect(shouldShowQueueForRole({})).toBe(true);
+    });
+  });
 });
+
 
 
 

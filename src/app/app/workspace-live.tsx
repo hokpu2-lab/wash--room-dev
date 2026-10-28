@@ -28,6 +28,7 @@ type WorkspaceLiveProps = {
   selectedOrderId?: string;
   variant: "supervisor" | "worker" | "institution" | "guest";
   showQuickLiveView?: boolean;
+  showQueue?: boolean;
 };
 
 function WorkerKpis({ snapshot }: { snapshot: WorkspaceSnapshot | null }) {
@@ -266,6 +267,7 @@ export function WorkspaceLive({
   selectedOrderId,
   variant,
   showQuickLiveView,
+  showQueue,
 }: WorkspaceLiveProps) {
   const { snapshot, syncedAt, liveMode } = useWorkspaceLive(initial, {
     siteId,
@@ -299,6 +301,7 @@ export function WorkspaceLive({
           selectedOrderId={selectedOrderId}
           variant={variant}
           showQuickLiveView={showQuickLiveView}
+          showQueue={showQueue}
         /> : null}
     </>
   );

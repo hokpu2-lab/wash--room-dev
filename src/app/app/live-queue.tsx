@@ -12,7 +12,11 @@ import { deriveOrderPipeline } from "@/lib/laundry-schedule/order-pipeline";
 
 import { AppLink } from "./app-link";
 import { LaundryOrderFlow3D } from "./laundry-order-flow-3d";
-import { QuickLiveView, shouldShowQuickLiveViewForRole } from "./quick-live-view";
+import {
+  QuickLiveView,
+  shouldShowQuickLiveViewForRole,
+  shouldShowQueueForRole,
+} from "./quick-live-view";
 import { WashingModalContent } from "./operations/washing/modal-content";
 import {
   equipmentStatusLabels,
@@ -103,6 +107,7 @@ type LiveQueueProps = {
   syncedAt?: string | null;
   onSelectOrder?: (orderId: string, orderNumber: string) => void;
   showQuickLiveView?: boolean;
+  showQueue?: boolean;
   variant?: "supervisor" | "worker" | "institution" | "guest";
 };
 
@@ -325,8 +330,18 @@ export function LiveQueue({
   syncedAt,
   onSelectOrder,
   showQuickLiveView,
+  showQueue,
   variant,
 }: LiveQueueProps) {
+  const shouldRenderQuickLiveView = shouldShowQuickLiveViewForRole({
+    showQuickLiveView,
+    variant,
+  });
+  const shouldRenderQueue = shouldShowQueueForRole({
+    showQueue,
+    variant,
+  });
+
   const [selectedId, setSelectedId] = useState<string | null>(selectedOrderId ?? orders[0]?.id ?? null);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [institutionFilter, setInstitutionFilter] = useState<string | null>(null);
@@ -515,9 +530,14 @@ export function LiveQueue({
   );
 
   return (
-    <section className={styles.liveQueueSection} aria-labelledby="live-queue-title">
+    <section
+      className={styles.liveQueueSection}
+      {...(shouldRenderQueue
+        ? { "aria-labelledby": "live-queue-title" }
+        : { "aria-label": "即時洗衣車與設備流轉動態" })}
+    >
       {/* 簡易即時視圖 (待處理洗衣車 ➔ 設備即時動態 ➔ 完成待取件) */}
-      {shouldShowQuickLiveViewForRole({ showQuickLiveView, variant }) ? (
+      {shouldRenderQuickLiveView ? (
         <QuickLiveView
           orders={orders}
           orderDetails={orderDetails}
@@ -525,8 +545,10 @@ export function LiveQueue({
         />
       ) : null}
 
-      {/* Top Cards Row: Left + Right */}
-      <div className={styles.topCardsGrid}>
+      {shouldRenderQueue ? (
+        <>
+          {/* Top Cards Row: Left + Right */}
+          <div className={styles.topCardsGrid}>
         {/* Left Card: 洗衣排程 */}
         <div className={styles.queueCard}>
           <div className={styles.queueCardHead}>
@@ -831,6 +853,8 @@ export function LiveQueue({
           <p className={styles.flowEmptyNotice}>選取一張洗衣單後，這裡會顯示目前允許的控制點與流程進度。</p>
         )}
       </div>
+        </>
+      ) : null}
 
       {portalReady && detailOpen && selected
         ? createPortal(
