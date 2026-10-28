@@ -16,6 +16,7 @@ import {
   QuickLiveView,
   shouldShowQuickLiveViewForRole,
   shouldShowQueueForRole,
+  shouldShowPickupActionForRole,
 } from "./quick-live-view";
 import { WashingModalContent } from "./operations/washing/modal-content";
 import {
@@ -108,6 +109,7 @@ type LiveQueueProps = {
   onSelectOrder?: (orderId: string, orderNumber: string) => void;
   showQuickLiveView?: boolean;
   showQueue?: boolean;
+  showPickupAction?: boolean;
   variant?: "supervisor" | "worker" | "institution" | "guest";
 };
 
@@ -331,6 +333,7 @@ export function LiveQueue({
   onSelectOrder,
   showQuickLiveView,
   showQueue,
+  showPickupAction,
   variant,
 }: LiveQueueProps) {
   const shouldRenderQuickLiveView = shouldShowQuickLiveViewForRole({
@@ -542,6 +545,8 @@ export function LiveQueue({
           orders={orders}
           orderDetails={orderDetails}
           equipment={equipment}
+          variant={variant}
+          showPickupAction={showPickupAction}
         />
       ) : null}
 

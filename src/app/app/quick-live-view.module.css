@@ -248,6 +248,14 @@
   transform: translateY(-1px);
 }
 
+.cartChipStatic {
+  cursor: default;
+}
+
+.cartChipStatic:hover {
+  transform: none;
+}
+
 .cartPickupActionBadge {
   display: inline-flex;
   align-items: center;

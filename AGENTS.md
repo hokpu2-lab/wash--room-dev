@@ -26,24 +26,25 @@
 
 ## 2026-10-28 最新接手快照
 
-- **權限顯示設定調整：洗衣員作業台顯示「即時洗衣車與設備流轉動態」，隱藏下方整塊「洗衣排程清單與 3D 流程」，洗衣主管維持全數顯示不變（quick-live-view.tsx, live-queue.tsx, workspace-live.tsx, quick-live-view.spec.ts）**：
-  - **核心連動與角色顯示機制**：
-    1. 在 `quick-live-view.tsx` 新增純函式 `shouldShowQueueForRole({ showQueue, variant })` 與 `shouldShowQuickLiveViewForRole({ showQuickLiveView, variant })`：
-       - 當 `variant === "worker"`（洗衣員作業台 `/app/operations`）時：
-         - `shouldShowQuickLiveViewForRole` 回傳 `true`：在作業台上方完整顯示「即時洗衣車與設備流轉動態」（待處理洗衣車、機台運轉倒數與完成待取件）。
-         - `shouldShowQueueForRole` 回傳 `false`：嚴格隱藏下方整塊區域（包含洗衣排程清單 `topCardsGrid` 與 3D 洗衣單流程主舞台 `flowAndDetailsSection`），使洗衣員在「目前作業」頁籤專注於實體車輛與機台運作，無冗餘長列表與 3D 流程干擾。
-       - 當 `variant === "supervisor"`（洗衣主管 `/app/dashboard`）時：
-         - `shouldShowQuickLiveViewForRole` 與 `shouldShowQueueForRole` 均回傳 `true`：洗衣主管維持全數顯示不變，完整瀏覽即時動態、洗衣排程與 3D 洗衣單流程。
-       - 當 `variant === "guest"`（訪客唯讀總覽 `/app/guest`）或 `variant === "institution"`（送洗機構主管 `/app/institution`）時：
-         - 隱藏廠內設備即時動態，僅保留單據清單供進度查閱。
-       - 支援 `showQuickLiveView` 與 `showQueue` 屬性明確覆寫。
+- **權限顯示設定調整：洗衣員作業台不顯示「取件結案」，隱藏下方整塊「洗衣排程清單與 3D 流程」，洗衣主管維持全數顯示不變（quick-live-view.tsx, quick-live-view.module.css, live-queue.tsx, workspace-live.tsx, quick-live-view.spec.ts）**：
+  - **待取件車輛「取件結案」按鈕權限隔離**：
+    1. 在 `quick-live-view.tsx` 新增純函式 `shouldShowPickupActionForRole({ showPickupAction, variant })`：
+       - 當 `variant === "worker"`（洗衣員作業台 `/app/operations`）時，回傳 `false`：洗衣員僅負責廠內各階段洗滌與烘乾作業，不執行送洗端之取件結案操作，嚴格隱藏「待取件 (洗烘完畢)」車輛卡片上的「👉 取件結案」綠色操作按鈕與提示。
+       - 待取件車輛卡片在洗衣員作業台自適應轉為純資訊展示卡片（`cartChipStatic`，游標維持 `default`），仍保留機構名稱、車號、洗滌品項徽章與 hover 浮動詳情（送件、收件與完成時間）。
+       - 當 `variant === "supervisor"`（洗衣主管）等其他角色時回傳 `true`，維持原有「👉 取件結案」操作按鈕與點擊直達結案功能。
+       - 支援 `showPickupAction` 屬性明確覆寫。
     2. 在 `live-queue.tsx` 與 `workspace-live.tsx`：
-       - `LiveQueueProps` 與 `WorkspaceLiveProps` 擴充支援 `showQuickLiveView?: boolean;` 與 `showQueue?: boolean;`。
-       - `LiveQueue` 條件化渲染上方 `QuickLiveView`，並將下方的 `topCardsGrid` 與 `flowAndDetailsSection` 包裹於 `{shouldRenderQueue ? (...) : null}`，同時自適應調整 `aria-labelledby` 與 `aria-label`。
-       - `workspace-live.tsx` 將自身的 `variant`、`showQuickLiveView` 與 `showQueue` 屬性同步傳遞給 `LiveQueue`。
+       - `LiveQueueProps` 與 `WorkspaceLiveProps` 擴充支援 `showPickupAction?: boolean;`，並同步傳遞給 `QuickLiveView`。
+  - **即時流轉動態與洗衣排程角色顯示控制**：
+    1. 在 `quick-live-view.tsx` 純函式 `shouldShowQueueForRole({ showQueue, variant })` 與 `shouldShowQuickLiveViewForRole({ showQuickLiveView, variant })`：
+       - 當 `variant === "worker"` 時：
+         - `shouldShowQuickLiveViewForRole` 為 `true`：在作業台上方完整顯示「即時洗衣車與設備流轉動態」（待處理洗衣車、機台運轉倒數與完成待取件）。
+         - `shouldShowQueueForRole` 為 `false`：嚴格隱藏下方整塊區域（包含洗衣排程清單 `topCardsGrid` 與 3D 洗衣單流程主舞台 `flowAndDetailsSection`），使洗衣員專注於實體車輛與機台運作，無冗餘長列表與 3D 流程干擾。
+       - 當 `variant === "supervisor"` 時均回傳 `true`，洗衣主管維持全數顯示不變。
+       - 當 `variant === "guest"` 或 `variant === "institution"` 時隱藏廠內設備即時動態，僅保留單據清單供進度查閱。
   - **測試與建置覆核**：
-    - 單元測試 `quick-live-view.spec.ts` 擴充至 40 項測試，新增「不同權限與角色之洗衣排程與流程清單顯示控制」共 6 項測試，覆蓋 worker 隱藏、supervisor 顯示、guest 顯示、institution 顯示、明確屬性覆寫與預設值判定。
-    - 全專案 20 個單元測試檔案、143 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
+    - 單元測試 `quick-live-view.spec.ts` 擴充至 44 項測試，新增「不同權限與角色之待取件車輛『取件結案』按鈕顯示控制」共 4 項測試與「洗衣排程與流程清單顯示控制」共 6 項測試，覆蓋 worker 隱藏取件結案與流程、supervisor 全數顯示、guest 與 institution 顯示判斷與屬性明確覆寫。
+    - 全專案 20 個單元測試檔案、147 個 tests 全數通過；`npm run typecheck` 0 錯誤；`npm run build` 正式生產建置成功。
 
 ## 2026-10-27 歷史接手快照
 

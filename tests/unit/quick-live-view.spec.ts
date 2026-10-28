@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   shouldShowQuickLiveViewForRole,
   shouldShowQueueForRole,
+  shouldShowPickupActionForRole,
   calculateEquipmentRemainingSeconds,
   deriveEquipmentLiveStatuses,
   derivePendingCarts,
@@ -1184,8 +1185,23 @@ describe("即時洗衣車與設備流轉動態 - 待處理洗衣車推導 (Quick
       expect(shouldShowQueueForRole({})).toBe(true);
     });
   });
+
+  describe("不同權限與角色之待取件車輛「取件結案」按鈕顯示控制 (shouldShowPickupActionForRole)", () => {
+    it("當權限為 laundry_worker 洗衣員時，不顯示取件結案按鈕", () => {
+      expect(shouldShowPickupActionForRole({ variant: "worker" })).toBe(false);
+    });
+
+    it("當權限為 laundry_supervisor 主管時，正常顯示取件結案按鈕", () => {
+      expect(shouldShowPickupActionForRole({ variant: "supervisor" })).toBe(true);
+    });
+
+    it("若明確傳入 showPickupAction 屬性時，以該屬性設定為最高優先", () => {
+      expect(shouldShowPickupActionForRole({ variant: "worker", showPickupAction: true })).toBe(true);
+      expect(shouldShowPickupActionForRole({ variant: "supervisor", showPickupAction: false })).toBe(false);
+    });
+
+    it("未指定任何參數時，預設顯示取件結案", () => {
+      expect(shouldShowPickupActionForRole({})).toBe(true);
+    });
+  });
 });
-
-
-
-

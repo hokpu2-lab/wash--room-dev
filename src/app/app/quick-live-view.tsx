@@ -65,10 +65,31 @@ export function shouldShowQueueForRole({
   return true;
 }
 
+/** 判斷特定角色/視圖是否顯示待取件洗衣車之「取件結案」操作按鈕 */
+export function shouldShowPickupActionForRole({
+  showPickupAction,
+  variant,
+}: {
+  showPickupAction?: boolean;
+  variant?: "supervisor" | "worker" | "institution" | "guest";
+}): boolean {
+  if (showPickupAction !== undefined) {
+    return showPickupAction;
+  }
+  // laundry_worker (洗衣員) 僅負責廠內洗烘作業，不具備取件結案操作權限，不顯示「取件結案」
+  if (variant === "worker") {
+    return false;
+  }
+  // 主管等其他角色預設顯示
+  return true;
+}
+
 interface QuickLiveViewProps {
   orders: WorkspaceOrder[];
   orderDetails: WorkspaceOrderDetail[];
   equipment: WorkspaceEquipment[];
+  variant?: "supervisor" | "worker" | "institution" | "guest";
+  showPickupAction?: boolean;
 }
 
 export interface EquipmentLiveStatus {
@@ -927,7 +948,17 @@ export function deriveEquipmentLiveStatuses(
   };
 }
 
-export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveViewProps) {
+export function QuickLiveView({
+  orders,
+  orderDetails,
+  equipment,
+  variant,
+  showPickupAction,
+}: QuickLiveViewProps) {
+  const canPickup = shouldShowPickupActionForRole({
+    showPickupAction,
+    variant,
+  });
   const router = useRouter();
   const [nowMs, setNowMs] = React.useState(() => Date.now());
 
@@ -1498,71 +1529,94 @@ export function QuickLiveView({ orders, orderDetails, equipment }: QuickLiveView
             {readyCarts.length === 0 ? (
               <div className={styles.emptyState}>暫無待取件洗衣車</div>
             ) : (
-              readyCarts.map((item) => (
-                <Link
-                  key={item.id}
-                  href={`/scan/pickup?cart=${encodeURIComponent(item.cartNumber)}`}
-                  onClick={() => {
-                    // 雙重防禦保險：無論客戶端路由狀態為何，皆能立即跳轉至取件頁面
-                    window.location.assign(`/scan/pickup?cart=${encodeURIComponent(item.cartNumber)}`);
-                  }}
-                  className={`${styles.cartChip} ${styles.cartChipReady}`}
-                  tabIndex={0}
-                  role="button"
-                  aria-label={`${item.institutionName} - 車號 ${item.cartNumber}，點擊直達取件結案`}
-                >
-                  <div className={styles.cartChipMainWrap}>
-                    <div className={styles.cartChipMain}>
-                      <span className={styles.cartIcon}>✨</span>
-                      <strong className={styles.cartNumber}>{item.cartNumber}</strong>
-                      <span
-                        className={styles.cartPickupActionBadge}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.location.assign(`/scan/pickup?cart=${encodeURIComponent(item.cartNumber)}`);
-                        }}
-                      >
-                        👉 取件結案
-                      </span>
+              readyCarts.map((item) => {
+                const cardContent = (
+                  <>
+                    <div className={styles.cartChipMainWrap}>
+                      <div className={styles.cartChipMain}>
+                        <span className={styles.cartIcon}>✨</span>
+                        <strong className={styles.cartNumber}>{item.cartNumber}</strong>
+                        {canPickup ? (
+                          <span
+                            className={styles.cartPickupActionBadge}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.location.assign(`/scan/pickup?cart=${encodeURIComponent(item.cartNumber)}`);
+                            }}
+                          >
+                            👉 取件結案
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {/* 洗衣車分類標籤 */}
+                      {item.categoryNames && item.categoryNames.length > 0 ? (
+                        <div className={styles.cartCategoryBadges}>
+                          {item.categoryNames.map((cat) => {
+                            const catClass = getCartCategoryBadgeClass(cat, styles);
+                            return (
+                              <span
+                                key={cat}
+                                className={`${styles.cartCategoryBadge} ${catClass}`}
+                              >
+                                {cat}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      ) : null}
                     </div>
 
-                    {/* 洗衣車分類標籤 */}
-                    {item.categoryNames && item.categoryNames.length > 0 ? (
-                      <div className={styles.cartCategoryBadges}>
-                        {item.categoryNames.map((cat) => {
-                          const catClass = getCartCategoryBadgeClass(cat, styles);
-                          return (
-                            <span
-                              key={cat}
-                              className={`${styles.cartCategoryBadge} ${catClass}`}
-                            >
-                              {cat}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    ) : null}
-                  </div>
+                    {/* Hover 浮動提示機構名稱、單號、洗滌分類、送件時間、收件時間與完成時間 */}
+                    <div className={styles.tooltipBox}>
+                      <span className={styles.tooltipLabel}>洗烘完畢 · 待領回</span>
+                      <span className={styles.tooltipValue}>{item.institutionName}</span>
+                      <span className={styles.tooltipOrder}>單號 {item.orderNumber}</span>
+                      {item.categoryNames && item.categoryNames.length > 0 ? (
+                        <span className={styles.tooltipCategory}>
+                          洗滌分類：{item.categoryNames.join("、")}
+                        </span>
+                      ) : null}
+                      <span className={styles.tooltipTime}>送件時間：{item.sendTime}</span>
+                      {item.receiptTime ? (
+                        <span className={styles.tooltipTime}>收件時間：{item.receiptTime}</span>
+                      ) : null}
+                      <span className={styles.tooltipTime}>完成時間：{item.readyTime}</span>
+                      {canPickup ? (
+                        <span className={styles.tooltipPickupPrompt}>👉 點擊直達取件結案</span>
+                      ) : null}
+                    </div>
+                  </>
+                );
 
-                  {/* Hover 浮動提示機構名稱、單號、洗滌分類、送件時間、收件時間與完成時間 */}
-                  <div className={styles.tooltipBox}>
-                    <span className={styles.tooltipLabel}>洗烘完畢 · 待領回</span>
-                    <span className={styles.tooltipValue}>{item.institutionName}</span>
-                    <span className={styles.tooltipOrder}>單號 {item.orderNumber}</span>
-                    {item.categoryNames && item.categoryNames.length > 0 ? (
-                      <span className={styles.tooltipCategory}>
-                        洗滌分類：{item.categoryNames.join("、")}
-                      </span>
-                    ) : null}
-                    <span className={styles.tooltipTime}>送件時間：{item.sendTime}</span>
-                    {item.receiptTime ? (
-                      <span className={styles.tooltipTime}>收件時間：{item.receiptTime}</span>
-                    ) : null}
-                    <span className={styles.tooltipTime}>完成時間：{item.readyTime}</span>
-                    <span className={styles.tooltipPickupPrompt}>👉 點擊直達取件結案</span>
+                if (canPickup) {
+                  return (
+                    <Link
+                      key={item.id}
+                      href={`/scan/pickup?cart=${encodeURIComponent(item.cartNumber)}`}
+                      onClick={() => {
+                        window.location.assign(`/scan/pickup?cart=${encodeURIComponent(item.cartNumber)}`);
+                      }}
+                      className={`${styles.cartChip} ${styles.cartChipReady}`}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`${item.institutionName} - 車號 ${item.cartNumber}，點擊直達取件結案`}
+                    >
+                      {cardContent}
+                    </Link>
+                  );
+                }
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`${styles.cartChip} ${styles.cartChipReady} ${styles.cartChipStatic}`}
+                    aria-label={`${item.institutionName} - 車號 ${item.cartNumber}，洗烘完畢待領回`}
+                  >
+                    {cardContent}
                   </div>
-                </Link>
-              ))
+                );
+              })
             )}
           </div>
         </div>
